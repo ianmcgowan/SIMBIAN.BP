@@ -1,0 +1,1997 @@
+***************************************************************************
+* Program: STACK
+* Author : Ian McGowan
+* Created: 1989-06-13
+* Updated: 2024-01-03
+* License: (c) 1989-2024 Ian McGowan, released under MIT license
+* Comment: Stacks TCL commands, utilities for programmers
+***************************************************************************
+CRT \Version 2024-01-03 Applicaton Commands Buh-Bye\
+*
+* STACK is a command line editor, command stack, program stack and useful utilites for TCL
+* It is designed to make life easier and more productive for programmers
+* It is a single program, so it can be used on any Unidata system, and is easy to install
+* The only dependency is the ability to create STACK.HOME in the account, or a QPTR to a file in a central location
+*
+* STACK functions can be divided into 4 categories:
+* 1) Line editing commands     - Editing the current command line, aims to be bash-like, allows custom key bindings
+* 2) Command stack commands    - Manipulating the command stack, like .L, .X in TCL - fewer options, since you can edit the stack
+* 3) Program stack commands    - Manipulating the program stack, saves typing ED BP PROGRAM.NAME, just do /E3
+* 4) Internal utility commands - Utilities that are built into STACK that are useful for programmers in general
+*
+STACK.HELP=''
+STACK.HELP<-1>='--------------------- TCL STACK COMMANDS (vt100)-------------------------------'
+STACK.HELP<-1>='Ctrl-A      Start of line (home)       Ctrl-R           Search'
+STACK.HELP<-1>='Ctrl-B      Back character (left)      Ctrl-U           Page Up (pgup)'
+STACK.HELP<-1>='Ctrl-D      Delete character (del)     Ctrl-V           Page Down (pgdown)'
+STACK.HELP<-1>='Ctrl-E      End of line (end)          Ctrl-W           Delete word'
+STACK.HELP<-1>='Ctrl-F      Forward character (right)  Ctrl-X           Back word'
+STACK.HELP<-1>='Ctrl-G      Cancel line (esc)          ~xyz             List ALL xyz in stack'
+STACK.HELP<-1>='Ctrl-I      Forward Word (tab)         @xyz             Recall LAST xyz'
+STACK.HELP<-1>='Ctrl-K      Delete to end              .D               Toggle detail off/on'
+STACK.HELP<-1>='Ctrl-L      Clear screen               .Lm,n            List entry m thru n'
+STACK.HELP<-1>='Ctrl-M      Accept line (enter)        .Rn              Restore entry n, edit'
+STACK.HELP<-1>='Ctrl-N      Next line (down)           .H/?             Help'
+STACK.HELP<-1>='Ctrl-P      Previous line (up)         Q                Quit'
+STACK.HELP<-1>=''
+STACK.HELP<-1>='---------------------- PROGRAM STACK COMMANDS ---------------------------------'
+STACK.HELP<-1>='/           List the programs in the current project'
+STACK.HELP<-1>='/LL         List available projects    /L BLAH          Switch to project BLAH'
+STACK.HELP<-1>='/Nx         Add New program at posn x  /Fx              Format the x`th program'
+STACK.HELP<-1>='/Ex         Edit the x`th program      /WW              Edit the program list'
+STACK.HELP<-1>='/Wx         VI the x`th program        /S               Sort the program stack'
+STACK.HELP<-1>='/Bx         Compile the x`th program   /BR              Compile and run'
+STACK.HELP<-1>=''
+STACK.HELP<-1>='---------------------------- UTILITIES ----------------------------------------'
+STACK.HELP<-1>='CHECK.FILE  Show strings in a compiled program /P|/S      CHECK.FILE DISP.00 /P'
+STACK.HELP<-1>='DDD         Search dictionary definitions                   DDD LS.MASTER EQUIP'
+STACK.HELP<-1>='ICONV/OCONV Test format masks/Convert Data'
+STACK.HELP<-1>='KEYS        Show ASCII key values (try hitting arrow or home/end keys)'
+STACK.HELP<-1>='LIST.KEYS   Show current key bindings'
+STACK.HELP<-1>='PICKLE      Store data records in prog       PICKLE DICT LS.MASTER UATB.BIG.ATB'
+STACK.HELP<-1>='PIVOT       Summary data                  PIVOT LS.MASTER LESSOR GROSS.CONTRACT'
+STACK.HELP<-1>='PROF        Profile data       PROF LS.MASTER BRANCH NUM.OF.ASSETS BOOKING.DATE'
+STACK.HELP<-1>='RULER       Reset term width, show ruler'
+STACK.HELP<-1>='SETTINGS    Change settings'
+STACK.HELP<-1>='SF          Search files and dictionaries              SF DICT LS.MASTER ASSETS'
+STACK.HELP<-1>='TRAIN       Teach STACK your key bindings interactively'
+*
+PROMPT ''
+EQUATE RET TO 13, ESC TO 27, NUL TO '',SPC TO ' ',TRUE TO 1, FALSE TO 0
+EQUATE SEARCH.ALL.CHAR TO '~', UNIX TO '!', SEARCH.NEXT.CHAR TO '@', BELL TO CHAR(7), OTHERWISE TO 1
+TERM=UPCASE(SYSTEM(7))
+CS=@(-1);EOL=@(-4);EOS=@(-3);UP=@(-10);BON=@(-81);BOFF=@(-82)
+IF SYSTEM(33) = "Windows NT" THEN OS.PATH.DELIM = "\" ELSE OS.PATH.DELIM = "/"
+LONG.LINE = 9999;LIST.DET.FLAG=0;TIME.COMMAND=0
+SL.ACTIVE = FALSE
+*
+PWD=@ACCOUNT
+I=LEN(PWD) ; ACC=NUL
+FOR F=I TO 1 STEP -1
+  IF PWD[F,1] = OS.PATH.DELIM THEN EXIT
+  ACC=PWD[F,1]:ACC
+NEXT F
+*
+OPEN 'VOC'    TO VOC    ELSE STOP 201,'VOC'    ;* Big problems if this isn't there
+OPEN '_HOLD_' TO HOLD   ELSE STOP 201,'_HOLD_' ;* Used as temporary table
+OPEN 'CTLGTB' TO CTLGTB ELSE STOP 201,'CTLGTB' ;* Global catalog
+OPEN 'CTLG'   TO CTLG   ELSE STOP 201,'CTLG'   ;* Local catalog
+*
+USERNAME=UPCASE(@LOGNAME)
+HOME.FILE   = 'STACK.HOME'        ;* Everything is stored in this file
+DIR=HOME.FILE ; GOSUB OPEN.DIR ; HOME.F=FVAR   ;* This can be local, or pointed to a central location for all accounts
+READV HOME.DIR FROM VOC, HOME.FILE, 2 ELSE HOME.DIR=''
+*
+STACK.ITEM  = USERNAME:'.COMMAND' ;* Stores the command stack for each user
+PROGRAM.ITEM= USERNAME:'.PROGRAM' ;* Stores the program stack for each user (may be multiple projects)
+ALIAS.ITEM  = USERNAME:'.ALIAS'   ;* Stores aliases for each user
+SETTING.ITEM= USERNAME:'.SETTING' ;* Stores settings for each user
+KEYMAP.ITEM = USERNAME:'.KEY'     ;* Stores key bindings for each user
+*
+SETTINGS      = ';'        ;* DEFAULT COMMAND SEPERATOR
+SETTINGS<2>   = '.'        ;* DEFAULT STACK CHAR
+SETTINGS<3>   = '/'        ;* DEFAULT PROG CHAR
+SETTINGS<4>   = 9999       ;* DEFAULT MAX # LINES IN STACK
+SETTINGS<5>   = '!vi'      ;* DEFAULT SCREEN EDITOR (try !joe :)
+SETTINGS<6>   = 'AE'       ;* DEFAULT LINE EDITOR
+SETTINGS<7>   ='* Edited :';* DEFAULT HEADER STRING
+SETTINGS<8>   = TRUE       ;* DEFAULT USE GET.LINE SUBR
+SETTINGS<9>   = 'BP.DEV'   ;* DEFAULT WORK FILE
+SETTINGS<10>  = FALSE      ;* DEFAULT = CONVERT TO UCASE
+SETTINGS<11>  = ""         ;* DEFAULT STARTUP COMMAND
+SETTINGS<12>  = "#R#H:#A>" ;* DEFAULT PROMPT
+SETTINGS<13>  = -2         ;* DEFAULT X DISPLACEMENT FOR PROMPT
+IF OS.PATH.DELIM = "\" THEN
+  SETTINGS<14>  = "cmd"    ;* DEFAULT SHELL FOR WINDOWS COMMANDS
+END ELSE
+  SETTINGS<14>  = "bash -i";* DEFAULT SHELL FOR UNIX COMMANDS
+END
+*
+* Merge the settings from the file with the defaults
+READ R FROM HOME.F, SETTING.ITEM ELSE R=NUL
+I=DCOUNT(SETTINGS,@AM)
+FOR F=1 TO I
+  IF R<F> # NUL THEN SETTINGS<F> = R<F>
+NEXT F
+*
+* Now apply the settings
+COMMAND.SEPERATOR = SETTINGS<1>
+STACK.CHAR        = SETTINGS<2>
+PROG.CHAR         = SETTINGS<3>
+MAX.STACK         = SETTINGS<4>
+WP.VERB           = SETTINGS<5>
+ED.VERB           = SETTINGS<6>
+STAMP.STRING      = SETTINGS<7>
+GET.LINE.FLAG     = SETTINGS<8>
+WORK.FILE         = SETTINGS<9>
+MCU.ON            = SETTINGS<10>
+STARTUP           = SETTINGS<11>
+PROMT             = SETTINGS<12>
+X.DISP            = SETTINGS<13>
+DEF.SHELL         = SETTINGS<14>
+WRITE SETTINGS ON HOME.F, SETTING.ITEM
+*
+* Built-in editing commands, can be bound to new keys as needed
+KEYCOMMLIST=''
+KEYCOMMLIST<1,-1>='{Backspace}'   ; KEYCOMMLIST<2,-1>='Delete the character to the left of the cursor'
+KEYCOMMLIST<1,-1>='{BackWord}'    ; KEYCOMMLIST<2,-1>='Move back a word'
+KEYCOMMLIST<1,-1>='{Clear}'       ; KEYCOMMLIST<2,-1>='Clear the screen'
+KEYCOMMLIST<1,-1>='{Delete}'      ; KEYCOMMLIST<2,-1>='Delete the character to the right of the cursor'
+KEYCOMMLIST<1,-1>='{DeleteLine}'  ; KEYCOMMLIST<2,-1>='Clear from the cursor to end of command'
+KEYCOMMLIST<1,-1>='{DeleteWord}'  ; KEYCOMMLIST<2,-1>='Delete the word to the right of the cursor'
+KEYCOMMLIST<1,-1>='{Down}'        ; KEYCOMMLIST<2,-1>='Go to the next command'
+KEYCOMMLIST<1,-1>='{End}'         ; KEYCOMMLIST<2,-1>='Go to the end of the command'
+KEYCOMMLIST<1,-1>='{Enter}'       ; KEYCOMMLIST<2,-1>='Submit the current command'
+KEYCOMMLIST<1,-1>='{ForwardWord}' ; KEYCOMMLIST<2,-1>='Move forward a word'
+KEYCOMMLIST<1,-1>='{Home}'        ; KEYCOMMLIST<2,-1>='Go to the start of the command'
+KEYCOMMLIST<1,-1>='{Left}'        ; KEYCOMMLIST<2,-1>='Move one character to the left'
+KEYCOMMLIST<1,-1>='{PgDown}'      ; KEYCOMMLIST<2,-1>='Show the next page of commands'
+KEYCOMMLIST<1,-1>='{PgUp}'        ; KEYCOMMLIST<2,-1>='Show the previous page of commands'
+KEYCOMMLIST<1,-1>='{Quit}'        ; KEYCOMMLIST<2,-1>='Cancel the current command'
+KEYCOMMLIST<1,-1>='{Right}'       ; KEYCOMMLIST<2,-1>='Move one character to the right'
+KEYCOMMLIST<1,-1>='{Search}'      ; KEYCOMMLIST<2,-1>='Interactive Search'
+KEYCOMMLIST<1,-1>='{Up}'          ; KEYCOMMLIST<2,-1>='Go to the previous command'
+*
+READ KEYMAP FROM HOME.F, KEYMAP.ITEM ELSE
+  CRT 'First STACK run, assuming Putty/VT100 key mapping'
+  GOSUB KEY.DEFAULTS
+END
+*
+PROJ.NAME='DEFAULT'
+PROGRAM.ITEM=USERNAME:'.PROGRAM_':PROJ.NAME
+READ PROGRAMS FROM HOME.F, PROGRAM.ITEM ELSE PROGRAMS = NUL
+*
+EXEC.LINE="!hostname" ; CAP.ACTIVE=TRUE ; GOSUB EXEC.SUB
+HOST.NAME=EXEC.CAP<1>
+*
+READ STACK FROM HOME.F, STACK.ITEM ELSE STACK = NUL
+CRT DCOUNT(STACK,@AM):' commands in stack ':HOME.DIR:OS.PATH.DELIM:STACK.ITEM
+READ ALIASES FROM HOME.F, ALIAS.ITEM ELSE ALIASES = NUL
+*
+CRT '? for Help'
+*
+* You can put commands in the startup file, e.g. .L ; LISTA ; DATE
+OLD.X.DISP=X.DISP
+SHOW.SELECT=0
+RTN=NUL
+IF STARTUP # NUL THEN ANS=STARTUP ; GOSUB COMMAND ; STARTUP=NUL
+ANS=NUL
+*******************************************************************************
+* MAIN LOOP - THIS RUNS UNTIL THE USER QUITS
+*******************************************************************************
+LOOP
+  GOSUB GET.TERM.WIDTH ;* In case terminal font or window size changes
+  GOSUB EXPAND.PROMPT
+  CRT BON:PROMPT.DISP:BOFF:
+  X = LEN(PROMPT.DISP) + X.DISP
+  ENTRY = NUL;LEN = LONG.LINE;DISP.LEN=TERM.WIDTH-1-X;LINE.NUM=0
+  GOSUB GET.LINE
+  ANS=ENTRY
+  * Reread the program and command stack, since they may be modified in another session
+  READ PROGRAMS FROM HOME.F, PROGRAM.ITEM ELSE PROGRAMS = NUL
+  READ STACK FROM HOME.F, STACK.ITEM ELSE STACK = NUL
+  READ ALIASES FROM HOME.F, ALIAS.ITEM ELSE ALIASES = NUL
+  IF RTN # ESC THEN GOSUB COMMAND
+REPEAT
+*******************************************************************************
+* COMMAND PROCESSING
+*******************************************************************************
+COMMAND:
+  * Process the command line entered - split on COMMAND.SEPERATOR, unless it's a unix command or search
+  MAX.STACK=DCOUNT(STACK,@AM)
+  IF ANS = '' THEN RETURN
+  UNIX.COMMAND = FALSE
+  OLD.STACK = STACK
+  COMMAND.LIST = ANS
+  COMMAND.COUNT = 1
+  BEGIN CASE
+    CASE ANS[1,1] = SEARCH.NEXT.CHAR
+      ANS=ANS[2,999]
+      GOSUB SEARCH.NEXT
+      IF ENTRY='' THEN RETURN
+      CRT BON:PROMPT.DISP:BOFF:
+      GOSUB GET.LINE
+      ANS=ENTRY
+      GOTO COMMAND
+    CASE ANS[1,1]=UNIX
+      UNIX.COMMAND=TRUE
+      * Don't look for ; for unix commands
+      GOSUB DO.COMMAND
+    CASE 1
+      LOOP
+        ANS = FIELD(COMMAND.LIST,COMMAND.SEPERATOR,COMMAND.COUNT)
+      UNTIL ANS = NUL DO
+        GOSUB DO.COMMAND
+        COMMAND.COUNT = COMMAND.COUNT + 1
+      REPEAT
+  END CASE
+RETURN
+*
+DO.COMMAND:
+  * Process a single command
+  IF NOT(UNIX.COMMAND) THEN
+    * Only uppercase, expand aliases, expand prog chars for non-unix commands
+    IF MCU.ON THEN ANS = TRIM(UPCASE(ANS))
+    IF ANS[1,5] # 'ALIAS' THEN GOSUB EXPAND.ALIASES
+    GOSUB EXPAND.PROG.CHARS
+  END
+  IF ANS=UNIX THEN ANS=UNIX:DEF.SHELL ;* Entering ! is the same as !cmd or !bash -i
+  IF ANS='?' THEN ANS='.H'
+  LEN.ANS = LEN(ANS)
+  CAP.ACTIVE=FALSE
+  FIRST.WORD=FIELD(ANS,' ',1)
+  UPDATE.STACK.FLAG=TRUE
+  COMMANDS='ALIAS,CHECK.FILE,DDD,ICONV,KEYS,LIST.KEYS,'
+  COMMANDS:='OCONV,OFF,PICKLE,PIVOT,PROF,KEY.DEFAULTS,Q,RULER,SE,SETTINGS,SF,TRAIN'
+  CONVERT ',' TO @VM IN COMMANDS
+  LOCATE FIRST.WORD IN COMMANDS<1> SETTING INTERNAL.COMMAND ELSE INTERNAL.COMMAND=''
+  *
+  BEGIN CASE
+    CASE INTERNAL.COMMAND
+      ON INTERNAL.COMMAND GOSUB DO.ALIAS, CHECK.FILE, DDD, CONV, KEYS, LIST.KEYS, CONV, QUIT, PICKLE, PIVOT,
+                                PROFILE, KEY.DEFAULTS, QUIT, RULER, SEARCH.EXAMPLE, SETTINGS, SEARCH.FILE, TRAIN
+    CASE ANS[1,1] = STACK.CHAR
+      * E.g. .L .X20 .D
+      ANS = TRIM(UPCASE(ANS))
+      GOSUB STACK.COMMAND
+      UPDATE.STACK.FLAG=FALSE
+    CASE ANS[1,1] = PROG.CHAR
+      * E.g. /E10 /N3 /BR20
+      ANS = TRIM(UPCASE(ANS))
+      GOSUB PROG.COMMAND
+      UPDATE.STACK.FLAG=FALSE
+    CASE ANS[1,1] = SEARCH.ALL.CHAR
+      * E.g. ~xyz
+      ANS=ANS[2,999]
+      GOSUB SEARCH.ALL
+      UPDATE.STACK.FLAG=FALSE
+    CASE OTHERWISE
+      * A plain old command to execute
+      EXEC.LINE = ANS
+      T1=SYSTEM(12)
+      GOSUB EXEC.SUB
+      IF TIME.COMMAND THEN PRINT SYSTEM(12)-T1:' ms'
+  END CASE
+  IF UPDATE.STACK.FLAG THEN
+    INS ACC:@VM:DATE():@VM:TIME():@VM:ANS BEFORE STACK<1>
+    WRITE STACK ON HOME.F, STACK.ITEM
+  END
+RETURN
+*
+OPEN.DIR:
+  * Open a local directory, create if missing
+  OPEN DIR TO FVAR ELSE
+    EXECUTE \CREATE.FILE DIR \:DIR
+    OPEN DIR TO FVAR ELSE STOP 'Cannot open or create ':DIR
+  END
+RETURN
+*
+DO.ALIAS:
+  * ALIAS command - 1) list all aliases, 2) list one alias, 3) set an alias
+  AL = FIELD(ANS,SPC,2)
+  STRING = NUL;I = 3
+  LOOP
+    F = FIELD(ANS,SPC,I)
+  UNTIL F = NUL DO
+    STRING = STRING:SPC:F
+    I = I + 1
+  REPEAT
+  BEGIN CASE
+    CASE AL = NUL AND STRING = NUL
+      GOSUB LIST.ALIAS
+    CASE STRING = NUL
+      GOSUB LIST.ONE.ALIAS
+    CASE 1
+      GOSUB SET.ALIAS
+  END CASE
+RETURN
+*
+QUIT:
+  * Quit STACK, saving the command and program stacks
+  GOSUB WRITE.INFO
+  STOP
+RETURN
+*
+WRITE.INFO:
+  * Save everything when exiting
+  WRITE STACK ON HOME.F, STACK.ITEM
+  WRITE ALIASES ON HOME.F, ALIAS.ITEM
+  WRITE PROGRAMS ON HOME.F, PROGRAM.ITEM
+  WRITE SETTINGS ON HOME.F, SETTING.ITEM
+RETURN
+*
+REMOVE.CONTROL.CHARS:
+  * Remove control characters from ANS, useful for pasting from excel
+  ANS=OCONV(ANS,'MCP')
+  CONVERT '~' TO '' IN ANS
+RETURN
+*
+SET.ALIAS:
+  * Set an alias, e.g. ALIAS L=LIST LS.MASTER WITH NUM.OF.ASSETS > "0", and then L CUST.CREDIT.ACCT CBR LS.NET.INVEST
+  STRING=STRING[2,LONG.LINE]
+  PRINT AL:'=':STRING
+  LOCATE AL IN ALIASES<1> BY 'AL' SETTING P THEN
+    ALIASES<2,P> = STRING
+  END ELSE
+    INS AL BEFORE ALIASES<1,P>;INS STRING BEFORE ALIASES<2,P>
+  END
+  WRITE ALIASES ON HOME.F, ALIAS.ITEM
+RETURN
+*
+LIST.ALIAS:
+  * List all aliases
+  I = DCOUNT(ALIASES<1>,@VM)
+  FOR F = 1 TO I
+    PRINT ALIASES<1,F>,ALIASES<2,F>
+  NEXT F
+RETURN
+*
+LIST.ONE.ALIAS:
+  * List one alias
+  LOCATE AL IN ALIASES<1> BY 'AL' SETTING P ELSE PRINT AL:' not found';RETURN
+  X=0;LEN=99;DISP.LEN=30;ENTRY=ALIASES<2,P>
+  GOSUB GET.LINE
+  IF RTN = 27 THEN RETURN
+  ALIASES<2,P> = ENTRY
+  IF ENTRY = NUL THEN DEL ALIASES<1,P>;DEL ALIASES<2,P>
+  WRITE ALIASES ON HOME.F, ALIAS.ITEM
+RETURN
+*
+EXEC.SUB:
+  * Execute a command, capturing the output if necessary
+  IF EXEC.LINE = NUL THEN RETURN
+  IF EXEC.LINE = 'CLEARSELECT' THEN CLEARSELECT ; RETURN
+  IF CAP.ACTIVE THEN
+    EXECUTE EXEC.LINE CAPTURING EXEC.CAP
+  END ELSE
+    EXECUTE EXEC.LINE
+  END
+  IF SYSTEM(11) > 0 THEN SL.ACTIVE = TRUE ELSE SL.ACTIVE = FALSE
+  CAP.ACTIVE=FALSE
+RETURN
+*
+EXPAND.PROG.CHARS:
+  * expand //10 to be USER.DEFINED.BP MY.LONG.PROGRAM, so CATALOG //10 DIRECT FORCE works for example
+  POS = 1
+  LOOP
+    I = INDEX(ANS,PROG.CHAR:PROG.CHAR,POS)
+  UNTIL I = 0 DO
+    VAR = NUL;IDX = I+2
+    LOOP
+      C = ANS[IDX,1]
+    UNTIL NOT(NUM(C)) OR C = NUL DO
+      VAR = VAR:C
+      IDX = IDX+1
+    REPEAT
+    IF NUM(VAR) AND VAR > 0 THEN
+      ANS = ANS[1,I-1]:PROGRAMS<VAR>:ANS[IDX,LONG.LINE]
+    END ELSE
+      POS = POS + 1
+    END
+  REPEAT
+RETURN
+*
+EXPAND.ALIASES:
+  * Expand aliases, before executing a command
+  SWAP SPC WITH @VM IN ANS ; POS = 1
+  LOOP
+    R = ANS<1,POS>
+  UNTIL R = NUL DO
+    LOCATE R IN ALIASES<1> BY 'AL' SETTING P THEN ANS<1,POS> = ALIASES<2,P>
+    POS = POS + 1
+  REPEAT
+  SWAP @VM WITH SPC IN ANS
+RETURN
+*
+EXPAND.PROMPT:
+  * Dynamic prompt, I like #R#U@#H:#A> - X.DISP is the number of characters to remove from the LEN so the
+  * input starts at the right place.  #R adds two to the length, but displays on another line, so X.DISP=-2 fixes that
+  IF SL.ACTIVE THEN
+    PROMPT.DISP='#R':SYSTEM(11):'-SEL>'
+    OLD.X.DISP=X.DISP
+    X.DISP=-2
+  END ELSE
+    PROMPT.DISP = PROMT
+    X.DISP=OLD.X.DISP
+  END
+  CTR = 1
+  LOOP
+    I = INDEX(PROMPT.DISP,'#',CTR)
+  UNTIL I = 0 DO
+    F = PROMPT.DISP[I+1,1]
+    L = PROMPT.DISP[1,I-1];R = TRIM(PROMPT.DISP[I+2,LONG.LINE])
+    BEGIN CASE
+      CASE F = 'B'
+        PROMPT.DISP = L:CHAR(7):R
+      CASE F = 'A'
+        PROMPT.DISP = L:ACC:R
+      CASE F = 'T'
+        PROMPT.DISP = L:OCONV(TIME(),'MTS'):R
+      CASE F = 'D'
+        PROMPT.DISP = L:OCONV(DATE(),'D'):R
+      CASE F = 'E'
+        PROMPT.DISP = L:CHAR(ESC):R
+      CASE F = 'R'
+        PROMPT.DISP = L:CHAR(13):CHAR(10):R
+      CASE F = '#'
+        PROMPT.DISP = L:'#':R
+        CTR = CTR + 1
+      CASE F = 'U'
+        PROMPT.DISP = L:USERNAME:R
+      CASE F = 'H'
+        PROMPT.DISP=L:FIELD(HOST.NAME,".",1):R
+      CASE OTHERWISE
+        CTR = CTR + 1
+    END CASE
+  REPEAT
+RETURN
+*******************************************************************************
+* COMMAND STACK PROCESSING
+*******************************************************************************
+LIST.STACK:
+  * List entries from P2->P1, Defauts: P1=1, P2=20
+  I = DCOUNT(STACK,@AM)
+  IF I = 0 THEN PRINT 'No items present';RETURN
+  IF P2 > I THEN P2 = I
+  PRINT
+  FOR F = P2 TO P1 STEP -1
+    IF LIST.DET.FLAG THEN
+      PRINT SPC:F'R#5':" ":STACK<F,1>'L#20':' ':OCONV(STACK<F,2>,'D-YMD'):' ':OCONV(STACK<F,3>,'MTS'):' ':STACK<F,4>
+    END ELSE
+      PRINT SPC:F'R#5':" ":STACK<F,4>
+    END
+  NEXT F
+RETURN
+*
+STACK.COMMAND:
+  * Process a STACK command, e.g. .L .X20 .D
+  BEGIN CASE
+    CASE ANS='.D'
+      LIST.DET.FLAG=NOT(LIST.DET.FLAG)
+    CASE ANS[1,2] = '.L'
+      IF ANS = '.L' THEN ANS = '.L,20'
+      GOSUB GET.PARAMS
+      IF RANGE.ERROR THEN RETURN
+      GOSUB LIST.STACK
+    CASE ANS = '.P'
+      PRINT '#R - Return  #A - Account  #D - Date  #T - Time #P - Port'
+      PRINT '#E - Escape  #L - Level    #U - User  #H - Host'
+      PRINT 'Prompt':
+      X = 7;DISP.LEN = 60;ENTRY = PROMT;LEN = 99;GOSUB GET.LINE
+      PROMT = ENTRY
+      PRINT 'Enter the X displacement for input :':
+      ENTRY = NUL;LEN = 5;DISP.LEN = 5;X = 37;GOSUB GET.LINE
+      X.DISP = ENTRY
+      IF NOT(NUM(X.DISP)) THEN X.DISP = 0
+      SETTINGS<12> = PROMT
+      SETTINGS<13> = X.DISP
+      OLD.X.DISP=X.DISP
+    CASE ANS = '.H'
+      FOR F=1 TO DCOUNT(STACK.HELP,@AM)
+        CRT STACK.HELP<F>
+      NEXT F
+    CASE ANS = '.T'
+      TIME.COMMAND=NOT(TIME.COMMAND)
+    CASE ANS = '.U'
+      IF MCU.ON THEN MCU.ON = FALSE;PRINT 'upper case off' ELSE MCU.ON = TRUE;PRINT 'UPPER CASE ON'
+    CASE OTHERWISE
+      PRINT 'There is no such STACK command':BELL
+      PRINT '? for help'
+  END CASE
+RETURN
+*
+GET.PARAMS:
+  * Get the numeric parameters for a stack command, e.g. .L1,20 P1=1 P2=20
+  I = INDEX(ANS,',',1)
+  IF I # 0 THEN
+    L = I-1;P1 = NUL
+    LOOP
+      IF NUM(ANS[L,1]) THEN P1 = ANS[L,1]:P1;L=L-1 ELSE EXIT
+    REPEAT
+    P2 = ANS[I + 1, LEN.ANS]
+  END ELSE
+    P1 = NUL
+    LOOP
+      IF NUM(ANS[LEN.ANS,1]) THEN P1 = ANS[LEN.ANS,1]:P1;LEN.ANS=LEN.ANS-1 ELSE EXIT
+    REPEAT
+    IF P1 = NUL THEN P1 = 1
+    P2 = P1
+  END
+  IF P1 = NUL THEN P1 = 1
+  IF P2 = NUL THEN P2 = MAX.STACK
+  IF NUM(P1) & NUM(P2) & P1 > 0 THEN
+    RANGE.ERROR = FALSE
+  END ELSE
+    RANGE.ERROR = TRUE
+    PRINT 'Range Error':BELL
+  END
+RETURN
+*
+SEARCH.ALL:
+  * Search the command stack and show lines that contain ANS
+  FOR F=DCOUNT(STACK,@AM) TO 1 STEP -1
+    IF INDEX(UPCASE(STACK<F,4>),UPCASE(ANS),1) THEN
+      IF LIST.DET.FLAG THEN
+        PRINT SPC:F'R#5':" ":STACK<F,1>'L#20':' ':OCONV(STACK<F,2>,'D-YMD'):' ':OCONV(STACK<F,3>,'MTS'):' ':STACK<F,4>
+      END ELSE
+        PRINT SPC:F'R#5':" ":STACK<F,4>
+      END
+    END
+  NEXT F
+RETURN
+*
+SEARCH.NEXT:
+  * Search the command stack for the most recent ANS and execute that line
+  ENTRY=''
+  FOR F=1 TO DCOUNT(STACK,@AM)
+    IF INDEX(UPCASE(STACK<F,4>),UPCASE(ANS),1) THEN
+      ENTRY=STACK<F,4>
+      RETURN
+    END
+  NEXT F
+RETURN
+*******************************************************************************
+* PROGRAM STACK PROCESSING
+*******************************************************************************
+PROG.COMMAND:
+  * Process a PROG command, e.g. /E10 /N3 /BR20
+  IF ANS = PROG.CHAR OR ANS=PROG.CHAR:PROG.CHAR THEN GO PRINT.PROG.INFO
+  PROG.NUM = NUL
+  F = FIELD(ANS,SPC,1);L = LEN(F);I = L
+  LOOP
+    IF NUM(F[I,1]) THEN PROG.NUM = F[I,1]:PROG.NUM ELSE EXIT
+    I = I - 1
+  REPEAT
+  IF PROG.NUM = NUL THEN PROG.NUM = 1
+  OPTIONS = ANS[L+1,LONG.LINE]
+  PROG.COM = ANS[1,I]
+  PROG = PROGRAMS<PROG.NUM>
+  B.FILE = FIELD(PROG,SPC,1)
+  B.ITEM = FIELD(PROG,SPC,2)
+  ANS=PROG.COM:SPC:B.FILE:SPC:B.ITEM
+  BEGIN CASE
+    CASE PROG.COM = '/WW'
+      WRITE PROGRAMS ON HOME.F, PROGRAM.ITEM
+      WP.FILE=HOME.FILE
+      WP.ITEM=PROGRAM.ITEM
+      GOSUB WP.EDIT
+      READ PROGRAMS FROM HOME.F, PROGRAM.ITEM ELSE PROGRAMS = NUL
+    CASE PROG.COM = '/WE'
+      WRITE PROGRAMS ON HOME.F, PROGRAM.ITEM
+      EXECUTE \ED \:HOME.FILE:\ \:PROGRAM.ITEM
+      READ PROGRAMS FROM HOME.F, PROGRAM.ITEM ELSE PROGRAMS = NUL
+    CASE PROG.COM = '/N'
+      GOSUB GET.PROG.NAME
+      IF RTN=13 THEN
+        PROGRAMS<PROG.NUM> = PROG
+        WRITE PROGRAMS ON HOME.F, PROGRAM.ITEM
+      END
+      IF B.FILE # '' THEN
+        OPEN B.FILE TO F THEN
+          OPTIONS=''
+          READ DUMMY FROM F, B.ITEM ELSE
+            PRINT B.ITEM:' not found.  Use standard header? ':
+            INPUT YORN
+            IF YORN = 'Y' THEN
+              D=OCONV(DATE(),"D-YMD")
+              HEADER=STR('*',80)
+              HEADER<2>='* Program: ':B.ITEM
+              HEADER<3>='* Author : ':USERNAME
+              HEADER<4>='* Created: ':D ;* E.g. 2017-04-20
+              HEADER<5>='* Updated: ':D ;* E.g. 2017-04-20
+              HEADER<6>='* Comment: Do NOT skip the description'
+              HEADER<7>=STR('*',80)
+              HEADER<8>='* Date       User    Comment'
+              HEADER<9>='* ---------- ------- -----------------------------------------------------------'
+              HEADER<10>='* ':D:' ':USERNAME'L#7':' Created'
+              WRITE HEADER ON F, B.ITEM
+            END
+          END
+          CLOSE F
+          WP.FILE=B.FILE
+          WP.ITEM=B.ITEM
+        END ELSE
+          PRINT B.FILE:' is not a file in this account'
+        END
+      END
+    CASE PROG.COM = '/L'
+      * Load a new program stack for a project
+      PROJ.NAME=TRIM(OPTIONS)
+      IF PROJ.NAME='' THEN PROJ.NAME='DEFAULT'
+      PROGRAM.ITEM=USERNAME:'.PROGRAM_':PROJ.NAME
+      READ PROGRAMS FROM HOME.F, PROGRAM.ITEM ELSE PROGRAMS = NUL
+      SETTINGS<15>=PROJ.NAME
+      GOSUB WRITE.INFO
+    CASE PROG.COM = '/LL'
+      * List the different projects
+      EXEC.LINE=\SSELECT \:HOME.FILE:\ WITH @ID = "\:USERNAME:\.PROGRAM_]"\
+      CAP.ACTIVE=TRUE ; GOSUB EXEC.SUB
+      LOOP
+        READNEXT ID ELSE EXIT
+        PRINT FIELD(ID,'_',2,99)
+      REPEAT
+    CASE B.FILE[1,1] = '*' OR B.FILE=''
+      NULL ;* Don't do anything with 'comment' or blank entries in the program stack
+    CASE PROG.COM = '/BR'
+      GOSUB COMPILE
+      EXEC.LINE = B.ITEM
+      GOSUB EXEC.SUB
+    CASE PROG.COM = '/B'
+      GOSUB COMPILE
+    CASE PROG.COM = '/E' OR PROG.COM = '/W'
+      OPEN B.FILE TO F ELSE PRINT 'Cannot open ':B.FILE:BELL;RETURN
+      READ R1 FROM F, B.ITEM ELSE R1=NUL
+      IF PROG.COM = '/E' THEN
+        EXEC.LINE = ED.VERB:SPC:PROG:OPTIONS
+        GOSUB EXEC.SUB
+      END ELSE
+        WP.FILE=B.FILE
+        WP.ITEM=B.ITEM
+        GOSUB WP.EDIT
+      END
+      CLOSE F
+    CASE PROG.COM = '/F'
+      GOSUB BFORMAT
+    CASE PROG.COM = '/R'
+      OPEN B.FILE TO F ELSE PRINT 'Cannot open ':B.FILE:BELL;RETURN
+      READV R FROM F, B.ITEM, 1 ELSE R=NUL
+      CLOSE F
+      EXEC.LINE = B.ITEM:OPTIONS
+      GOSUB EXEC.SUB
+    CASE PROG.COM = '/S'
+      * A slow sort of the program stack
+      READ REC FROM HOME.F, PROGRAM.ITEM ELSE PRINT 'CANNOT READ ':HOME.FILE:' ':PROGRAM.ITEM ; RETURN
+      SORT='AL' ; NEW.REC=''
+      I=DCOUNT(REC,@AM)
+      FOR F=1 TO I
+        L=REC<F>
+        IF L = '' THEN CONTINUE
+        LOCATE L IN NEW.REC BY SORT SETTING POS ELSE NULL
+        INS L BEFORE NEW.REC<POS>
+      NEXT F
+      WRITE NEW.REC ON HOME.F, PROGRAM.ITEM
+    CASE OTHERWISE
+      PRINT 'There is no such PROGRAM command':BELL
+      PRINT '? for help'
+  END CASE
+RETURN
+*
+COMPILE:
+  * Compile a program, and catalog the way it is currently cataloged
+  OPTIONS=''
+  * Check for global catalog
+  READ DUMMY FROM CTLGTB, B.ITEM THEN
+    PRINT B.ITEM:' is cataloged globally'
+    OPTIONS='G'
+  END
+  *
+  * Check for local catalog
+  READ DUMMY FROM CTLG, B.ITEM THEN
+    PRINT B.ITEM:' is cataloged locally'
+    OPTIONS :='L'
+  END
+  *
+  * Check for direct catalog
+  READ DUMMY FROM VOC, B.ITEM THEN
+    IF INDEX(DUMMY<2>,'/CTLG/',1)=0 THEN
+      PRINT B.ITEM:' is cataloged direct to ':DUMMY<2>
+      OPTIONS :='D'
+    END
+  END
+  *
+  IF LEN(OPTIONS) > 1 THEN
+    PRINT "OPTIONS=":OPTIONS
+    PRINT "I do not like green eggs and ham, nor do I like"
+    PRINT "programs cataloged twice.  You must fix, Sam"
+    PRINT 'Fix now? Y/N:':
+    INPUT YORN
+    IF YORN = 'Y' THEN
+      EXEC.LINE=\DECATALOG \:B.ITEM
+      CRT EXEC.LINE ; CAP.ACTIVE=TRUE ; GOSUB EXEC.SUB
+      CRT EXEC.LINE ; CAP.ACTIVE=TRUE ; GOSUB EXEC.SUB
+      CRT EXEC.LINE ; CAP.ACTIVE=TRUE ; GOSUB EXEC.SUB
+      GOTO COMPILE ;* Try again
+    END
+  END
+  *
+  LOOP
+  UNTIL OPTIONS#'' DO
+    PRINT 'Catalog ':B.ITEM:' -- D)irect, L)ocal or G)lobal :':
+    INPUT OPTIONS
+    OPTIONS=UPCASE(OPTIONS)
+    IF OPTIONS = '/' OR OPTIONS='' THEN RETURN
+    * Have to enter D, L or G
+    IF OPTIONS # 'L' AND OPTIONS # 'G' AND OPTIONS # 'D' THEN OPTIONS=''
+  REPEAT
+  *
+  EXEC.LINE = 'BASIC ':B.FILE:' ':B.ITEM:' -D' ;* -D includes symbol table
+  PRINT EXEC.LINE
+  GOSUB EXEC.SUB
+  *
+  BEGIN CASE
+    CASE OPTIONS='G'
+      EXEC.LINE = 'CATALOG ':B.FILE:' ':B.ITEM:' FORCE'
+      PRINT EXEC.LINE
+      GOSUB EXEC.SUB
+    CASE OPTIONS='L'
+      EXEC.LINE = 'CATALOG ':PROG:' LOCAL FORCE'
+      PRINT EXEC.LINE
+      GOSUB EXEC.SUB
+      * Object is in CTLG file, so remove from SOURCE file
+      OPEN B.FILE TO F ELSE PRINT 'Cannot open ':B.FILE:BELL;RETURN
+      DELETE F, '_':B.ITEM
+      CLOSE F
+    CASE OPTIONS='D'
+      EXEC.LINE = 'CATALOG ':B.FILE:' ':B.ITEM:' DIRECT FORCE'
+      PRINT EXEC.LINE
+      GOSUB EXEC.SUB
+  END CASE
+  *
+  EXEC.LINE = 'NEWPCODE' ;* This loads a new version of globally cataloged programs (except for STACK)
+  GOSUB EXEC.SUB
+RETURN
+*
+GET.PROG.NAME:
+  * Add a program to the current project, e.g. 3=USER.DEFINED.BP INVOICE.PRINT.INTERFACE.00
+  X = 15;DISP.LEN = 50;LEN = LONG.LINE;ENTRY = PROG
+  PRINT 'Program Name :':
+  GOSUB GET.LINE
+  ANS = UPCASE(ENTRY)
+  IF RTN # 13 THEN RETURN
+  IF INDEX(ANS,SPC,1) THEN
+    B.FILE = FIELD(ANS,SPC,1)
+    B.ITEM = FIELD(ANS,SPC,2)
+    PROG=ANS
+  END ELSE
+    IF ANS = NUL THEN
+      B.FILE = NUL ; B.ITEM = NUL ;PROG = NUL
+    END ELSE
+      B.FILE = WORK.FILE ; B.ITEM = ANS ; PROG = B.FILE:SPC:B.ITEM
+    END
+  END
+RETURN
+*
+PRINT.PROG.INFO:
+  * List the program stack for the current project
+  I = DCOUNT(PROGRAMS,@AM)
+  PRINT 'PROJECT=':PROJ.NAME
+  FOR F = 1 TO I
+    IF PROGRAMS<F> # NUL THEN
+      PRINT F 'L#5':' ':PROGRAMS<F>
+    END
+  NEXT F
+RETURN
+*******************************************************************************
+* INTERNAL UTILITY COMMANDS
+*******************************************************************************
+PICKLE:
+  * Pickle a record, e.g. to include as a snippet in a program to recreate the record
+  PICKLE.LIST=''
+  *
+  IF FIELD(ANS,' ',2)='DICT' THEN
+    FILE='DICT ':FIELD(ANS,' ',3)
+    ITEM=FIELD(ANS,' ',4)
+  END ELSE
+    FILE=FIELD(ANS,' ',2)
+    ITEM=FIELD(ANS,' ',3)
+  END
+  OPEN FILE TO FVAR ELSE
+    PRINT 'Cannot open ':FILE
+    RETURN
+  END
+  READ REC FROM FVAR, ITEM ELSE
+    PRINT 'Cannot read ':FILE:' ':ITEM
+    RETURN
+  END
+  BLOB='R=""'
+  IF FILE[1,5]='DICT ' THEN DEL REC<9> ; DEL REC<8> ;* Avoid CD probs
+  INS ITEM BEFORE REC<1>
+  INS FILE BEFORE REC<1>
+  SWAP @AM WITH '#AM#' IN REC   ; SWAP @VM WITH '#VM#' IN REC
+  SWAP @SVM WITH '#SVM#' IN REC ; SWAP '\' WITH '#134#' IN REC
+  BLOB<-1>=\S=''\
+  LOOP
+    T=REC[1,70]
+    BLOB<-1>='S:=\':T:'\'
+    REC=REC[71,LEN(REC)]
+  UNTIL LEN(REC)=0 DO
+  REPEAT
+  BLOB<-1>='R<-1>=S'
+  BLOB<-1>='*'
+  *
+  * Write out basic code that when run will recreate the record
+  BLOB<-1>='FOR F=1 TO DCOUNT(R,@AM)'
+  BLOB<-1>='  REC=R<F>'
+  BLOB<-1>='  SWAP "#AM#" WITH @AM IN REC   ; SWAP "#VM#" WITH @VM IN REC'
+  BLOB<-1>='  SWAP "#SVM#" WITH @SVM IN REC ; SWAP "#134#" WITH "\" IN REC'
+  BLOB<-1>='  FILE=REC<1> ; DEL REC<1>'
+  BLOB<-1>='  ITEM=REC<1> ; DEL REC<1>'
+  BLOB<-1>='  PRINT FILE:" ":ITEM:'
+  BLOB<-1>='  OPEN FILE TO FVAR ELSE STOP 201, FILE'
+  BLOB<-1>='  WRITE REC ON FVAR,ITEM ; PRINT "*"'
+  BLOB<-1>='  CLOSE FVAR'
+  BLOB<-1>='NEXT F'
+  FOR I=1 TO DCOUNT(BLOB,@AM)
+    PRINT BLOB<I>
+  NEXT I
+RETURN
+*
+SETTINGS:
+  * Display and edit the settings
+  PRINT CS:
+  PRINT 'COMMAND.SEP  = ':SETTINGS<1>
+  PRINT 'STACK.CHAR   = ':SETTINGS<2>
+  PRINT 'PROG.CHAR    = ':SETTINGS<3>
+  PRINT 'MAX.STACK    = ':SETTINGS<4>
+  PRINT 'WP.VERB      = ':SETTINGS<5>
+  PRINT 'ED.VERB      = ':SETTINGS<6>
+  PRINT 'STAMP.STRING = ':SETTINGS<7>
+  PRINT 'GET.LINE.FLAG= ':SETTINGS<8>
+  PRINT 'WORK.FILE    = ':SETTINGS<9>
+  PRINT 'MCU.ON       = ':SETTINGS<10>
+  PRINT 'STARTUP      = ':SETTINGS<11>
+  PRINT 'PROMT        = ':SETTINGS<12>
+  PRINT 'X.DISP       = ':SETTINGS<13>
+  PRINT 'DEF.SHELL    = ':SETTINGS<14>
+  PRINT ; PRINT 'Hit ENTER to accept the current default, / to Cancel'
+  X=18
+  LEN=30
+  DISP.LEN=30
+  *
+  PRINT
+  PRINT 'The command seperator is used to run multiple commands from one entry'
+  PRINT 'E.g. COUNT VOC ; COUNT VOC WITH F1 = "C" will run both count commands'
+  PRINT 'Current value:':SETTINGS<1>
+  PRINT 'COMMAND SEPERATOR:':
+  INPUT ENTRY
+  IF ENTRY = '/' THEN RETURN
+  IF ENTRY = ''  THEN ENTRY=SETTINGS<1>
+  SETTINGS<1>=ENTRY
+  *
+  PRINT
+  PRINT 'The stack character is what to prefix command stack operations with'
+  PRINT 'E.g. .L or .R87 or .D uses a stack character of "."'
+  PRINT 'Current value:':SETTINGS<2>
+  PRINT 'STACK CHAR       :':
+  INPUT ENTRY
+  IF ENTRY = '/' THEN RETURN
+  IF ENTRY = ''  THEN ENTRY=SETTINGS<2>
+  SETTINGS<2>=ENTRY
+  *
+  PRINT
+  PRINT 'The program character is what to prefix program stack operations with'
+  PRINT 'E.g. /W2 or /B3 or /L uses a program character of "/"'
+  PRINT 'Current value:':SETTINGS<3>
+  PRINT 'PROG CHAR        :':
+  INPUT ENTRY
+  IF ENTRY = '/' THEN RETURN
+  IF ENTRY = ''  THEN ENTRY=SETTINGS<3>
+  SETTINGS<3>=ENTRY
+  *
+  PRINT
+  PRINT 'Max lines is the maximum number of lines to hold in the command stack'
+  PRINT 'E.g. 9999'
+  PRINT 'Current value:':SETTINGS<4>
+  PRINT 'MAX # LINES      :':
+  INPUT ENTRY
+  IF ENTRY = '/' THEN RETURN
+  IF ENTRY = ''  THEN ENTRY=SETTINGS<4>
+  SETTINGS<4>=ENTRY
+  *
+  PRINT
+  PRINT 'Screen editor is what command to run to edit a program visually'
+  PRINT 'E.g. VI or !emacs or !/home/dsiroot/joe'
+  PRINT 'Current value:':SETTINGS<5>
+  PRINT 'SCREEN EDITOR    :':
+  INPUT ENTRY
+  IF ENTRY = '/' THEN RETURN
+  IF ENTRY = ''  THEN ENTRY=SETTINGS<5>
+  SETTINGS<5>=ENTRY
+  *
+  PRINT
+  PRINT 'Line editor is what command to run to edit a program'
+  PRINT 'E.g. AE or ED'
+  PRINT 'Current value:':SETTINGS<6>
+  PRINT 'LINE EDITOR      :':
+  INPUT ENTRY
+  IF ENTRY = '/' THEN RETURN
+  IF ENTRY = ''  THEN ENTRY=SETTINGS<6>
+  SETTINGS<6>=ENTRY
+  *
+  PRINT
+  PRINT 'Header string is not currently used'
+  PRINT 'HEADER STRING    :':SETTINGS<7>
+  *
+  PRINT
+  PRINT 'Use enhanced input commands, allowing editing with arrow keys'
+  PRINT 'Or just use plain INPUT command'
+  PRINT 'Current value:':SETTINGS<8>
+  PRINT 'USE GET.LINE SUBR:':
+  INPUT ENTRY
+  IF ENTRY = '/' THEN RETURN
+  IF ENTRY = ''  THEN ENTRY=SETTINGS<8>
+  IF ENTRY='Y' OR ENTRY='1' THEN ENTRY='1' ELSE ENTRY='0'
+  SETTINGS<8>=ENTRY
+  *
+  PRINT
+  PRINT 'Default file for basic programs if none specifed'
+  PRINT 'E.g. BP'
+  PRINT 'Current value:':SETTINGS<9>
+  PRINT 'WORK FILE        :':
+  INPUT ENTRY
+  IF ENTRY = '/' THEN RETURN
+  IF ENTRY = ''  THEN ENTRY=SETTINGS<9>
+  SETTINGS<9>=ENTRY
+  *
+  PRINT
+  PRINT 'Convert commands to upper case before running'
+  PRINT 'E.g. 1 or 0, Y or N'
+  PRINT 'Current value:':SETTINGS<10>
+  PRINT 'CONVERT TO UCASE :':
+  INPUT ENTRY
+  IF ENTRY = '/' THEN RETURN
+  IF ENTRY = ''  THEN ENTRY=SETTINGS<9>
+  IF ENTRY='Y' OR ENTRY='1' THEN ENTRY='1' ELSE ENTRY='0'
+  SETTINGS<9>=ENTRY
+  *
+  PRINT
+  PRINT 'Command to run when stack first starts'
+  PRINT 'E.g. LISTUSER ; WHO'
+  PRINT 'Current value:':SETTINGS<11>
+  PRINT 'STARTUP COMMAND  :':
+  INPUT ENTRY
+  IF ENTRY = '/' THEN RETURN
+  IF ENTRY = ''  THEN ENTRY=SETTINGS<11>
+  SETTINGS<11>=ENTRY
+  *
+  PRINT
+  PRINT 'Default Prompt to display, use .P to change this'
+  PRINT 'PROMPT           :':SETTINGS<12>
+  PRINT
+  PRINT 'Adjustment for input position (if you use #R, then CR+LF is inserted,'
+  PRINT 'and an adjustment of -2 is needed.  Use .P to change this'
+  PRINT 'X DISP FOR PROMPT:':SETTINGS<13>
+  *
+  PRINT
+  PRINT 'Default shell to use with !command'
+  PRINT 'E.g. ksh, bash, /usr/bin/ksh, /opt/freeware/bin/bash'
+  PRINT 'Current value:':SETTINGS<14>
+  PRINT 'SHELL            :':
+  INPUT ENTRY
+  IF ENTRY = '/' THEN RETURN
+  IF ENTRY = ''  THEN ENTRY=SETTINGS<14>
+  SETTINGS<14>=ENTRY
+  *
+  WRITE SETTINGS ON HOME.F, SETTING.ITEM
+RETURN
+*
+WP.EDIT:
+  * Edit a record using a visual editor (e.g. vi, joe or emacs)
+  DICT=0
+  IF FIELD(WP.FILE,' ',1)='DICT' THEN WP.FILE=FIELD(WP.FILE,' ',2) ; DICT=1
+  READ REC FROM VOC, WP.FILE ELSE PRINT WP.FILE:' - no VOC item' ; RETURN
+  IF (REC<1>#'DIR' AND REC<1>#'LD') OR DICT THEN
+    * Copy to a temp DIR type and edit there, ignore the race conditions!
+    IF DICT THEN WP.FILE='DICT ':WP.FILE
+    OPEN WP.FILE TO T ELSE PRINT WP.FILE:' - cannot OPEN' ; RETURN
+    READ R FROM T, WP.ITEM ELSE PRINT WP.ITEM:' - not found' ; RETURN
+    WRITE R ON HOLD, WP.ITEM
+    WP.PATH='_HOLD_'
+    DIR.TYPE=0
+  END ELSE
+    WP.PATH=REC<2>
+    IF REC<1>='LD' THEN
+      IF INDEX(FILE,',',1) THEN
+        WP.PATH=REC<2>:FIELD(FILE,',',2)
+      END ELSE
+        WP.PATH=REC<2>:'/':FIELD(REC<2>,'/',DCOUNT(REC<2>,'/'))
+      END
+    END
+    DIR.TYPE=1
+  END
+  EXEC.LINE=WP.VERB:' ':WP.PATH:'/':WP.ITEM
+  GOSUB EXEC.SUB
+  IF NOT(DIR.TYPE) THEN
+    * Copy back to original location
+    READ R FROM HOLD, WP.ITEM ELSE R=''
+    WRITE R ON T, WP.ITEM
+    CLOSE T
+  END
+RETURN
+*
+CHECK.FILE:
+  * Check a binary compiled code file for strings, with flags for programs/subroutine names and file names
+  PARAM.CTR=1 ; PROG.FLAG=0 ; FILE.FLAG=0 ; ALL.FLAG=0
+  LOOP
+    P=FIELD(ANS,' ',PARAM.CTR)
+  UNTIL P='' DO
+    IF P[1,1] = '/' THEN
+      P=P[2,1]
+      BEGIN CASE
+        CASE P='P'
+          PROG.FLAG=1
+        CASE P='F'
+          FILE.FLAG=1
+        CASE P='A'
+          ALL.FLAG=1
+      END CASE
+    END ELSE
+      PROG=P
+    END
+    PARAM.CTR += 1
+  REPEAT
+  IF PROG.FLAG=0 AND FILE.FLAG=0 THEN ALL.FLAG=1
+  *
+  IF PROG # '' THEN
+    READ CAT.PTR FROM VOC, PROG ELSE PRINT 'Cannot read VOC ':PROG ; RETURN
+  END ELSE
+    LOOP
+      PRINT 'Enter the program to scan ':
+      INPUT PROG
+      IF PROG = '' OR PROG = '/' THEN RETURN
+      READ CAT.PTR FROM VOC, PROG THEN EXIT
+      PRINT 'Cannot read VOC ':PROG
+    REPEAT
+  END
+  *
+  EXECUTE "!strings ":CAT.PTR<2> CAPTURING R
+  *
+  FILE.LIST=''
+  IF R # '' THEN
+    I=DCOUNT(R,@AM)
+    FOR F=1 TO I
+      TEST.FILE=R<F>
+      IF FILE.FLAG THEN
+        OPEN TEST.FILE TO DUMMY THEN
+          LOCATE TEST.FILE IN FILE.LIST BY 'AL' SETTING POS ELSE
+            INS TEST.FILE BEFORE FILE.LIST<POS>
+            PRINT 'FILE:':TEST.FILE
+          END
+          CLOSE DUMMY
+        END
+      END
+      IF PROG.FLAG THEN
+        READ DUMMY FROM VOC, TEST.FILE THEN
+          *IF DUMMY = 'C' THEN PRINT 'PROG: ':TEST.FILE
+          IF DUMMY<1>='C' THEN PRINT 'PROG: ':TEST.FILE'L#25':' ':DUMMY<2>
+        END
+      END
+      IF ALL.FLAG THEN
+        PRINT TEST.FILE
+      END
+    NEXT F
+  END
+RETURN
+*
+CONV:
+  * Handy way to check ICONV/OCONV data
+  LOOP
+    PRINT 'Enter mask:':
+    INPUT MASK
+    IF MASK='' OR MASK='/' THEN RETURN
+    PRINT 'Enter data:':
+    INPUT DTA
+    PRINT 'Result:':
+    IF FIRST.WORD='ICONV' THEN PRINT ICONV(DTA,MASK) ELSE PRINT OCONV(DTA,MASK)
+  REPEAT
+RETURN
+*
+RULER:
+  * Show a ruler for checking character widths
+  GOSUB GET.TERM.WIDTH
+  CRT 'Term width=':TERM.WIDTH
+  FOR F=1 TO TERM.WIDTH
+    C=SEQ(0)+MOD(F,10)
+    IF MOD(F,10) THEN PRINT CHAR(C): ELSE PRINT ' ':
+  NEXT F
+  PRINT
+  SUP.NEXT=0
+  FOR F=1 TO TERM.WIDTH
+    BEGIN CASE
+      CASE MOD(F+1,10)=0 AND (F+1)/10 > 9
+        PRINT (F+1)/10:
+        SUP.NEXT=1
+      CASE MOD(F,10)=0 AND F/10 <= 9
+        PRINT F/10:
+        SUP.NEXT=0
+      CASE MOD(F,5)=0 AND NOT(SUP.NEXT)
+        PRINT '+':
+      CASE 1
+        IF NOT(SUP.NEXT) THEN PRINT ' ':
+        SUP.NEXT=0
+    END CASE
+  NEXT F
+  PRINT
+RETURN
+*
+GET.TERM.WIDTH:
+  * Get the terminal width, either from the TERM environment variable or from tput
+  * In unix we can detect changes to the terminal width dynamically, but in windows user has to set TERM 132 manually
+  IF OS.PATH.DELIM = "\" THEN
+    EXEC.LINE=\TERM\ ; CAP.ACTIVE=TRUE ; GOSUB EXEC.SUB
+    TERM.WIDTH=FIELD(FIELD(EXEC.CAP<4>,'(',2),')',1)
+  END ELSE
+    T='/tmp/':@LOGNAME:'.term'
+    EXEC.LINE=\!tput cols > \:T ;* Always returns 80 if you capture, so use tmp file
+    GOSUB EXEC.SUB
+    EXEC.LINE=\!cat \:T
+    CAP.ACTIVE=TRUE
+    GOSUB EXEC.SUB
+    TERM.WIDTH=EXEC.CAP<1>
+    EXEC.LINE=\!rm \:T
+    GOSUB EXEC.SUB
+    EXEC.LINE=\TERM \:TERM.WIDTH ; GOSUB EXEC.SUB
+  END
+RETURN
+*
+PIVOT:
+  * Summarize a field, e.g. PIVOT LS.MASTER LESSOR GROSS.CONTRACT EQUIPMENT.COST
+  FILE=FIELD(ANS," ",2) ; ATB =FIELD(ANS," ",3) ; ATB2=FIELD(ANS," ",4) ; ATB3=FIELD(ANS," ",5) ; ATB4=FIELD(ANS," ",6)
+  OPEN "DICT ":FILE TO DICT ELSE PRINT "DICT ":FILE:' not a filename' ; RETURN
+  READ UREC FROM DICT,"UATB.COUNTER" ELSE
+    UREC=\I\;UREC<2>=\"1"\;UREC<4>=\CNTR\;UREC<5>=\8R\;UREC<6>=\S\
+    WRITE UREC ON DICT,"UATB.COUNTER"
+  END
+  CLOSE DICT
+  EXEC.LINE = \SORT \:FILE:\ BY \:ATB:\ BREAK-ON \:ATB:\ TOTAL UATB.COUNTER \
+  IF ATB2 # "" THEN EXEC.LINE := \ TOTAL \:ATB2
+  IF ATB3 # "" THEN EXEC.LINE := \ TOTAL \:ATB3
+  IF ATB4 # "" THEN EXEC.LINE := \ TOTAL \:ATB4
+  EXEC.LINE := \ (IDH \
+  GOSUB EXEC.SUB
+RETURN
+*
+PROFILE:
+  * Profile a field, e.g. PROFILE LS.MASTER REQ.SIGNATURE.PHONE
+  FILE=FIELD(ANS," ",2) ; ATB =FIELD(ANS," ",3) ; ATBS=FIELD(ANS," ",4,99)
+  EXEC.LINE = \SORT \:FILE:\ WITH \:ATB:\ \:ATB:\ \:ATBS
+  GOSUB EXEC.SUB
+RETURN
+*
+DDD:
+  * List all the dictionary entries for a Unidata file
+  * Tweak DICT VOC with some pickle juice
+  R    =\DICT VOC#AM#@ID#AM#D#AM#0#AM##AM#VOC#AM#30L#AM#S#AM#\
+  R<-1>=\DICT VOC#AM#F1#AM#D#AM#1#AM##AM##AM#5L#AM#S#AM#\
+  R<-1>=\DICT VOC#AM#F2#AM#D#AM#2#AM##AM##AM#50R#AM#S#AM#\
+  OPEN 'DICT VOC' TO FVAR ELSE RETURN
+  FOR F=1 TO DCOUNT(R,@AM)
+    REC=R<F>
+    SWAP "#AM#" WITH @AM IN REC
+    FILE=REC<1> ; DEL REC<1>
+    ITEM=REC<1> ; DEL REC<1>
+    WRITE REC ON FVAR,ITEM
+  NEXT F
+  CLOSE FVAR
+  *
+  * List the DICT, e.g DDD AS.MASTER EQUIP
+  FILE = FIELD(ANS," ",2)
+  SSTR = FIELD(ANS," ",3)
+  FIND.STR=""
+  IF SSTR # "" THEN FIND.STR = \WITH @ID = "[\:SSTR:\]" \
+  EXEC.LINE=\SORT DICT \:FILE:\ @ID F1 F2 BY F1 \:FIND.STR:\ USING DICT VOC (I \
+  GOSUB EXEC.SUB
+RETURN
+*
+SEARCH.FILE:
+  * Search a file for a string, e.g. SF USER.DEFINED.BP INTERFACE - a convenience wrapper around ESEARCH
+  FILE = FIELD(ANS," ",2)
+  ICTR=3
+  IF FILE='DICT' THEN ICTR+=1 ; FILE='DICT ':FIELD(ANS," ",3)
+  OPEN FILE TO FVAR ELSE PRINT FILE:' - not found' ; RETURN
+  SSTR = FIELD(ANS," ",ICTR)
+  IF SSTR='' THEN PRINT 'Search for:': ; INPUT SSTR
+  IF SSTR='' THEN RETURN
+  *
+  SSTR1=UPCASE(SSTR)
+  SSTR2=DOWNCASE(SSTR)
+  SSTR3=OCONV(SSTR,"MCT")
+  *
+  DATA SSTR
+  DATA SSTR1
+  DATA SSTR2
+  DATA SSTR3
+  DATA ""
+  EXEC.LINE=\ESEARCH \:FILE:\ WITH @ID # "_]" USING DICT VOC\ ; CAP.ACTIVE=TRUE
+  GOSUB EXEC.SUB
+  *
+  CTR=0 ; FOUND.RECS=''
+  LOOP
+    READNEXT ID ELSE EXIT
+    READ REC FROM FVAR, ID THEN
+      IDX = INDEX(UPCASE(REC),SSTR1,1)
+      IF IDX OR INDEX(UPCASE(ID),SSTR1,1) THEN
+        CTR+=1
+        FOUND.RECS<1,CTR>=ID
+        IDX -= 10 ; IF IDX < 1 THEN IDX=1
+        LINE=REC[IDX,45]
+        CONVERT @VM TO "]" IN LINE
+        CONVERT @AM TO "~" IN LINE
+        LINE=OCONV(LINE,"MCP")
+        FOUND.RECS<2,CTR>=LINE
+      END
+    END
+  REPEAT
+  CLOSE FVAR
+  *
+  QUIT = 0 ; CTR=1 ; MAX.ITEMS=DCOUNT(FOUND.RECS<1>,@VM)
+  IF MAX.ITEMS=0 THEN PRINT SSTR:' Not found' ; RETURN
+  HDR=@(-1):\SEARCHING FOR "\:SSTR1:\,\:SSTR2:\,\:SSTR3:\" IN \:FILE
+  PRINT HDR
+  LOOP
+    PRINT CTR'R#4':' ':FOUND.RECS<1,CTR>'L#25':FOUND.RECS<2,CTR>'L#65'
+    CTR+=1
+    IF CTR/20=INT(CTR/20) THEN GOSUB SEARCH.FILE.PROMPT
+    IF QUIT THEN RETURN
+  REPEAT
+RETURN
+*
+SEARCH.FILE.PROMPT:
+  * Actions available when using SEARCH.FILE
+  PRINT ; PRINT 'B)ack, E)dit #, V)iew #, W)P#, /:':
+  INPUT OPTION
+  BEGIN CASE
+    CASE OPTION='B'
+      CTR-=40
+      IF CTR<1 THEN CTR=1
+    CASE OPTION[1,1]='E'
+      EXEC.LINE=ED.VERB:\ \:FILE:\ \:FOUND.RECS<1,OPTION[2,99]>
+      GOSUB EXEC.SUB
+      CTR-=20
+      IF CTR<1 THEN CTR=1
+    CASE OPTION[1,1]='W'
+      WP.FILE=FILE
+      WP.ITEM=FOUND.RECS<1,OPTION[2,99]>
+      GOSUB WP.EDIT
+      CTR-=20
+      IF CTR<1 THEN CTR=1
+    CASE OPTION[1,1]='V'
+      PRINT CS:
+      EXEC.LINE=\CT \:FILE:\ \:FOUND.RECS<1,OPTION[2,99]>
+      GOSUB EXEC.SUB
+      CTR-=20
+      IF CTR<1 THEN CTR=1
+      PRINT 'Press ENTER:':
+      INPUT AAA
+    CASE OPTION # ''
+      * ENTER to keep moving forward
+      QUIT=1
+  END CASE
+  PRINT HDR
+RETURN
+*
+SEARCH.EXAMPLE:
+  * Calculate all possible ATB's for an example contract
+  FILE=FIELD(ANS,' ',2)
+  @ID=FIELD(ANS,' ',3)
+  IF FILE='' OR @ID='' THEN
+    PRINT 'Usage: SE <FNAME> <ID>'
+    RETURN
+  END
+  OPEN FILE TO F ELSE PRINT 'Cannot open ':FILE ; RETURN
+  OPEN "DICT ":FILE TO @DICT ELSE PRINT 'Cannot open DICT ':FILE ; RETURN
+  READ @RECORD FROM F, @ID ELSE PRINT 'Cannot read ':@ID:' in ':FILE ; RETURN
+  CLOSE F
+  OUTPUT=''
+  EXECUTE \SSELECT DICT \:FILE:\ WITH F1 = "I" USING DICT VOC\
+  LOOP
+    READNEXT FLD ELSE EXIT
+    PRINT FLD:'=':
+    VAL=CALCULATE(FLD)
+    PRINT VAL
+    IF @CONV # '' THEN VAL=OCONV(VAL,@CONV)
+    *OUTPUT<-1>=FLD:'=':VAL
+  REPEAT
+  WRITE OUTPUT ON VOC, 'OUTPUT.TMP'
+  EXECUTE \AE VOC OUTPUT.TMP\
+RETURN
+*
+BFORMAT:
+  * Format a program the way I like, not the way AE FORMAT does it
+  STAR  = '*' ; COLON = ':' ; TAB=CHAR(9)
+  IND = 0
+  *
+  * These are all commands that may have ELSE or THEN statements
+  * (or blocks) following them
+  SPECIAL.CASES = "GET":@AM:"INPUT":@AM:"LOCATE":@AM:"LOCK":@AM:"MATREAD":@AM:"MATREADU":@AM
+  SPECIAL.CASES := "MATWRITE":@AM:"MATWRITEU":@AM:"OPEN":@AM:"PROCREAD":@AM
+  SPECIAL.CASES := "PROCWRITE":@AM:"READ":@AM:"READNEXT":@AM:"READSEQ":@AM:"READT":@AM:"READU":@AM:"READV":@AM
+  SPECIAL.CASES := "READVU":@AM:"REWIND":@AM:"SEEK":@AM:"WEOF":@AM:"WRITESEQ":@AM
+  SPECIAL.CASES := "WRITET"
+  *
+  DEF.INDENT=2
+  FORMATS=":":@VM:"BEGIN":@VM:"CASE":@VM:"ELSE":@VM:"END":@VM:"FOR":@VM
+  FORMATS :="IF":@VM:"LOOP":@VM:"NEXT":@VM:"REPEAT":@VM:"RETURN":@VM
+  FORMATS :="THEN":@VM:"UNTIL":@VM:"WHILE"
+  * THIS.IND is the amount this line will be in or outdented
+  FORMATS<2>=0:@VM:0:@VM:-1:@VM:0:@VM:-1:@VM:0:@VM:0:@VM
+  FORMATS<2> :=0:@VM:-1:@VM:-1:@VM:-1:@VM:0:@VM:-1:@VM:-1
+  * NEXT.IND is the amount that all following lines will be indented
+  FORMATS<3>=1:@VM:2:@VM:0:@VM:1:@VM:-1:@VM:1:@VM:1:@VM
+  FORMATS<3> :=1:@VM:-1:@VM:-1:@VM:-1:@VM:1:@VM:0:@VM:0
+  FORMATS<4>=DEF.INDENT
+  *
+  OPEN B.FILE TO FI ELSE PRINT 'Cannot open ':B.FILE ; RETURN
+  READ REC FROM FI,B.ITEM ELSE PRINT "CANNOT READ ":B.FILE:" ":B.ITEM ; RETURN
+  *WRITE REC ON FI,B.NAME:".BAK"
+  SWAP CHAR(9) WITH SPACE(DEF.INDENT) IN REC
+  *
+  I = DCOUNT(REC,@AM)
+  IF I < 2 THEN RETURN
+  FOR F = 1 TO I
+    PRINT STAR:
+    L = REC<F> ; NEXT.LINE=REC<F+1>
+    GOSUB FORMAT.LINE
+    REC<F> = L
+  NEXT F
+  WRITE REC ON FI,B.ITEM
+  PRINT STAR ; PRINT I:" lines of ":B.ITEM:" formatted"
+  CLOSE FI
+RETURN
+*
+FORMAT.LINE:
+  * Format a line of code, figure out the indent level, as well as the indent level for the next line
+  L=TRIM(L,' ','B')
+  CONVERT TAB TO "" IN L
+  FIRST.WORD = FIELD(L,SPC,1)
+  LEN.FIRST.WORD = LEN(FIRST.WORD)
+  LOCATE FIRST.WORD IN SPECIAL.CASES BY 'AL' SETTING SPECIAL ELSE SPECIAL = 0
+  NUM.SPACES = COUNT(L,SPC) + 1
+  LAST.WORD = FIELD(L,SPC,NUM.SPACES)
+  NEXT.TO.LAST.WORD = FIELD(L,SPC,NUM.SPACES-1)
+  THIS.IND = 0
+  NEXT.IND = 0
+  BEGIN CASE
+    CASE L=""
+      L="*" ;* Makes pasting code around easier with no blank lines
+    CASE FIRST.WORD[LEN.FIRST.WORD,1] = COLON OR NUM(FIRST.WORD)
+      * A label
+      IND = 0
+      LOCATE COLON IN FORMATS<1> SETTING POS ELSE POS = 0
+      THIS.IND = FORMATS<2,POS>
+      NEXT.IND = FORMATS<3,POS>
+    CASE FIRST.WORD = "IF"
+      LOCATE FIRST.WORD IN FORMATS<1> SETTING POS ELSE POS = 0
+      IF LAST.WORD = "THEN" THEN
+        THIS.IND = FORMATS<2,POS>
+        NEXT.IND = FORMATS<3,POS>
+      END
+    CASE FIRST.WORD = "END"
+      SECOND.WORD = FIELD(L,SPC,2)
+      IF SECOND.WORD = "ELSE" THEN
+        LOCATE "ELSE" IN FORMATS<1> SETTING POS ELSE POS = 0
+        THIS.IND = -FORMATS<3,POS>
+        NEXT.IND = FORMATS<2,POS>
+      END ELSE
+        IF SECOND.WORD = "CASE" THEN
+          LOCATE "BEGIN" IN FORMATS<1> SETTING POS ELSE POS = 0
+          THIS.IND = -FORMATS<3,POS>
+          NEXT.IND = -FORMATS<3,POS>
+        END ELSE
+          LOCATE FIRST.WORD IN FORMATS<1> SETTING POS ELSE POS = 0
+          THIS.IND = FORMATS<2,POS>
+          NEXT.IND = FORMATS<3,POS>
+        END
+      END
+    CASE SPECIAL
+      * Find last word - skip until a space
+      IF LAST.WORD = "ELSE" OR LAST.WORD = "THEN" THEN
+        LOCATE LAST.WORD IN FORMATS<1> SETTING POS ELSE POS = 0
+        THIS.IND = FORMATS<2,POS>
+        NEXT.IND = FORMATS<3,POS>
+      END
+    CASE FIRST.WORD = "FOR" AND NEXT.TO.LAST.WORD = "NEXT"
+      * FOR loop on one line means do nothing
+    CASE FIRST.WORD = "RETURN" AND TRIM(NEXT.LINE) # "*"
+      * RETURN without a blank line means do nothing
+    CASE 1
+      LOCATE FIRST.WORD IN FORMATS<1> SETTING POS ELSE POS = 0
+      IF POS # 0 THEN
+        THIS.IND = FORMATS<2,POS>
+        NEXT.IND = FORMATS<3,POS>
+      END
+  END CASE
+  L = SPACE((IND+THIS.IND)*DEF.INDENT):L
+  *L = STR(TAB,IND+THIS.IND):L ;* In my misguided youth, tabs seemed cool
+  IND = IND + NEXT.IND
+RETURN
+*******************************************************************************
+* KEYBOARD PROCESSING
+*******************************************************************************
+KEY.DEFAULTS:
+  * Load default key bindings - this covers the basics, but you can add your own
+  KEYMAP=''
+  * Control characters
+  KEYCOMMAND='{Backspace}'   ; KEYPRESS='^H' ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{Backspace}'   ; KEYPRESS='^?' ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{BackWord}'    ; KEYPRESS='^X' ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{Clear}'       ; KEYPRESS='^L' ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{Delete}'      ; KEYPRESS='^D' ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{DeleteLine}'  ; KEYPRESS='^K' ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{DeleteWord}'  ; KEYPRESS='^W' ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{Down}'        ; KEYPRESS='^N' ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{End}'         ; KEYPRESS='^E' ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{Enter}'       ; KEYPRESS='^M' ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{ForwardWord}' ; KEYPRESS='^I' ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{Home}'        ; KEYPRESS='^A' ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{Left}'        ; KEYPRESS='^B' ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{PgDown}'      ; KEYPRESS='^V' ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{PgUp}'        ; KEYPRESS='^U' ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{Quit}'        ; KEYPRESS='^G' ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{Quit}'        ; KEYPRESS='ESC'; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{Right}'       ; KEYPRESS='^F' ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{Search}'      ; KEYPRESS='^R' ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{Up}'          ; KEYPRESS='^P' ; GOSUB ADD.KEYPRESS
+  * Putty-compatible keys
+  KEYCOMMAND='{BackWord}'    ; KEYPRESS='ESC[Z'     ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{BackWord}'    ; KEYPRESS='ESCESC[D'  ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{Clear}'       ; KEYPRESS='ESCESC[1~' ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{Delete}'      ; KEYPRESS='ESC[3~'    ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{DeleteLine}'  ; KEYPRESS='ESCESC[4~' ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{DeleteWord}'  ; KEYPRESS='ESCESC[3~' ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{Down}'        ; KEYPRESS='ESC[B'     ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{End}'         ; KEYPRESS='ESC[4~'    ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{ForwardWord}' ; KEYPRESS='ESCESC[C'  ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{Home}'        ; KEYPRESS='ESC[1~'    ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{Left}'        ; KEYPRESS='ESC[D'     ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{PgDown}'      ; KEYPRESS='ESC[6~'    ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{PgUp}'        ; KEYPRESS='ESC[5~'    ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{Right}'       ; KEYPRESS='ESC[C'     ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{Up}'          ; KEYPRESS='ESC[A'     ; GOSUB ADD.KEYPRESS
+  * Xterm-compatible keys
+  KEYCOMMAND='{Down}'        ; KEYPRESS='ESCOB'     ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{End}'         ; KEYPRESS='ESC[F'     ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{Home}'        ; KEYPRESS='ESC[H'     ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{Left}'        ; KEYPRESS='ESCOD'     ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{Right}'       ; KEYPRESS='ESCOC'     ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{Up}'          ; KEYPRESS='ESCOA'     ; GOSUB ADD.KEYPRESS
+  *
+  WRITE KEYMAP ON HOME.F, KEYMAP.ITEM
+RETURN
+*
+LIST.KEYS:
+  * List all the key bindings
+  FOR K=1 TO DCOUNT(KEYCOMMLIST<1>,@VM)
+    KEYCOMMAND=KEYCOMMLIST<1,K>
+    KEYCOMMANDDESC=KEYCOMMLIST<2,K>
+    GOSUB SHOW.KEY
+  NEXT K
+RETURN
+*
+TRAIN:
+  * Add your own custom key bindings
+  IF KEYMAP='' THEN GOSUB KEY.DEFAULTS
+  *
+  CRT 'Adding custom key bindings to your keymap'
+  CRT 'For each possible command, the current setting will be displayed'
+  CRT 'and you can press any key you would like to be mapped to that command.'
+  CRT 'Some settings are built-in, such as Ctrl-P for previous, or Ctrl-U for page up'
+  CRT ''
+  CRT 'You can create multiple mapping for the same command, like Shift-tab or'
+  CRT 'Alt-left arrow to go back a word. Press ENTER when you are done with a command'
+  *
+  FOR K=1 TO DCOUNT(KEYCOMMLIST<1>,@VM)
+    KEYCOMMAND=KEYCOMMLIST<1,K>
+    KEYCOMMANDDESC=KEYCOMMLIST<2,K>
+    GOSUB SET.KEY
+  NEXT K
+  *
+  WRITE KEYMAP ON HOME.F, KEYMAP.ITEM
+RETURN
+*
+SHOW.KEY:
+  * Show the current key binding for KEYCOMMAND
+  FOR J=1 TO DCOUNT(KEYMAP<1>,@VM)
+    IF KEYMAP<2,J>=KEYCOMMAND THEN
+      CRT KEYCOMMAND 'L#15':' ':KEYCOMMANDDESC'L#50':' ':KEYMAP<1,J>
+    END
+  NEXT J
+RETURN
+*
+SET.KEY:
+  * Set a key binding for KEYCOMMAND
+  CRT STR('-',80)
+  GOSUB SHOW.KEY
+  LOOP
+    CRT 'Enter to skip or press the key for ':KEYCOMMAND:':'
+    KEYPRESS=''
+    LOOP
+      CH=IN()
+      ASC.CH = SEQ(CH)
+      IF ASC.CH=13 THEN RETURN
+      IF ASC.CH<27 THEN CH='^':CHAR(SEQ('A')-1+ASC.CH)
+      IF ASC.CH=27 THEN CH='ESC'
+      IF ASC.CH=127 THEN CH='^?'
+      CRT CH
+      KEYPRESS:=CH
+    UNTIL SYSTEM(14) = 0 DO
+    REPEAT
+    GOSUB ADD.KEYPRESS
+  REPEAT
+RETURN
+*
+ADD.KEYPRESS:
+  * Add a new key binding to an existing KEYCOMMAND
+  LOCATE KEYPRESS IN KEYMAP<1> BY 'AL' SETTING POS THEN
+    CRT 'Duplicate key detected! ':KEYPRESS:' mapped to ':KEYMAP<2,POS>
+  END ELSE
+    INS KEYPRESS BEFORE KEYMAP<1,POS>
+    INS KEYCOMMAND BEFORE KEYMAP<2,POS>
+  END
+RETURN
+*
+KEYS:
+  * Show the ASCII key values, useful for setting up key bindings
+  LOOP
+    CRT 'PRESS A KEY, / to exit:':
+    CH=IN()
+    ASC.CH = SEQ(CH)
+    IF ASC.CH >= 32 AND ASC.CH < 127 THEN CRT CH:'=': ELSE CRT ' =':
+    CRT ASC.CH
+  UNTIL CH='/' DO
+  REPEAT
+RETURN
+*
+GET.LINE:
+  * Get a line of input, with some basic editing
+  * SUBROUTINE GET.LINE(X,LEN,DISP.LEN,XXDATA,RTN)
+  * X           = X POS
+  * LEN         = MAX ALLOWED LENGTH
+  * DISP.LEN    = MAX DISPLAYED LEN
+  * XXDATA      = ON INPUT  VARIABLE XXDATA
+  *             = ON OUTPUT RETURNED STRING
+  * RTN         = SEQ(CHAR PRESSED TO EXIT)
+  * -----------------
+  * Important globals
+  * CP          = Cursor Position, Y coordinate on the screen 0 -> DISP.LEN
+  * CH.PTR      = Pointer into string being edited            1 -> LEN
+  * POS         = Pointer to first char currently displayed   1 -> LEN
+  * ASC.CH      = The numeric value of the key just entered
+  *
+  IF NOT(GET.LINE.FLAG) THEN
+    PRINT @(X):;INPUT ENTRY
+    RTN = RET
+    RETURN
+  END
+  *
+  ECHO OFF
+  P1=1 ; P2=20
+  SEARCH.FOR=''
+  GOSUB GET.LINE.INIT
+  *
+  LOOP
+    EXIT.FLAG=FALSE
+    CURR.LEN = LEN(XXDATA)
+    CRT @(X+CP):
+    BUFFER=''
+    LOOP
+      CH=IN()
+      ASC.CH = SEQ(CH)
+      IF ASC.CH<27 THEN CH='^':CHAR(SEQ('A')-1+ASC.CH)
+      IF ASC.CH=27 THEN CH='ESC'
+      IF ASC.CH=127 THEN CH='^?'
+      BUFFER:=CH
+    UNTIL SYSTEM(14) = 0 DO
+    REPEAT
+    *
+    IF LEN(BUFFER)=1 THEN
+      * Special case single keystroke to keep character entry fast
+      KEYCOMMAND=''
+      CH=BUFFER
+      GOSUB PROCESS.KEYPRESS
+    END ELSE
+      * We may have multiple "things" loaded in the buffer, attempt to find the longest sequence
+      * E.g. ESC[AESC[AESC[1~BAStart = Up Up Down Down Left Right Left Right B A Start
+      L=LEN(BUFFER)
+      LOOP
+        KEYPRESS=BUFFER[1,L]
+        LOCATE KEYPRESS IN KEYMAP<1> BY 'AL' SETTING COMMAND.POS THEN
+          * We found a command, process it, remove from list and start over
+          KEYCOMMAND=KEYMAP<2,COMMAND.POS>
+          GOSUB PROCESS.KEYPRESS
+          BUFFER=BUFFER[L+1,LEN(BUFFER)]
+          L=LEN(BUFFER)
+        END ELSE
+          L-=1
+        END
+        IF L=0 THEN
+          * Just regular or unmatched keypresses left, e.g. LISTA^M
+          FOR L=1 TO LEN(BUFFER)
+            KEYCOMMAND=''
+            CH=BUFFER[L,1]
+            IF CH='^' THEN
+              KEYPRESS=CH:BUFFER[L+1,1]
+              LOCATE KEYPRESS IN KEYMAP<1> BY 'AL' SETTING COMMAND.POS THEN
+                KEYCOMMAND=KEYMAP<2,COMMAND.POS>
+                L+=1
+              END
+            END
+            GOSUB PROCESS.KEYPRESS
+          NEXT L
+          EXIT
+        END
+      REPEAT
+    END
+  UNTIL EXIT.FLAG DO
+  REPEAT
+  IF XXDATA[CURR.LEN,1] = SPC THEN XXDATA = XXDATA[1,CURR.LEN-1]
+  ECHO ON ; PRINT BASE:XXDATA MASK
+  ENTRY=XXDATA
+RETURN
+    *
+PROCESS.KEYPRESS:
+  * Process a single keypress, could be a character added to a command, or could be an editing command
+  BEGIN CASE
+    CASE KEYCOMMAND=''
+      GOSUB ORD
+    CASE KEYCOMMAND='{Home}'
+      GOSUB GO.BEGIN
+    CASE KEYCOMMAND='{Left}'
+      GOSUB LEFT
+    CASE KEYCOMMAND='{Delete}'
+      GOSUB DEL
+    CASE KEYCOMMAND='{End}'
+      GOSUB GO.END
+    CASE KEYCOMMAND='{Right}'
+      GOSUB RIGHT
+    CASE KEYCOMMAND='{Quit}'
+      XXDATA = ''
+      EXIT.FLAG=TRUE
+      RTN=13
+    CASE KEYCOMMAND='{Backspace}'
+      GOSUB BACK
+    CASE KEYCOMMAND='{DeleteLine}'
+      GOSUB DEL.TO.END
+    CASE KEYCOMMAND='{Clear}'
+      PRINT @(-1):
+      XXDATA = ''
+      EXIT.FLAG=TRUE
+      RTN=13
+    CASE KEYCOMMAND='{Enter}'
+      * Special case for .R and .X, which are treated as editing commands, not stack commands
+      IF UPCASE(XXDATA[1,2])='.R' OR UPCASE(XXDATA[1,2])='.X' THEN
+        LINE.NUM=TRIM(XXDATA[3,CURR.LEN])
+        IF NUM(LINE.NUM) THEN
+          ENTRY = STACK<LINE.NUM,4>
+          GOSUB GET.LINE.INIT
+        END ELSE
+          CRT BELL:
+        END
+      END ELSE
+        EXIT.FLAG = TRUE
+        RTN=13
+      END
+    CASE KEYCOMMAND='{Down}'
+      GOSUB DOWN.KEY
+    CASE KEYCOMMAND='{Up}'
+      GOSUB UP.KEY
+    CASE KEYCOMMAND='{Search}'
+      GOSUB SEARCH.KEY
+    CASE KEYCOMMAND='{PgUp}'
+      GOSUB PAGE.UP
+    CASE KEYCOMMAND='{PgDown}'
+      GOSUB PAGE.DOWN
+    CASE KEYCOMMAND='{DeleteWord}'
+      GOSUB DELETE.WORD
+    CASE KEYCOMMAND='{BackWord}'
+      GOSUB BACK.WORD
+    CASE KEYCOMMAND='{ForwardWord}'
+      GOSUB FORWARD.WORD
+  END CASE
+RETURN
+*
+GET.LINE.INIT:
+  * Initialize variables for GET.LINE
+  XXDATA = ENTRY
+  TEMP.XXDATA = XXDATA
+  BASE = @(X):EOS ; MASK = 'L#':DISP.LEN
+  PRINT BASE:
+  CURR.LEN = LEN(XXDATA)
+  GOSUB GO.END
+  RTN=''
+RETURN
+*
+UP.KEY:
+  * Up arrow pressed
+  LINE.NUM+=1
+  ENTRY=STACK<LINE.NUM,4>
+  GOSUB GET.LINE.INIT
+RETURN
+*
+DOWN.KEY:
+  * Down arrow pressed
+  LINE.NUM-=1
+  IF LINE.NUM<0 THEN
+    LINE.NUM=0
+    ENTRY=''
+  END ELSE
+    ENTRY=STACK<LINE.NUM,4>
+  END
+  GOSUB GET.LINE.INIT
+RETURN
+*
+PAGE.UP:
+  * Page up pressed
+  GOSUB LIST.STACK
+  ENTRY=''
+  GOSUB GET.LINE.INIT
+  CRT BON:PROMPT.DISP:BOFF:
+  P2 = P2 + 20
+  P1 = P1 + 20
+  IF P2 > MAX.STACK THEN P2 = MAX.STACK
+  IF P1 > MAX.STACK-20 THEN P1 = MAX.STACK-20
+RETURN
+*
+PAGE.DOWN:
+  * Page down pressed
+  GOSUB LIST.STACK
+  ENTRY=''
+  GOSUB GET.LINE.INIT
+  CRT BON:PROMPT.DISP:BOFF:
+  P2 = P2 - 20
+  P1 = P1 - 20
+  IF P2 < 20 THEN P2=20
+  IF P1 < 1 THEN P1=1
+RETURN
+*
+SEARCH.KEY:
+  * Search the stack for a string, hit ^R to repeat search from current position
+  IF SEARCH.FOR='' THEN
+    ECHO ON
+    CRT BASE:'Search for:':
+    INPUT SEARCH.FOR:
+    SEARCH.FOR=UPCASE(SEARCH.FOR)
+    ECHO OFF
+  END
+  * Search the stack for a string
+  FOUND = FALSE
+  FOR F = LINE.NUM+1 TO MAX.STACK UNTIL FOUND OR STACK<F> = ''
+    IF INDEX(UPCASE(STACK<F,4>),SEARCH.FOR,1) # 0 THEN FOUND = TRUE
+  NEXT F
+  IF FOUND THEN
+    LINE.NUM=F-1
+    ENTRY=STACK<LINE.NUM,4>
+    GOSUB GET.LINE.INIT
+  END ELSE
+    PRINT BELL:
+  END
+RETURN
+*
+ORD:
+  * Ordinary key pressed, add to string, shift display if necessary
+  ASC.CH = SEQ(CH)
+  IF ASC.CH < 32 OR ASC.CH > 126 THEN CH='~' ;* If a non-printable character, display as a tilde
+  IF CH.PTR # LEN+1 THEN
+    IF CURR.LEN = LEN THEN
+      PRINT BELL:
+      GOTO SKIP1
+    END ELSE
+      XXDATA = XXDATA[1,CH.PTR-1]:CH:XXDATA[CH.PTR,CURR.LEN]
+    END
+    CH.PTR = CH.PTR + 1
+    IF CP # DISP.LEN THEN
+      PRINT @(X+CP):CH:XXDATA[CH.PTR,DISP.LEN-CP-1]:
+      CP = CP + 1
+    END ELSE
+      POS = POS + 1
+      PRINT BASE:XXDATA[POS,DISP.LEN] MASK:
+    END
+  END ELSE
+    PRINT BELL:
+  END
+SKIP1:
+RETURN
+*
+RIGHT:
+  * There are 3 situations here -
+  * 1 We're pressing the right arrow thru existing text       (CH.PTR = CURR.LEN)
+  * 2 We've typed text and are at the end when we press right (CH.PTR > CURR.LEN)
+  * 3 We're in the middle of text, pressing the right arrow   (CH.PTR < CURR.LEN)
+  IF CH.PTR < LEN THEN
+    IF CH.PTR > CURR.LEN THEN PRINT BELL: ; GOTO SKIP2
+    IF CH.PTR = CURR.LEN THEN
+      * If the last char is not a space make it one
+      IF XXDATA[CURR.LEN,1] # SPC THEN
+        XXDATA = XXDATA:SPC
+        IF CP # DISP.LEN THEN PRINT @(X+CP+1):SPC:
+        CURR.LEN = CURR.LEN + 1
+      END ELSE
+        PRINT BELL:
+        GOTO SKIP2
+      END
+    END
+    CH.PTR = CH.PTR + 1
+    IF CP # DISP.LEN THEN
+      * We're not at the end of display so just move the cursor
+      CP = CP + 1
+    END ELSE
+      * We are at the end of the display so leave cursor where
+      * it is and scroll through line
+      POS = POS + 1
+      PRINT BASE:XXDATA[POS,DISP.LEN] MASK:
+    END
+  END ELSE
+    PRINT BELL:
+  END
+SKIP2:
+RETURN
+*
+FORWARD.WORD:
+  * Jump forward a word, words are defined as anything between spaces
+  IF CH.PTR >= CURR.LEN THEN
+    PRINT BELL:
+  END ELSE
+    LOOP
+      CH.PTR = CH.PTR + 1
+      CP = CP + 1
+    UNTIL XXDATA[CH.PTR,1] = SPC OR CH.PTR = CURR.LEN DO
+    REPEAT
+    IF CH.PTR # CURR.LEN THEN
+      LOOP
+        CH.PTR = CH.PTR + 1
+        CP = CP + 1
+      UNTIL XXDATA[CH.PTR,1] # SPC OR CH.PTR = CURR.LEN DO
+      REPEAT
+    END
+    IF CP > DISP.LEN THEN
+      CP = DISP.LEN
+      POS = CH.PTR - DISP.LEN
+      PRINT BASE:XXDATA[POS,DISP.LEN] MASK:
+    END
+  END
+RETURN
+*
+LEFT:
+  * If we're not at the start of data, move left
+  IF CH.PTR # 1 THEN
+    CH.PTR = CH.PTR - 1
+    IF CP # 0 THEN
+      * We're not at the start of the display so just move the cursor
+      CP = CP - 1
+    END ELSE
+      * We are at the start of the display so leave cursor and scroll
+      POS = POS - 1
+      PRINT BASE:XXDATA[POS,DISP.LEN] MASK:
+    END
+  END ELSE
+    PRINT BELL:
+  END
+RETURN
+*
+DEL:
+  * Delete the character at the cursor and redisplay from this point
+  XXDATA = XXDATA[1,CH.PTR-1]:XXDATA[CH.PTR+1,CURR.LEN]
+  CURR.LEN = CURR.LEN - 1
+  PRINT BASE:XXDATA[POS,DISP.LEN] MASK:
+RETURN
+*
+BACK:
+  * Backspace key pressed
+  IF CH.PTR # 1 THEN
+    CH.PTR = CH.PTR - 1
+    XXDATA = XXDATA[1,CH.PTR-1]:XXDATA[CH.PTR+1,CURR.LEN]
+    CURR.LEN = CURR.LEN - 1
+    IF CP # 0 THEN
+      CP = CP - 1
+    END ELSE
+      POS = POS - 1
+    END
+    PRINT BASE:XXDATA[POS,DISP.LEN] MASK:
+  END ELSE
+    PRINT BELL:
+  END
+RETURN
+*
+BACK.WORD:
+  * Shift tab pressed - go back a word
+  IF CH.PTR = 1 THEN
+    PRINT BELL:
+  END ELSE
+    * 2 situations - either we're in a word already or
+    * we're at the start of a word
+    * If in a word - loop to the start of the word
+    * otherwise skip spaces, and then move to start of word
+    IF XXDATA[CH.PTR-1,1] # SPC THEN
+      LOOP
+      UNTIL XXDATA[CH.PTR-1,1] = SPC OR CH.PTR = 1 DO
+        CH.PTR = CH.PTR - 1
+        CP = CP - 1
+      REPEAT
+    END ELSE
+      * Skip spaces
+      LOOP
+      UNTIL XXDATA[CH.PTR-1,1] # SPC OR CH.PTR = 1 DO
+        CH.PTR = CH.PTR - 1
+        CP = CP - 1
+      REPEAT
+      IF CH.PTR > 1 THEN
+        * At word end - move to start of word
+        LOOP
+        UNTIL XXDATA[CH.PTR-1,1] = SPC OR CH.PTR = 1 DO
+          CH.PTR = CH.PTR - 1
+          CP = CP - 1
+        REPEAT
+      END
+    END
+    IF CP < 0 THEN
+      CP = 0
+      POS = CH.PTR
+      PRINT BASE:XXDATA[POS,DISP.LEN] MASK:
+    END
+  END
+RETURN
+*
+DEL.TO.END:
+  * Delete from cursor to end of line
+  IF CH.PTR = 1 THEN
+    XXDATA = ''
+    CP = 0
+    POS = 1
+  END ELSE
+    XXDATA = XXDATA[1,CH.PTR-1]
+  END
+  CURR.LEN = LEN(XXDATA)
+  PRINT BASE:XXDATA[POS,DISP.LEN] MASK:
+RETURN
+*
+DELETE.WORD:
+  * Delete to space at right of cursor
+  IF CH.PTR >= CURR.LEN THEN
+    PRINT BELL:
+  END ELSE
+    C = CH.PTR
+    LOOP
+      C = C + 1
+    UNTIL XXDATA[C,1] = SPC OR C = CURR.LEN DO
+    REPEAT
+    XXDATA = XXDATA[1,CH.PTR-1]:XXDATA[C+1,CURR.LEN]
+    CURR.LEN = CURR.LEN - C + CH.PTR - 1
+    PRINT BASE:XXDATA[POS,DISP.LEN] MASK:
+  END
+RETURN
+*
+GO.BEGIN:
+  * Go to the start of data and redisplay
+  CP = 0
+  CH.PTR = 1
+  POS = 1
+  PRINT BASE:XXDATA MASK:
+RETURN
+*
+GO.END:
+  * Move to the end of data and redisplay
+  IF XXDATA[CURR.LEN,1] # SPC THEN
+    XXDATA = XXDATA:SPC
+    CURR.LEN = CURR.LEN + 1
+  END
+  IF CURR.LEN < DISP.LEN THEN
+    CP = CURR.LEN - 1
+    POS = 1
+  END ELSE
+    CP = DISP.LEN - 1
+    POS = CURR.LEN - DISP.LEN + 1
+  END
+  CH.PTR = CURR.LEN
+  PRINT BASE:XXDATA[POS,DISP.LEN] MASK:
+RETURN
+*
