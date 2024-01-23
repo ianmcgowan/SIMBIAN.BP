@@ -2,11 +2,11 @@
 * Program: STACK
 * Author : Ian McGowan
 * Created: 1989-06-13
-* Updated: 2024-01-03
+* Updated: 2024-01-22
 * License: (c) 1989-2024 Ian McGowan, released under MIT license
 * Comment: Stacks TCL commands, utilities for programmers
 ***************************************************************************
-CRT \Version 2024-01-03 Applicaton Commands Buh-Bye\
+CRT \Version 2024-01-03 Settings\
 *
 * STACK is a command line editor, command stack, program stack and useful utilites for TCL
 * It is designed to make life easier and more productive for programmers
@@ -907,6 +907,7 @@ SETTINGS:
   IF ENTRY = '/' THEN RETURN
   IF ENTRY = ''  THEN ENTRY=SETTINGS<5>
   SETTINGS<5>=ENTRY
+  WP.VERB=SETTINGS<5>
   *
   PRINT
   PRINT 'Line editor is what command to run to edit a program'
