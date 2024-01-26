@@ -174,6 +174,7 @@ CRT '? for Help'
 OLD.X.DISP=X.DISP
 SHOW.SELECT=0
 RTN=NUL
+TERM.WIDTH=80
 IF STARTUP # NUL THEN ANS=STARTUP ; GOSUB COMMAND ; STARTUP=NUL
 ANS=NUL
 *******************************************************************************
@@ -1131,6 +1132,7 @@ GET.TERM.WIDTH:
   IF OS.PATH.DELIM = "\" THEN
     TERM.WIDTH=@CRTWIDE
   END ELSE
+    OLD.TERM.WIDTH=TERM.WIDTH
     T='/tmp/':@LOGNAME:'.term'
     EXEC.LINE=\!tput cols > \:T ;* Always returns 80 if you capture, so use tmp file
     GOSUB EXEC.SUB
@@ -1140,7 +1142,10 @@ GET.TERM.WIDTH:
     TERM.WIDTH=EXEC.CAP<1>
     EXEC.LINE=\!rm \:T
     GOSUB EXEC.SUB
-    EXEC.LINE=\TERM \:TERM.WIDTH ; GOSUB EXEC.SUB
+    IF OLD.TERM.WIDTH # TERM.WIDTH THEN
+      EXEC.LINE=\TERM \:TERM.WIDTH
+      GOSUB EXEC.SUB
+    END
   END
 RETURN
 *
