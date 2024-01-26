@@ -2,11 +2,11 @@
 * Program: STACK
 * Author : Ian McGowan
 * Created: 1989-06-13
-* Updated: 2024-01-22
+* Updated: 2024-01-26
 * License: (c) 1989-2024 Ian McGowan, released under MIT license
 * Comment: Stacks TCL commands, utilities for programmers
 ***************************************************************************
-CRT \Version 2024-01-03 Settings\
+CRT \Version 2024-01-26 Wide Load\
 *
 * STACK is a command line editor, command stack, program stack and useful utilites for TCL
 * It is designed to make life easier and more productive for programmers
@@ -1129,8 +1129,7 @@ GET.TERM.WIDTH:
   * Get the terminal width, either from the TERM environment variable or from tput
   * In unix we can detect changes to the terminal width dynamically, but in windows user has to set TERM 132 manually
   IF OS.PATH.DELIM = "\" THEN
-    EXEC.LINE=\TERM\ ; CAP.ACTIVE=TRUE ; GOSUB EXEC.SUB
-    TERM.WIDTH=FIELD(FIELD(EXEC.CAP<4>,'(',2),')',1)
+    TERM.WIDTH=@CRTWIDE
   END ELSE
     T='/tmp/':@LOGNAME:'.term'
     EXEC.LINE=\!tput cols > \:T ;* Always returns 80 if you capture, so use tmp file
