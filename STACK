@@ -1,12 +1,13 @@
+$BASICTYPE "P"
 ***************************************************************************
 * Program: STACK
 * Author : Ian McGowan
 * Created: 1989-06-13
-* Updated: 2024-01-26
+* Updated: 2024-01-29
 * License: (c) 1989-2024 Ian McGowan, released under MIT license
 * Comment: Stacks TCL commands, utilities for programmers
 ***************************************************************************
-CRT \Version 2024-01-26 Wide Load\
+CRT \Version 2024-01-26 Tractor Trailer\
 *
 * STACK is a command line editor, command stack, program stack and useful utilites for TCL
 * It is designed to make life easier and more productive for programmers
@@ -106,6 +107,7 @@ IF OS.PATH.DELIM = "\" THEN
 END ELSE
   SETTINGS<14>  = "bash -i";* DEFAULT SHELL FOR UNIX COMMANDS
 END
+SETTINGS<15>  = ""         ;* DEFAULT EXTERNAL UTILS
 *
 * Merge the settings from the file with the defaults
 READ R FROM HOME.F, SETTING.ITEM ELSE R=NUL
@@ -129,6 +131,7 @@ STARTUP           = SETTINGS<11>
 PROMT             = SETTINGS<12>
 X.DISP            = SETTINGS<13>
 DEF.SHELL         = SETTINGS<14>
+EXT.COMMS         = SETTINGS<15>
 WRITE SETTINGS ON HOME.F, SETTING.ITEM
 *
 * Built-in editing commands, can be bound to new keys as needed
@@ -167,7 +170,7 @@ HOST.NAME=EXEC.CAP<1>
 READ STACK FROM HOME.F, STACK.ITEM ELSE STACK = NUL
 CRT DCOUNT(STACK,@AM):' commands in stack ':HOME.DIR:OS.PATH.DELIM:STACK.ITEM
 READ ALIASES FROM HOME.F, ALIAS.ITEM ELSE ALIASES = NUL
-*
+* 
 CRT '? for Help'
 *
 * You can put commands in the startup file, e.g. .L ; LISTA ; DATE
@@ -246,11 +249,15 @@ DO.COMMAND:
   COMMANDS:='OCONV,OFF,PICKLE,PIVOT,PROF,KEY.DEFAULTS,Q,RULER,SE,SETTINGS,SF,TRAIN'
   CONVERT ',' TO @VM IN COMMANDS
   LOCATE FIRST.WORD IN COMMANDS<1> SETTING INTERNAL.COMMAND ELSE INTERNAL.COMMAND=''
+  LOCATE FIRST.WORD IN EXT.COMMS<1> SETTING EXTERNAL.COMMAND ELSE EXTERNAL.COMMAND=''
   *
   BEGIN CASE
     CASE INTERNAL.COMMAND
       ON INTERNAL.COMMAND GOSUB DO.ALIAS, CHECK.FILE, DDD, CONV, KEYS, LIST.KEYS, CONV, QUIT, PICKLE, PIVOT,
                                 PROFILE, KEY.DEFAULTS, QUIT, RULER, SEARCH.EXAMPLE, SETTINGS, SEARCH.FILE, TRAIN
+    CASE EXTERNAL.COMMAND
+      T.ANS=ANS ;* Don't want this overwritten by the external command
+      CALL STACK.EXT.COMM(T.ANS, FIRST.WORD)
     CASE ANS[1,1] = STACK.CHAR
       * E.g. .L .X20 .D
       ANS = TRIM(UPCASE(ANS))
@@ -839,6 +846,8 @@ RETURN
 *
 SETTINGS:
   * Display and edit the settings
+  EXT.COMMS.DISP=EXT.COMMS
+  SWAP @VM WITH ',' IN EXT.COMMS.DISP
   PRINT CS:
   PRINT 'COMMAND.SEP  = ':SETTINGS<1>
   PRINT 'STACK.CHAR   = ':SETTINGS<2>
@@ -854,6 +863,7 @@ SETTINGS:
   PRINT 'PROMT        = ':SETTINGS<12>
   PRINT 'X.DISP       = ':SETTINGS<13>
   PRINT 'DEF.SHELL    = ':SETTINGS<14>
+  PRINT 'EXT.COMMS    = ':EXT.COMMS.DISP
   PRINT ; PRINT 'Hit ENTER to accept the current default, / to Cancel'
   X=18
   LEN=30
@@ -983,6 +993,17 @@ SETTINGS:
   IF ENTRY = '/' THEN RETURN
   IF ENTRY = ''  THEN ENTRY=SETTINGS<14>
   SETTINGS<14>=ENTRY
+  *
+  PRINT
+  PRINT 'External utilities, comma separated list'
+  PRINT 'EXT.COMMS       :':EXT.COMMS.DISP
+  PRINT 'EXT.COMMS       :':
+  INPUT ENTRY
+  IF ENTRY = '/' THEN RETURN
+  IF ENTRY = ''  THEN ENTRY=EXT.COMMS.DISP
+  SWAP ',' WITH @VM IN ENTRY
+  SETTINGS<15>=ENTRY
+  EXT.COMMS=SETTINGS<15>
   *
   WRITE SETTINGS ON HOME.F, SETTING.ITEM
 RETURN
