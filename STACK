@@ -2,10 +2,10 @@
 * Program: STACK
 * Author : Ian McGowan
 * Created: 1989-06-13
-* Updated: 2024-09-13
+* Updated: 2024-10-18
 * Comment: Stacks TCL commands, utilities for programmers
 ***************************************************************************
-CRT \Version 2024-09-13 Unlucky Ducky\
+CRT \Version 2024-10-18 Prompt Attention\
 *
 * STACK is a command line editor, command stack, program stack and useful utilites for TCL
 * It is designed to make life easier and more productive for programmers
@@ -50,6 +50,7 @@ STACK.HELP<-1>='                                                                
 STACK.HELP<-1>='---------------------------- UTILITIES ----------------------------------------'
 STACK.HELP<-1>='{C}CI/CM/TM {Customer}Contract Inquiry/Maint/Table Maint             CI 100.1.1'
 STACK.HELP<-1>='AF          ATB Finder, search definitions                            AF MRKTNG'
+STACK.HELP<-1>='ASCII       Show ASCII table                                                   '
 STACK.HELP<-1>='BPI         List table definitions                          BPI LS.CTD.PYMTHIST'
 STACK.HELP<-1>='CHECK.FILE  Show strings in a compiled program /P|/S      CHECK.FILE DISP.00 /P'
 STACK.HELP<-1>='CT          View data records, with labels         CT LS.MASTER 123-1234567-000'
@@ -310,14 +311,14 @@ DO.COMMAND:
   CAP.ACTIVE=FALSE
   FIRST.WORD=FIELD(ANS,' ',1)
   UPDATE.STACK.FLAG=TRUE
-  COMMANDS='AF,ALIAS,BPI,CCI,CCM,CHECK.FILE,CI,CM,CT,DDD,DESC,DIFF,FIELD,FIND.MENU,ICONV,KEYS,LIST.KEYS,SQL-LIST,LISTA,MODULES,'
-  COMMANDS:='NED,NSEL,OCONV,OFF,PARAM,PICKLE,PIVOT,PROF,KEY.DEFAULTS,Q,RS,RULER,SE,SETTINGS,SF,SQL,SQLF,TM,TRAIN,XREF'
+  COMMANDS='AF,ALIAS,ASCII,BPI,CCI,CCM,CHECK.FILE,CI,CM,CT,DDD,DESC,DIFF,FIELD,FIND.MENU,ICONV,KEYS,LIST.KEYS,SQL-LIST,LISTA,'
+  COMMANDS:='MODULES,NED,NSEL,OCONV,OFF,PARAM,PICKLE,PIVOT,PROF,KEY.DEFAULTS,Q,RS,RULER,SE,SETTINGS,SF,SQL,SQLF,TM,TRAIN,XREF'
   CONVERT ',' TO @VM IN COMMANDS
   LOCATE FIRST.WORD IN COMMANDS<1> SETTING INTERNAL.COMMAND ELSE INTERNAL.COMMAND=''
   *
   BEGIN CASE
     CASE INTERNAL.COMMAND
-      ON INTERNAL.COMMAND GOSUB ATB.FIND, DO.ALIAS, BPI, CCI, CCM, CHECK.FILE, CI, CM, VIEW.RECORD, DDD, IL10.DESC, DIFF, IL10.FIELD,
+      ON INTERNAL.COMMAND GOSUB ATB.FIND, DO.ALIAS, ASCII, BPI, CCI, CCM, CHECK.FILE, CI, CM, VIEW.RECORD, DDD, IL10.DESC, DIFF, IL10.FIELD,
                                 FIND.MENU, CONV, KEYS, LIST.KEYS, SQL.SEL.LIST, LISTA, LIST.MODULES, IL10.NED, IL10.NSEL, CONV,
                                 QUIT, LIST.PARAM, PICKLE, PIVOT, PROFILE, KEY.DEFAULTS, QUIT, RS, RULER, SEARCH.EXAMPLE, SETTINGS,
                                 SEARCH.FILE, SQL.SEL, SQL.FILE, TM, TRAIN, IL10.XREF
@@ -513,6 +514,16 @@ EXPAND.PROMPT:
         PROMPT.DISP = L:OCONV(DATE(),'D'):R
       CASE F = 'E'
         PROMPT.DISP = L:CHAR(ESC):R
+      CASE F = 'L'
+        IF IL.MAJOR.VER#10 THEN
+          PROMPT.DISP=L:R
+        END ELSE
+          PORT=@UDTNO-1
+          SQL=\SELECT COUNT(*) FROM SESSION_PORTS SP INNER JOIN SYSTEM_SESSION SS ON SS.SESSION_ID = SP.SESSION_ID \
+          SQL:=\INNER JOIN DB_RECORD_LOCKS DRL ON DRL.LOCKED_SESSION_ID = SS.SESSION_ID WHERE SP.PORT_NUMBER = \:PORT
+          CALL IDS.EXECUTE.ANSI.SQL(SQL,'','','',LOCKS)
+          IF LOCKS>0 THEN PROMPT.DISP=L:'(':LOCKS:' LOCKS) ':R ELSE PROMPT.DISP=L:R
+        END
       CASE F = 'R'
         PROMPT.DISP = L:CHAR(13):CHAR(10):R
       CASE F = '#'
@@ -1604,6 +1615,148 @@ LIST.KEYS:
   NEXT K
 RETURN
 *
+ASCII:
+  A=\0|00|NUL|Null character\
+  A<-1>=\1|01|SOH|Start of Heading\
+  A<-1>=\2|02|STX|Start of Text\
+  A<-1>=\3|03|ETX|End of Text\
+  A<-1>=\4|04|EOT|End of Transmission\
+  A<-1>=\5|05|ENQ|Enquiry\
+  A<-1>=\6|06|ACK|Acknowledge\
+  A<-1>=\7|07|BEL|Bell, Alert\
+  A<-1>=\8|08|BS|Backspace\
+  A<-1>=\9|09|HT|Horizontal Tab\
+  A<-1>=\10|0A|LF|Line Feed\
+  A<-1>=\11|0B|VT|Vertical Tabulation\
+  A<-1>=\12|0C|FF|Form Feed\
+  A<-1>=\13|0D|CR|Carriage Return\
+  A<-1>=\14|0E|SO|Shift Out\
+  A<-1>=\15|0F|SI|Shift In\
+  A<-1>=\16|10|DLE|Data Link Escape\
+  A<-1>=\17|11|DC1|Device Control One (XON)\
+  A<-1>=\18|12|DC2|Device Control Two\
+  A<-1>=\19|13|DC3|Device Control Three (XOFF)\
+  A<-1>=\20|14|DC4|Device Control Four\
+  A<-1>=\21|15|NAK|Negative Acknowledge\
+  A<-1>=\22|16|SYN|Synchronous Idle\
+  A<-1>=\23|17|ETB|End of Transmission Block\
+  A<-1>=\24|18|CAN|Cancel\
+  A<-1>=\25|19|EM|End of medium\
+  A<-1>=\26|1A|SUB|Substitute\
+  A<-1>=\27|1B|ESC|Escape\
+  A<-1>=\28|1C|FS|File Separator\
+  A<-1>=\29|1D|GS|Group Separator\
+  A<-1>=\30|1E|RS|Record Separator\
+  A<-1>=\31|1F|US|Unit Separator\
+  A<-1>=\32|20|SP|Space\
+  A<-1>=\33|21|!|Exclamation mark|&excl;\
+  A<-1>=\34|22|"|Double quotes (or speech marks)|&quot;\
+  A<-1>=\35|23|#|Number sign|&num;\
+  A<-1>=\36|24|$|Dollar|&dollar;\
+  A<-1>=\37|25|%|Per cent sign|&percnt;\
+  A<-1>=\38|26|&|Ampersand|&amp;\
+  A<-1>=\39|27|'|Single quote|&apos;\
+  A<-1>=\40|28|(|Open parenthesis (or open bracket)|&lparen;\
+  A<-1>=\41|29|)|Close parenthesis (or close bracket)|&rparen;\
+  A<-1>=\42|2A|*|Asterisk|&ast;\
+  A<-1>=\43|2B|+|Plus|&plus;\
+  A<-1>=\44|2C|,|Comma|&comma;\
+  A<-1>=\45|2D|-|Hyphen-minus\
+  A<-1>=\46|2E|.|Period, dot or full stop|&period;\
+  A<-1>=\47|2F|/|Slash or divide|&sol;\
+  A<-1>=\48|30|0|Zero\
+  A<-1>=\49|31|1|One\
+  A<-1>=\50|32|2|Two\
+  A<-1>=\51|33|3|Three\
+  A<-1>=\52|34|4|Four\
+  A<-1>=\53|35|5|Five\
+  A<-1>=\54|36|6|Six\
+  A<-1>=\55|37|7|Seven\
+  A<-1>=\56|38|8|Eight\
+  A<-1>=\57|39|9|Nine\
+  A<-1>=\58|3A|:|Colon|&colon;\
+  A<-1>=\59|3B|;|Semicolon|&semi;\
+  A<-1>=\60|3C|<|Less than (or open angled bracket)|&lt;\
+  A<-1>=\61|3D|=|Equals|&equals;\
+  A<-1>=\62|3E|>|Greater than (or close angled bracket)|&gt;\
+  A<-1>=\63|3F|?|Question mark|&quest;\
+  A<-1>=\64|40|@|At sign|&commat;\
+  A<-1>=\65|41|A|Uppercase A\
+  A<-1>=\66|42|B|Uppercase B\
+  A<-1>=\67|43|C|Uppercase C\
+  A<-1>=\68|44|D|Uppercase D\
+  A<-1>=\69|45|E|Uppercase E\
+  A<-1>=\70|46|F|Uppercase F\
+  A<-1>=\71|47|G|Uppercase G\
+  A<-1>=\72|48|H|Uppercase H\
+  A<-1>=\73|49|I|Uppercase I\
+  A<-1>=\74|4A|J|Uppercase J\
+  A<-1>=\75|4B|K|Uppercase K\
+  A<-1>=\76|4C|L|Uppercase L\
+  A<-1>=\77|4D|M|Uppercase M\
+  A<-1>=\78|4E|N|Uppercase N\
+  A<-1>=\79|4F|O|Uppercase O\
+  A<-1>=\80|50|P|Uppercase P\
+  A<-1>=\81|51|Q|Uppercase Q\
+  A<-1>=\82|52|R|Uppercase R\
+  A<-1>=\83|53|S|Uppercase S\
+  A<-1>=\84|54|T|Uppercase T\
+  A<-1>=\85|55|U|Uppercase U\
+  A<-1>=\86|56|V|Uppercase V\
+  A<-1>=\87|57|W|Uppercase W\
+  A<-1>=\88|58|X|Uppercase X\
+  A<-1>=\89|59|Y|Uppercase Y\
+  A<-1>=\90|5A|Z|Uppercase Z\
+  A<-1>=\91|5B|[|Opening bracket|&lsqb;\
+  A<-1>='92|5C|\|Backslash|&bsol;'
+  A<-1>=\93|5D|]|Closing bracket|&rsqb;\
+  A<-1>=\94|5E|^|Caret - circumflex|&Hat;\
+  A<-1>=\95|5F|_|Underscore|&lowbar;\
+  A<-1>=\96|60|`|Grave accent|&grave;\
+  A<-1>=\97|61|a|Lowercase a\
+  A<-1>=\98|62|b|Lowercase b\
+  A<-1>=\99|63|c|Lowercase c\
+  A<-1>=\100|64|d|Lowercase d\
+  A<-1>=\101|65|e|Lowercase e\
+  A<-1>=\102|66|f|Lowercase f\
+  A<-1>=\103|67|g|Lowercase g\
+  A<-1>=\104|68|h|Lowercase h\
+  A<-1>=\105|69|i|Lowercase i\
+  A<-1>=\106|6A|j|Lowercase j\
+  A<-1>=\107|6B|k|Lowercase k\
+  A<-1>=\108|6C|l|Lowercase l\
+  A<-1>=\109|6D|m|Lowercase m\
+  A<-1>=\110|6E|n|Lowercase n\
+  A<-1>=\111|6F|o|Lowercase o\
+  A<-1>=\112|70|p|Lowercase p\
+  A<-1>=\113|71|q|Lowercase q\
+  A<-1>=\114|72|r|Lowercase r\
+  A<-1>=\115|73|s|Lowercase s\
+  A<-1>=\116|74|t|Lowercase t\
+  A<-1>=\117|75|u|Lowercase u\
+  A<-1>=\118|76|v|Lowercase v\
+  A<-1>=\119|77|w|Lowercase w\
+  A<-1>=\120|78|x|Lowercase x\
+  A<-1>=\121|79|y|Lowercase y\
+  A<-1>=\122|7A|z|Lowercase z\
+  A<-1>=\123|7B|{|Opening brace|&lcub;\
+  A<-1>=\124|7C|BAR|Vertical bar|&verbar;\
+  A<-1>=\125|7D|}|Closing brace|&rcub;\
+  A<-1>=\126|7E|~|Equivalency sign - tilde|&tilde;\
+  A<-1>=\127|7F|DEL|Delete\
+  CONVERT '|' TO @VM IN A
+  SWAP 'BAR' WITH '|' IN A
+  *
+  CRT 'ASC/HEX':' ':'CHAR':' ':'NAME' 'L#35':' ':'HTML'
+  CRT '---/---':' ':'----':' ':STR('-',35):' ':STR('-',10)
+  ONE.CHAR=FIELD(ANS,' ',2)[1,1]
+  START=1 ; FINISH=DCOUNT(A,@AM)
+  IF ONE.CHAR # '' THEN START=SEQ(ONE.CHAR)+1 ; FINISH=START
+  FOR C=START TO FINISH
+    CRT A<C,1>'R#3':'/':A<C,2>'R#3':' ':A<C,3>'L#4':' ':A<C,4>'L#35':' ':A<C,5>
+  NEXT C
+RETURN
+*
 TRAIN:
   * Add your own custom key bindings
   IF KEYMAP='' THEN GOSUB KEY.DEFAULTS
@@ -2568,7 +2721,7 @@ ATB.FIND:
   MAXV=DCOUNT(AREC<5>,@VM)
   FNAMES=""
   FOR J=1 TO MAXV
-    IF AREC<5,J>[1,2] # "BK" THEN FNAMES :=AREC<5,J>:",":AREC<6,J>:"  "
+    IF AREC<5,J>[1,2] # "BK" THEN FNAMES<-1>=(AREC<5,J>:",":AREC<6,J>)'L#35':" ":AREC<30,J>
   NEXT J
   *
   IF IL.MAJOR.VER=9 THEN
@@ -2598,8 +2751,15 @@ ATB.FIND:
   PRINT ATB
   PRINT
   PRINT "IL.BPI" MSK               :AREC<1>
-  PRINT "FILE(S)" MSK              :FNAMES
+  PRINT "FILE(S)" MSK              :FNAMES<1>
+  IF DCOUNT(FNAMES,@AM) > 1 THEN
+    FOR J=2 TO DCOUNT(FNAMES,@AM)
+      PRINT " " MSK:FNAMES<J>
+    NEXT J
+  END
   PRINT "FIELD" MSK                :AREC<2>
+  PRINT "LENGTH" MSK               :AREC<13>
+  PRINT "DISP LEN" MSK             :AREC<12>:AREC<11>
   PRINT "CHANGE LOG INDEX" MSK     :AREC<24>
   PRINT "CHANGE LOG KEY" MSK       :CKEY
   PRINT "TYPE" MSK                 :AREC<3>
@@ -2614,6 +2774,15 @@ ATB.FIND:
   FOR J=1 TO MAXV
     PRINT HELP.TEXT<2,J>
   NEXT J
+  IF IL.MAJOR.VER=10 THEN
+    PRINT
+    SELECT.HDR=\BPI,FILE_NAME,FIELD_NAME,POS,TABLE_NAME,COLUMN_NAME,MV/S,TYPE,LEN,SCALE\
+    SELECT.COMMAND = \SELECT BPI,FILE_NAME,FIELD_NAME,STRING_POS,TABLE_NAME,COLUMN_NAME,VALUE_TYPE,FIELD_TYPE,FIELD_LENGTH,SCALE\
+    SELECT.COMMAND  :=\ FROM METADATA_FIELDS\
+    SELECT.COMMAND  :=\ WHERE STRING_POS=\:AREC<2>:\ AND BPI='\:AREC<1>:\'\
+    EMAIL=''
+    GOSUB IL10.SEL
+  END
 RETURN
 *
 LISTA:
@@ -2742,9 +2911,10 @@ LISTA.IL10:
   * List all users/locks in IL10
   CRT 'User Sessions'
   CRT '-------------'
-  SELECT.HDR=\USER_ID,LOGIN_FROM,LOGIN_DATE,LAST_ACTIVITY,CURR_TIME\
-  SELECT.COMMAND=\SELECT USER_ID,LOGIN_FROM,LOGIN_DATE,LAST_ACTIVITY,CURRENT_TIMESTAMP \
-  SELECT.COMMAND:=\FROM SYSTEM_SESSION ORDER BY USER_ID\
+  SELECT.HDR=\USER_ID,PORT,LOGIN_FROM,LOGIN_DATE,LAST_ACTIVITY,IDLE_MINS\
+  SELECT.COMMAND=\SELECT USER_ID,RIGHT('    '+dbo.FIELD(SESSION_ID,'_',2),4),LOGIN_FROM,LOGIN_DATE,LAST_ACTIVITY,\
+  SELECT.COMMAND:=\RIGHT(CONCAT(SPACE(9),DATEDIFF(mi, LAST_ACTIVITY, CURRENT_TIMESTAMP)),9) \
+  SELECT.COMMAND:=\FROM SYSTEM_SESSION ORDER BY LOGIN_FROM, LOGIN_DATE DESC\
   EMAIL=''
   GOSUB IL10.SEL
   CRT ''
