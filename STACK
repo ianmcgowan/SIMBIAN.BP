@@ -2,10 +2,10 @@
 * Program: STACK
 * Author : Ian McGowan
 * Created: 1989-06-13
-* Updated: 2024-10-18
+* Updated: 2024-11-01
 * Comment: Stacks TCL commands, utilities for programmers
 ***************************************************************************
-CRT \Version 2024-10-18 Prompt Attention\
+CRT \Version 2024-11-01 You, complete me\
 *
 * STACK is a command line editor, command stack, program stack and useful utilites for TCL
 * It is designed to make life easier and more productive for programmers
@@ -25,7 +25,7 @@ STACK.HELP<-1>='Ctrl-A      Start of line (home)       Ctrl-L           Clear sc
 STACK.HELP<-1>='Ctrl-B      Back character (left)      Ctrl-M           Accept line (enter)    '
 STACK.HELP<-1>='Ctrl-D      Delete character (del)     Ctrl-N           Next line (down)       '
 STACK.HELP<-1>='Ctrl-E      End of line (end)          Ctrl-P           Previous line (up)     '
-STACK.HELP<-1>='Ctrl-F      Forward character (right)  Ctrl-R           Search                 '
+STACK.HELP<-1>='Ctrl-F      Forward character (right)  Ctrl-R           Completion search      '
 STACK.HELP<-1>='Ctrl-G      Cancel line (esc)          Ctrl-U           Page Up (pgup)         '
 STACK.HELP<-1>='Ctrl-H      Backspace                  Ctrl-V           Page Down (pgdown)     '
 STACK.HELP<-1>='Ctrl-I      Forward Word (tab)         Ctrl-W           Delete word            '
@@ -194,6 +194,16 @@ READ STACK FROM HOME.F, STACK.ITEM ELSE STACK = NUL
 CRT DCOUNT(STACK,@AM):' commands in stack ':HOME.DIR:OS.PATH.DELIM:STACK.ITEM
 READ ALIASES FROM HOME.F, ALIAS.ITEM ELSE ALIASES = NUL
 *
+* Build word completion list
+*
+WORD.LIST=''
+T=SYSTEM(12)
+FOR C=1 TO DCOUNT(STACK,@VM)
+  COMMAND=STACK<C,4>
+  GOSUB UPDATE.COMPLETION.LIST
+NEXT C
+CRT SYSTEM(12)-T:' ms to index ':DCOUNT(WORD.LIST,@AM):' words'
+*
 * IL9/IL10 Check
 IL.DB=''
 IL.VER=''
@@ -343,11 +353,21 @@ DO.COMMAND:
       T1=SYSTEM(12)
       GOSUB EXEC.SUB
       IF TIME.COMMAND THEN PRINT SYSTEM(12)-T1:' ms'
+      COMMAND=EXEC.LINE ; GOSUB UPDATE.COMPLETION.LIST
   END CASE
   IF UPDATE.STACK.FLAG AND STARTUP = NUL THEN
     INS ACC:@VM:DATE():@VM:TIME():@VM:ANS BEFORE STACK<1>
     WRITE STACK ON HOME.F, STACK.ITEM
   END
+RETURN
+*
+UPDATE.COMPLETION.LIST:
+  FOR W=1 TO DCOUNT(COMMAND,' ')
+    WORD=FIELD(COMMAND,' ',W)
+    IF LEN(WORD) < 5 THEN CONTINUE
+    LOCATE WORD IN WORD.LIST BY 'AL' SETTING POS THEN CONTINUE
+    INS WORD BEFORE WORD.LIST<POS>
+  NEXT W
 RETURN
 *
 OPEN.DIR:
@@ -956,7 +976,7 @@ PICKLE:
       REPEAT
       BLOB<-1>='R<-1>=T'
     END ELSE
-      BLOB<-1>='R<-1>="':REC:'"'
+      BLOB<-1>='R<-1>=\':REC:'\'
     END
   NEXT I
   *
@@ -1846,6 +1866,8 @@ GET.LINE:
   * CH.PTR      = Pointer into string being edited            1 -> LEN
   * POS         = Pointer to first char currently displayed   1 -> LEN
   * ASC.CH      = The numeric value of the key just entered
+  * BUFFER      = The set of characters entered since the last keypress
+  * XXDATA      = The command being built up
   *
   IF NOT(GET.LINE.FLAG) THEN
     PRINT @(X):;INPUT ENTRY
@@ -2036,25 +2058,60 @@ RETURN
 *
 SEARCH.KEY:
   * Search the stack for a string, hit ^R to repeat search from current position
-  IF SEARCH.FOR='' THEN
-    ECHO ON
-    CRT BASE:'Search for:':
-    INPUT SEARCH.FOR:
-    SEARCH.FOR=UPCASE(SEARCH.FOR)
-    ECHO OFF
-  END
+  WORD=''
+  TMP.CH.PTR=CH.PTR
+  LOOP
+  UNTIL XXDATA[TMP.CH.PTR-1,1] = SPC OR TMP.CH.PTR = 1 DO
+    TMP.CH.PTR = TMP.CH.PTR - 1
+  REPEAT
+  WORD=XXDATA[TMP.CH.PTR, CH.PTR-TMP.CH.PTR]
+  IF TRIM(WORD) = '' THEN RETURN
   * Search the stack for a string
-  FOUND = FALSE
-  FOR F = LINE.NUM+1 TO MAX.STACK UNTIL FOUND OR STACK<F> = ''
-    IF INDEX(UPCASE(STACK<F,4>),SEARCH.FOR,1) # 0 THEN FOUND = TRUE
-  NEXT F
-  IF FOUND THEN
-    LINE.NUM=F-1
-    ENTRY=STACK<LINE.NUM,4>
-    GOSUB GET.LINE.INIT
-  END ELSE
-    PRINT BELL:
-  END
+  L=LEN(WORD)
+  FIRST=1 ; MATCH.LIST=''
+  LOCATE WORD IN WORD.LIST BY 'AL' SETTING POS THEN NULL
+  FOR W=POS TO DCOUNT(WORD.LIST,@AM)
+    IF WORD.LIST<W>[1,L]=WORD THEN
+      IF FIRST THEN CRT '' ; FIRST=0
+      CRT WORD.LIST<W>
+      MATCH.LIST<-1>=WORD.LIST<W>
+    END ELSE
+      EXIT
+    END
+  NEXT W
+  CRT BON:PROMPT.DISP:BOFF:BASE:
+  GOSUB GO.END
+  MATCHED=DCOUNT(MATCH.LIST,@AM)
+  BEGIN CASE
+    CASE MATCHED=0
+      * Womp womp! No matches found, ding the bell
+      CRT BELL:
+    CASE MATCHED=1
+      * Winner winner! Replace the current word with the only match
+      FIRST.MATCH=MATCH.LIST<1>
+      FOR C=LEN(WORD)+1 TO LEN(FIRST.MATCH)
+        CH=FIRST.MATCH[C,1]
+        GOSUB ORD
+      NEXT C
+    CASE MATCHED>1
+      * Figure out the longest common prefix in match list and complete that much
+      PREFIX = MATCH.LIST<1>
+      FOR W = 2 TO MATCHED
+        S=MATCH.LIST<W>
+        * Shorten PREFIX until it matches the beginning of S, PREFIX will get shorter and shorter
+        LOOP
+        WHILE INDEX(S, PREFIX, 1) # 1 DO
+          PREFIX = PREFIX[1, LEN(PREFIX) - 1]
+          IF PREFIX = "" THEN EXIT
+        REPEAT
+        IF PREFIX = "" THEN EXIT
+      NEXT W
+      * If PREFIX is bigger than WORD, then complete the word
+      FOR C=LEN(WORD)+1 TO LEN(PREFIX)
+        CH=PREFIX[C,1]
+        GOSUB ORD
+      NEXT C
+  END CASE
 RETURN
 *
 ORD:
@@ -2279,7 +2336,7 @@ RETURN
 *******************************************************************************
 IL10.NED:
   * Simulate the ED command with a record read from SQL server
-  IF IL.MAJOR.VER#10 THEN PRINT 'Only works in IL10' ; RETURN
+  IF IL.MAJOR.VER#10 THEN EXEC.LINE = ANS[2,999] ; GO EXEC.SUB ;* Turn NED into ED
   OPEN '_HOLD_' TO F.HOLD ELSE STOP 201,'_HOLD_'
   FILE.NAME=FIELD(ANS,' ',2)
   K.FILE=FIELD(ANS,' ',3)
@@ -2312,12 +2369,11 @@ IL10.NED:
         R.FILE=R.TMP
       CASE OPT='S'
         CALL IDS.WRITE(R.FILE, F.FILE, K.FILE, 0, 0)
-        PRINT 'Saved.  Press ENTER to continue:':
+        PRINT 'Saved.'
         LOG='NED/SAVE'
         LOG<2>=FILE.NAME
         LOG<3>=K.FILE
         R.ORIG=R.FILE
-        INPUT AAA
       CASE OPT='E'
         R=R.FILE
         SWAP CHAR(13):CHAR(10) WITH '||' IN R
