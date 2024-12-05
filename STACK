@@ -2,10 +2,10 @@
 * Program: STACK
 * Author : Ian McGowan
 * Created: 1989-06-13
-* Updated: 2024-11-01
+* Updated: 2024-11-15
 * Comment: Stacks TCL commands, utilities for programmers
 ***************************************************************************
-CRT \Version 2024-11-01 You, complete me\
+PRINT \Version 2024-11-15 You, complete me\
 *
 * STACK is a command line editor, command stack, program stack and useful utilites for TCL
 * It is designed to make life easier and more productive for programmers
@@ -104,7 +104,11 @@ OPEN 'CTLG'   TO CTLG   ELSE STOP 201,'CTLG'   ;* Local catalog
 *
 USERNAME=UPCASE(@LOGNAME)
 HOME.FILE   = 'STACK.HOME'        ;* Everything is stored in this file
-DIR=HOME.FILE ; GOSUB OPEN.DIR ; HOME.F=FVAR   ;* This can be local, or pointed to a central location for all accounts
+OPEN HOME.FILE TO FVAR ELSE
+  EXECUTE \CREATE.FILE DIR \:HOME.FILE
+  OPEN HOME.FILE TO FVAR ELSE STOP 'Cannot open or create ':HOME.FILE
+END
+HOME.F=FVAR   ;* This can be local, or pointed to a central location for all accounts
 READV HOME.DIR FROM VOC, HOME.FILE, 2 ELSE HOME.DIR=''
 *
 STACK.ITEM  = USERNAME:'.COMMAND' ;* Stores the command stack for each user
@@ -180,7 +184,7 @@ KEYCOMMLIST<1,-1>='{Search}'      ; KEYCOMMLIST<2,-1>='Interactive Search'
 KEYCOMMLIST<1,-1>='{Up}'          ; KEYCOMMLIST<2,-1>='Go to the previous command'
 *
 READ KEYMAP FROM HOME.F, KEYMAP.ITEM ELSE
-  CRT 'First STACK run, assuming Putty/VT100 key mapping'
+  PRINT 'First STACK run, assuming Putty/VT100 key mapping'
   GOSUB KEY.DEFAULTS
 END
 *
@@ -191,7 +195,7 @@ EXEC.LINE="!hostname" ; CAP.ACTIVE=TRUE ; GOSUB EXEC.SUB
 HOST.NAME=EXEC.CAP<1>
 *
 READ STACK FROM HOME.F, STACK.ITEM ELSE STACK = NUL
-CRT DCOUNT(STACK,@AM):' commands in stack ':HOME.DIR:OS.PATH.DELIM:STACK.ITEM
+PRINT DCOUNT(STACK,@AM):' commands in stack ':HOME.DIR:OS.PATH.DELIM:STACK.ITEM
 READ ALIASES FROM HOME.F, ALIAS.ITEM ELSE ALIASES = NUL
 *
 * Build word completion list
@@ -202,7 +206,7 @@ FOR C=1 TO DCOUNT(STACK,@VM)
   COMMAND=STACK<C,4>
   GOSUB UPDATE.COMPLETION.LIST
 NEXT C
-CRT SYSTEM(12)-T:' ms to index ':DCOUNT(WORD.LIST,@AM):' words'
+PRINT SYSTEM(12)-T:' ms to index ':DCOUNT(WORD.LIST,@AM):' words'
 *
 * IL9/IL10 Check
 IL.DB=''
@@ -244,10 +248,10 @@ END ELSE
   END
 END
 IF IL.MAJOR.VER # '' THEN
-  CRT IL.VER:' ':IL.DB
-  CRT ; CRT 'INFO to return to Infolease'
+  PRINT IL.VER:' ':IL.DB
+  PRINT ; PRINT 'INFO to return to Infolease'
 END
-CRT '? for Help'
+PRINT '? for Help'
 *
 * You can put commands in the startup file, e.g. .L ; LISTA ; DATE
 OLD.X.DISP=X.DISP
@@ -262,7 +266,7 @@ ANS=NUL
 LOOP
   GOSUB GET.TERM.WIDTH ;* In case terminal font or window size changes
   GOSUB EXPAND.PROMPT
-  CRT BON:PROMPT.DISP:BOFF:
+  PRINT BON:PROMPT.DISP:BOFF:
   X = LEN(PROMPT.DISP) + X.DISP
   ENTRY = NUL;LEN = LONG.LINE;DISP.LEN=TERM.WIDTH-1-X;LINE.NUM=0
   GOSUB GET.LINE
@@ -289,7 +293,7 @@ COMMAND:
       ANS=ANS[2,999]
       GOSUB SEARCH.NEXT
       IF ENTRY='' THEN RETURN
-      CRT BON:PROMPT.DISP:BOFF:
+      PRINT BON:PROMPT.DISP:BOFF:
       GOSUB GET.LINE
       ANS=ENTRY
       GOTO COMMAND
@@ -368,14 +372,6 @@ UPDATE.COMPLETION.LIST:
     LOCATE WORD IN WORD.LIST BY 'AL' SETTING POS THEN CONTINUE
     INS WORD BEFORE WORD.LIST<POS>
   NEXT W
-RETURN
-*
-OPEN.DIR:
-  * Open a local directory, create if missing
-  OPEN DIR TO FVAR ELSE
-    EXECUTE \CREATE.FILE DIR \:DIR
-    OPEN DIR TO FVAR ELSE STOP 'Cannot open or create ':DIR
-  END
 RETURN
 *
 DO.ALIAS:
@@ -611,7 +607,7 @@ STACK.COMMAND:
       OLD.X.DISP=X.DISP
     CASE ANS = '.H'
       FOR F=1 TO DCOUNT(STACK.HELP,@AM)
-        CRT STACK.HELP<F>
+        PRINT STACK.HELP<F>
       NEXT F
     CASE ANS = '.T'
       TIME.COMMAND=NOT(TIME.COMMAND)
@@ -744,7 +740,7 @@ PROG.COMMAND:
       IF PROJ.NAME='' THEN PROJ.NAME='DEFAULT'
       PROGRAM.ITEM=USERNAME:'.PROGRAM_':PROJ.NAME
       READ PROGRAMS FROM HOME.F, PROGRAM.ITEM ELSE
-        CRT PROJ.NAME:' not found, create? ':
+        PRINT PROJ.NAME:' not found, create? ':
         INPUT YORN
         IF YORN # 'Y' THEN PROJ.NAME=OLD.PROJ.NAME ; PROGRAMS=OLD.PROGRAMS ; RETURN
         PROGRAMS = NUL
@@ -837,9 +833,9 @@ COMPILE:
     INPUT YORN
     IF YORN = 'Y' THEN
       EXEC.LINE=\DECATALOG \:B.ITEM
-      CRT EXEC.LINE ; CAP.ACTIVE=TRUE ; GOSUB EXEC.SUB
-      CRT EXEC.LINE ; CAP.ACTIVE=TRUE ; GOSUB EXEC.SUB
-      CRT EXEC.LINE ; CAP.ACTIVE=TRUE ; GOSUB EXEC.SUB
+      PRINT EXEC.LINE ; CAP.ACTIVE=TRUE ; GOSUB EXEC.SUB
+      PRINT EXEC.LINE ; CAP.ACTIVE=TRUE ; GOSUB EXEC.SUB
+      PRINT EXEC.LINE ; CAP.ACTIVE=TRUE ; GOSUB EXEC.SUB
       GOTO COMPILE ;* Try again
     END
   END
@@ -1255,7 +1251,7 @@ RETURN
 RULER:
   * Show a ruler for checking character widths
   GOSUB GET.TERM.WIDTH
-  CRT 'Term width=':TERM.WIDTH
+  PRINT 'Term width=':TERM.WIDTH
   FOR F=1 TO TERM.WIDTH
     C=SEQ(0)+MOD(F,10)
     IF MOD(F,10) THEN PRINT CHAR(C): ELSE PRINT ' ':
@@ -1544,17 +1540,17 @@ RETURN
 *
 DIFF:
   FILE1=FIELD(ANS,' ',2)
-  IF FILE1='' THEN CRT 'Enter file 1:': ; INPUT FILE1
+  IF FILE1='' THEN PRINT 'Enter file 1:': ; INPUT FILE1
   ID1=FIELD(ANS,' ',3)
-  IF ID1='' THEN CRT 'Enter ID1   :': ; INPUT ID1
+  IF ID1='' THEN PRINT 'Enter ID1   :': ; INPUT ID1
   FILE2=FIELD(ANS,' ',4)
-  IF FILE2='' THEN CRT 'Enter file 2:': ; INPUT FILE2
+  IF FILE2='' THEN PRINT 'Enter file 2:': ; INPUT FILE2
   ID2=FIELD(ANS,' ',5)
-  IF ID2='' THEN CRT 'Enter ID2   :': ; INPUT ID2
+  IF ID2='' THEN PRINT 'Enter ID2   :': ; INPUT ID2
   CALL FILE.OPEN.OK(FILE1,FVAR1,OK)
-  IF NOT(OK) THEN CRT "CAN'T OPEN ":FILE1 ; RETURN
+  IF NOT(OK) THEN PRINT "CAN'T OPEN ":FILE1 ; RETURN
   CALL FILE.OPEN.OK(FILE2,FVAR2,OK)
-  IF NOT(OK) THEN CRT "CAN'T OPEN ":FILE1 ; RETURN
+  IF NOT(OK) THEN PRINT "CAN'T OPEN ":FILE1 ; RETURN
   CALL IDS.READ(REC1,FVAR1,ID1,0,0,BCI.ERROR) ; IF BCI.ERROR THEN REC1=''
   REC1.MAX=DCOUNT(REC1,@AM)
   CONVERT @VM TO '|' IN REC1
@@ -1565,11 +1561,11 @@ DIFF:
   COL.WIDTH=INT(TERM.WIDTH/2)-6 ; MASK='L#':COL.WIDTH
   DIFF=0
   FOR F=1 TO MAX
-    CRT F'R#5':
-    IF REC1<F> # REC2<F> THEN DIFF+=1; CRT '#': ELSE CRT '=':
-    CRT REC1<F> MASK:'|':REC2<F> MASK
+    PRINT F'R#5':
+    IF REC1<F> # REC2<F> THEN DIFF+=1; PRINT '#': ELSE PRINT '=':
+    PRINT REC1<F> MASK:'|':REC2<F> MASK
   NEXT F
-  CRT DIFF:' differences found'
+  PRINT DIFF:' differences found'
 RETURN
 *******************************************************************************
 * KEYBOARD PROCESSING
@@ -1767,13 +1763,13 @@ ASCII:
   CONVERT '|' TO @VM IN A
   SWAP 'BAR' WITH '|' IN A
   *
-  CRT 'ASC/HEX':' ':'CHAR':' ':'NAME' 'L#35':' ':'HTML'
-  CRT '---/---':' ':'----':' ':STR('-',35):' ':STR('-',10)
+  PRINT 'ASC/HEX':' ':'CHAR':' ':'NAME' 'L#35':' ':'HTML'
+  PRINT '---/---':' ':'----':' ':STR('-',35):' ':STR('-',10)
   ONE.CHAR=FIELD(ANS,' ',2)[1,1]
   START=1 ; FINISH=DCOUNT(A,@AM)
   IF ONE.CHAR # '' THEN START=SEQ(ONE.CHAR)+1 ; FINISH=START
   FOR C=START TO FINISH
-    CRT A<C,1>'R#3':'/':A<C,2>'R#3':' ':A<C,3>'L#4':' ':A<C,4>'L#35':' ':A<C,5>
+    PRINT A<C,1>'R#3':'/':A<C,2>'R#3':' ':A<C,3>'L#4':' ':A<C,4>'L#35':' ':A<C,5>
   NEXT C
 RETURN
 *
@@ -1781,13 +1777,13 @@ TRAIN:
   * Add your own custom key bindings
   IF KEYMAP='' THEN GOSUB KEY.DEFAULTS
   *
-  CRT 'Adding custom key bindings to your keymap'
-  CRT 'For each possible command, the current setting will be displayed'
-  CRT 'and you can press any key you would like to be mapped to that command.'
-  CRT 'Some settings are built-in, such as Ctrl-P for previous, or Ctrl-U for page up'
-  CRT ''
-  CRT 'You can create multiple mapping for the same commands, like Shift-tab or'
-  CRT 'Alt-left arrow to go back a word. Press ENTER when you are done with a command'
+  PRINT 'Adding custom key bindings to your keymap'
+  PRINT 'For each possible command, the current setting will be displayed'
+  PRINT 'and you can press any key you would like to be mapped to that command.'
+  PRINT 'Some settings are built-in, such as Ctrl-P for previous, or Ctrl-U for page up'
+  PRINT ''
+  PRINT 'You can create multiple mapping for the same commands, like Shift-tab or'
+  PRINT 'Alt-left arrow to go back a word. Press ENTER when you are done with a command'
   *
   FOR K=1 TO DCOUNT(KEYCOMMLIST<1>,@VM)
     KEYCOMMAND=KEYCOMMLIST<1,K>
@@ -1802,17 +1798,17 @@ SHOW.KEY:
   * Show the current key binding for KEYCOMMAND
   FOR J=1 TO DCOUNT(KEYMAP<1>,@VM)
     IF KEYMAP<2,J>=KEYCOMMAND THEN
-      CRT KEYCOMMAND 'L#15':' ':KEYCOMMANDDESC'L#50':' ':KEYMAP<1,J>
+      PRINT KEYCOMMAND 'L#15':' ':KEYCOMMANDDESC'L#50':' ':KEYMAP<1,J>
     END
   NEXT J
 RETURN
 *
 SET.KEY:
   * Set a key binding for KEYCOMMAND
-  CRT STR('-',80)
+  PRINT STR('-',80)
   GOSUB SHOW.KEY
   LOOP
-    CRT 'Enter to skip or press the key for ':KEYCOMMAND:':'
+    PRINT 'Enter to skip or press the key for ':KEYCOMMAND:':'
     KEYPRESS=''
     LOOP
       CH=IN()
@@ -1821,7 +1817,7 @@ SET.KEY:
       IF ASC.CH<27 THEN CH='^':CHAR(SEQ('A')-1+ASC.CH)
       IF ASC.CH=27 THEN CH='ESC'
       IF ASC.CH=127 THEN CH='^?'
-      CRT CH
+      PRINT CH
       KEYPRESS:=CH
     UNTIL SYSTEM(14) = 0 DO
     REPEAT
@@ -1832,7 +1828,7 @@ RETURN
 ADD.KEYPRESS:
   * Add a new key binding to an existing KEYCOMMAND
   LOCATE KEYPRESS IN KEYMAP<1> BY 'AL' SETTING POS THEN
-    CRT 'Duplicate key detected! ':KEYPRESS:' mapped to ':KEYMAP<2,POS>
+    PRINT 'Duplicate key detected! ':KEYPRESS:' mapped to ':KEYMAP<2,POS>
   END ELSE
     INS KEYPRESS BEFORE KEYMAP<1,POS>
     INS KEYCOMMAND BEFORE KEYMAP<2,POS>
@@ -1842,11 +1838,11 @@ RETURN
 KEYS:
   * Show the ASCII key values, useful for setting up key bindings
   LOOP
-    CRT 'PRESS A KEY, / to exit:':
+    PRINT 'PRESS A KEY, / to exit:':
     CH=IN()
     ASC.CH = SEQ(CH)
-    IF ASC.CH >= 32 AND ASC.CH < 127 THEN CRT CH:'=': ELSE CRT ' =':
-    CRT ASC.CH
+    IF ASC.CH >= 32 AND ASC.CH < 127 THEN PRINT CH:'=': ELSE PRINT ' =':
+    PRINT ASC.CH
   UNTIL CH='/' DO
   REPEAT
 RETURN
@@ -1883,7 +1879,7 @@ GET.LINE:
   LOOP
     EXIT.FLAG=FALSE
     CURR.LEN = LEN(XXDATA)
-    CRT @(X+CP):
+    PRINT @(X+CP):
     BUFFER=''
     LOOP
       CH=IN()
@@ -1977,7 +1973,7 @@ PROCESS.KEYPRESS:
           ENTRY = STACK<LINE.NUM,4>
           GOSUB GET.LINE.INIT
         END ELSE
-          CRT BELL:
+          PRINT BELL:
         END
       END ELSE
         EXIT.FLAG = TRUE
@@ -2037,7 +2033,7 @@ PAGE.UP:
   GOSUB LIST.STACK
   ENTRY=''
   GOSUB GET.LINE.INIT
-  CRT BON:PROMPT.DISP:BOFF:
+  PRINT BON:PROMPT.DISP:BOFF:
   P2 = P2 + 20
   P1 = P1 + 20
   IF P2 > MAX.STACK THEN P2 = MAX.STACK
@@ -2049,7 +2045,7 @@ PAGE.DOWN:
   GOSUB LIST.STACK
   ENTRY=''
   GOSUB GET.LINE.INIT
-  CRT BON:PROMPT.DISP:BOFF:
+  PRINT BON:PROMPT.DISP:BOFF:
   P2 = P2 - 20
   P1 = P1 - 20
   IF P2 < 20 THEN P2=20
@@ -2072,20 +2068,20 @@ SEARCH.KEY:
   LOCATE WORD IN WORD.LIST BY 'AL' SETTING POS THEN NULL
   FOR W=POS TO DCOUNT(WORD.LIST,@AM)
     IF WORD.LIST<W>[1,L]=WORD THEN
-      IF FIRST THEN CRT '' ; FIRST=0
-      CRT WORD.LIST<W>
+      IF FIRST THEN PRINT '' ; FIRST=0
+      PRINT WORD.LIST<W>
       MATCH.LIST<-1>=WORD.LIST<W>
     END ELSE
       EXIT
     END
   NEXT W
-  CRT BON:PROMPT.DISP:BOFF:BASE:
+  PRINT BON:PROMPT.DISP:BOFF:BASE:
   GOSUB GO.END
   MATCHED=DCOUNT(MATCH.LIST,@AM)
   BEGIN CASE
     CASE MATCHED=0
       * Womp womp! No matches found, ding the bell
-      CRT BELL:
+      PRINT BELL:
     CASE MATCHED=1
       * Winner winner! Replace the current word with the only match
       FIRST.MATCH=MATCH.LIST<1>
@@ -2341,7 +2337,7 @@ IL10.NED:
   FILE.NAME=FIELD(ANS,' ',2)
   K.FILE=FIELD(ANS,' ',3)
   CALL FILE.OPEN.OK(FILE.NAME, F.FILE, FILE.OPEN.OK)
-  IF NOT(FILE.OPEN.OK) THEN CRT 'Cannot open ':FILE.NAME ; RETURN
+  IF NOT(FILE.OPEN.OK) THEN PRINT 'Cannot open ':FILE.NAME ; RETURN
   CALL IDS.READ(R.FILE, F.FILE,  K.FILE, 0, 0, BCI.ERROR)
   IF BCI.ERROR # '' THEN PRINT BCI.ERROR ; R.FILE=''
   R.ORIG=R.FILE
@@ -2352,11 +2348,11 @@ IL10.NED:
     INPUT OPT
     BEGIN CASE
       CASE OPT='D'
-        CRT 'Are you *really* sure (YES/N):':
+        PRINT 'Are you *really* sure (YES/N):':
         INPUT YORN
         IF YORN = 'YES' THEN
           CALL IDS.DELETE(F.FILE, K.FILE, 0, 0)
-          CRT FILE.NAME:' ':K.FILE:' deleted'
+          PRINT FILE.NAME:' ':K.FILE:' deleted'
           LOG='NED/DELETE'
           LOG<2>=FILE.NAME
           LOG<3>=K.FILE
@@ -2403,8 +2399,8 @@ GET.BPI:
   * Given a BPI name, get the BPI record
   BPI.REC=''
   BPI.R=''
-  OPEN 'DATABASE.FILES,IL' TO IL ELSE CRT 'Cannot open DATABASE.FILES,IL' ; RETURN
-  OPEN 'IL.BPI' TO IL.BPI ELSE CRT 'Cannot open IL.BPI' ; RETURN
+  OPEN 'DATABASE.FILES,IL' TO IL ELSE PRINT 'Cannot open DATABASE.FILES,IL' ; RETURN
+  OPEN 'IL.BPI' TO IL.BPI ELSE PRINT 'Cannot open IL.BPI' ; RETURN
   * Param 2 can be a BPI or a FILENAME
   READ BPI.R FROM IL.BPI, BPI ELSE
     READV IL.MSG FROM IL, BPI, 14 THEN
@@ -2457,7 +2453,7 @@ GET.FILE.METADATA:
     GOSUB GET.FILE.METADATA.IL10
   END
   FILE.NAME=TMP.FILE.NAME
-  CRT 'BPI=':BPI:', TABLE NAME=':TABLE.NAME
+  PRINT 'BPI=':BPI:', TABLE NAME=':TABLE.NAME
 RETURN
 *
 GET.PARAMETER.BPI:
@@ -2531,7 +2527,7 @@ VIEW.RECORD:
   IF IL.MAJOR.VER='' THEN PRINT 'Only works in IL' ; RETURN
   FILE.NAME=FIELD(ANS,' ',2)
   CALL FILE.OPEN.OK(FILE.NAME, F.FILE, FILE.OPEN.OK)
-  IF NOT(FILE.OPEN.OK) THEN CRT 'Error opening ':FILE.NAME ; RETURN
+  IF NOT(FILE.OPEN.OK) THEN PRINT 'Error opening ':FILE.NAME ; RETURN
   R.ID=FIELD(ANS,' ',3)
   GOSUB GET.FILE.METADATA
   MAT RECORD.DATA='' ; RECORDS='' ; FLD=3 ; REC.NO=1 ; MAX.REC.COUNT=0
@@ -2540,7 +2536,7 @@ VIEW.RECORD:
   UNTIL R.ID='' DO
     RECORDS<-1>=R.ID
     IF IL.MAJOR.VER=9 THEN
-      READ R1 FROM F.FILE, R.ID ELSE CRT 'Cannot read ':FILE.NAME:' ':R.ID ; RETURN
+      READ R1 FROM F.FILE, R.ID ELSE PRINT 'Cannot read ':FILE.NAME:' ':R.ID ; RETURN
     END ELSE
       CALL IDS.READ(R1, F.FILE, R.ID, 0, 0, BCI.ERROR)
       IF BCI.ERROR # '' THEN PRINT BCI.ERROR:' ':R.ID ; RETURN
@@ -2550,7 +2546,7 @@ VIEW.RECORD:
     REC.COUNT=DCOUNT(R1,@AM)
     IF REC.COUNT>MAX.REC.COUNT THEN MAX.REC.COUNT=REC.COUNT
     REC.NO+=1
-    IF REC.NO=11 THEN CRT 'Too many records' ; RETURN
+    IF REC.NO=11 THEN PRINT 'Too many records' ; RETURN
     FLD+=1
   REPEAT
   COL.WID=INT((TERM.WIDTH-25)/MAX.REC.NO)-1
@@ -2558,14 +2554,14 @@ VIEW.RECORD:
   *
   FOR I=1 TO MAX.REC.COUNT
     ATB=FILE.META<1,I> ; TYPE=FILE.META<3,I>
-    CRT I 'R#3':') ':
-    IF FILE.META # '' THEN CRT ATB'L#20':
+    PRINT I 'R#3':') ':
+    IF FILE.META # '' THEN PRINT ATB'L#20':
     FOR REC.NO=1 TO MAX.REC.NO
       VALUE=RECORD.DATA(REC.NO)<I>
       GOSUB VIEW.RECORD.ATB
-      CRT '|':VALUE[1,COL.WID]:SPACE(COL.WID-LEN(VALUE)):
+      PRINT '|':VALUE[1,COL.WID]:SPACE(COL.WID-LEN(VALUE)):
     NEXT REC.NO
-    CRT ''
+    PRINT ''
   NEXT I
 RETURN
 *
@@ -2586,7 +2582,7 @@ RETURN
 FIND.MENU:
   * Find a menu or program in the menu system, breadth first search
   IF IL.MAJOR.VER='' THEN PRINT 'Only works in IL' ; RETURN
-  OPEN "DB.MENUS" TO MENU.F ELSE CRT 'Cannot open DB.MENUS' ; RETURN
+  OPEN "DB.MENUS" TO MENU.F ELSE PRINT 'Cannot open DB.MENUS' ; RETURN
   STR=FIELD(ANS,' ',2)
   IF STR='' THEN
     PRINT "Enter menu or program to search for : ": ; INPUT STR
@@ -2721,13 +2717,13 @@ ATB.FIND:
   *
   IF IL.MAJOR.VER='' THEN PRINT 'Only works in IL' ; RETURN
   CALL FILE.OPEN.OK("IL.TB.CHNG.LOG", IL.TB.CHNG.LOG, FILE.OPEN.OK)
-  IF NOT(FILE.OPEN.OK) THEN CRT 'Cannot open IL.TB.CHNG.LOG'      ; RETURN
+  IF NOT(FILE.OPEN.OK) THEN PRINT 'Cannot open IL.TB.CHNG.LOG'      ; RETURN
   CALL FILE.OPEN.OK("IL.CHANGE.LOG.INDEX", IL.CHANGE.LOG.INDEX, FILE.OPEN.OK)
-  IF NOT(FILE.OPEN.OK) THEN CRT 'Cannot open IL.CHANGE.LOG.INDEX' ; RETURN
+  IF NOT(FILE.OPEN.OK) THEN PRINT 'Cannot open IL.CHANGE.LOG.INDEX' ; RETURN
   CALL FILE.OPEN.OK("REV.ATB.LOG", REV.ATB.LOG, FILE.OPEN.OK)
-  IF NOT(FILE.OPEN.OK) THEN CRT 'Cannot open REV.ATB.LOG'         ; RETURN
+  IF NOT(FILE.OPEN.OK) THEN PRINT 'Cannot open REV.ATB.LOG'         ; RETURN
   CALL FILE.OPEN.OK("HELP.TEXT.USA", HELP.TEXT.USA, FILE.OPEN.OK)
-  IF NOT(FILE.OPEN.OK) THEN CRT 'Cannot open HELP.TEXT.USA'       ; RETURN
+  IF NOT(FILE.OPEN.OK) THEN PRINT 'Cannot open HELP.TEXT.USA'       ; RETURN
   MSK="L#22"
   ATB = FIELD(ANS," ",2)
   IF ATB="" THEN RETURN
@@ -2741,11 +2737,11 @@ ATB.FIND:
     ATBREC=""
     IF IL.MAJOR.VER=9 THEN
       EXEC.LINE=\SSELECT REV.ATB.LOG = "[\:ATB:\]"\
-      CRT EXEC.LINE
+      PRINT EXEC.LINE
       GOSUB EXEC.SUB
     END ELSE
       SELECT.COMMAND=\SELECT ALTERNATE_ID FROM REV_ATB_LOG_NF WHERE ALTERNATE_ID LIKE '%\:ATB:\%' ORDER BY ALTERNATE_ID\
-      CRT SELECT.COMMAND
+      PRINT SELECT.COMMAND
       CALL IDS.EXECUTE.ANSI.SQL.ERROR(SELECT.COMMAND, '', '', '', KEY.LIST, ERR, '', '', '', '0', '','')
       SELECT KEY.LIST
     END
@@ -2770,7 +2766,7 @@ ATB.FIND:
       CALL IDS.READ(AREC, REV.ATB.LOG, ATB, 0, 0, BCI.ERROR)
     END
     IF BCI.ERROR THEN
-      CRT ATB:' not found in REV.ATB.LOG' ; RETURN
+      PRINT ATB:' not found in REV.ATB.LOG' ; RETURN
     END
   END
   *
@@ -2965,26 +2961,26 @@ RETURN
 *
 LISTA.IL10:
   * List all users/locks in IL10
-  CRT 'User Sessions'
-  CRT '-------------'
+  PRINT 'User Sessions'
+  PRINT '-------------'
   SELECT.HDR=\USER_ID,PORT,LOGIN_FROM,LOGIN_DATE,LAST_ACTIVITY,IDLE_MINS\
   SELECT.COMMAND=\SELECT USER_ID,RIGHT('    '+dbo.FIELD(SESSION_ID,'_',2),4),LOGIN_FROM,LOGIN_DATE,LAST_ACTIVITY,\
   SELECT.COMMAND:=\RIGHT(CONCAT(SPACE(9),DATEDIFF(mi, LAST_ACTIVITY, CURRENT_TIMESTAMP)),9) \
   SELECT.COMMAND:=\FROM SYSTEM_SESSION ORDER BY LOGIN_FROM, LOGIN_DATE DESC\
   EMAIL=''
   GOSUB IL10.SEL
-  CRT ''
-  CRT 'Record Locks'
-  CRT '------------'
+  PRINT ''
+  PRINT 'Record Locks'
+  PRINT '------------'
   *
   * Kudos to whoever at IDS cleaned up the mess that is IL9 locking!
   SELECT.HDR=\FILE_NAME,ID,LOCKED_USER,LOCKED_DATE\
   SELECT.COMMAND=\SELECT FILE_NAME,ID,LOCKED_USER,LOCKED_DATE\
   SELECT.COMMAND:=\ FROM DB_RECORD_LOCKS ORDER BY FILE_NAME,ID\
   GOSUB IL10.SEL
-  CRT ''
-  CRT 'Processing Flags'
-  CRT '----------------'
+  PRINT ''
+  PRINT 'Processing Flags'
+  PRINT '----------------'
   *
   * Show processing flags
   SELECT.HDR=\USER_ID,UPDATE_CODE,UPDATE_CODE_DATE,UPDATE_CODE_DESC\
@@ -3087,9 +3083,9 @@ IL10.NSEL:
   LOOP
     READNEXT ID FROM SELECTED.LIST ELSE EXIT
     CTR+=1
-    CRT CTR'R#6':') ':ID
+    PRINT CTR'R#6':') ':ID
     IF CTR/20=INT(CTR/20) AND PRMT THEN
-      CRT ':':
+      PRINT ':':
       INPUT AAA
       IF AAA = '/' OR AAA='Q' THEN RETURN
       IF AAA = 'N' THEN PRMT=0
@@ -3114,7 +3110,7 @@ SQL.FILE:
   SELECT.HDR=''
   FILE=FIELD(ANS,' ',2) ;* Spaces in file name are not supported
   EMAIL=FIELD(ANS,' ',3)
-  OSREAD SELECT.COMMAND FROM FILE ELSE CRT FILE:' not found' ; RETURN
+  OSREAD SELECT.COMMAND FROM FILE ELSE PRINT FILE:' not found' ; RETURN
   IF SELECT.COMMAND<1>[1,2]='--' THEN
     SELECT.HDR=SELECT.COMMAND<1>[3,999]
     CONVERT CHAR(9) TO @VM IN SELECT.HDR
@@ -3134,7 +3130,7 @@ SQL.FILE:
       P:=C
       I+=1
     REPEAT
-    CRT 'Enter a value for ':P:':':
+    PRINT 'Enter a value for ':P:':':
     INPUT VAL
     SWAP '@':P WITH VAL IN SELECT.COMMAND
   REPEAT
@@ -3158,14 +3154,14 @@ SQL.SEL.LIST:
     * Assume we're running from a file
       SELECT.HDR=''
       FILE=FIELD(ANS,' ',3) ;* Spaces in file name are not supported
-      OSREAD SELECT.COMMAND FROM FILE ELSE CRT FILE:' not found' ; RETURN
+      OSREAD SELECT.COMMAND FROM FILE ELSE PRINT FILE:' not found' ; RETURN
       CONVERT CHAR(13) TO '' IN SELECT.COMMAND
       CONVERT CHAR(10) TO ' ' IN SELECT.COMMAND
       PARAM=''
       FOR F=DCOUNT(SELECT.COMMAND,@AM) TO 1 STEP -1
         IF SELECT.COMMAND<F>[1,2]='--' THEN DEL SELECT.COMMAND<F>
       NEXT F
-      CRT SELECT.COMMAND
+      PRINT SELECT.COMMAND
       CALL IDS.EXECUTE.ANSI.SQL(SELECT.COMMAND,PARAM,'','',KEY.LIST)
       CALL CONVERT.LIST(KEY.LIST)
       EXECUTE \SAVE.LIST \:LIST PASSLIST KEY.LIST
@@ -3225,7 +3221,7 @@ IL10.SEL:
     END
     * Now the data
     FOR R=DISP.START TO DISP.MAX
-      IF SELECT.HDR = '' THEN CRT R,:
+      IF SELECT.HDR = '' THEN PRINT R,:
       FOR C=1 TO DCOUNT(KEY.LIST<R>,@VM)
         PRINT FMT(KEY.LIST<R,C>,'L#':W<C>):' ':
       NEXT C
@@ -3238,35 +3234,35 @@ LIST.MODULES:
   * List all modules in the system
   IF IL.MAJOR.VER='' THEN PRINT 'Only works in IL' ; RETURN
   IF IL.MAJOR.VER = 9 THEN
-    OPEN 'MODULE.FILE,IL' TO MODULES        ELSE CRT 'ERROR OPENING:MODULES'        ; RETURN
-    OPEN 'IL.APP.PARAMS'  TO IL.APP.PARAMS  ELSE CRT 'ERROR OPENING:IL.APP.PARAMS'  ; RETURN
-    OPEN 'ACCOUNT.PARAMS' TO ACCOUNT.PARAMS ELSE CRT 'ERROR OPENING:ACCOUNT.PARAMS' ; RETURN
+    OPEN 'MODULE.FILE,IL' TO MODULES        ELSE PRINT 'ERROR OPENING:MODULES'        ; RETURN
+    OPEN 'IL.APP.PARAMS'  TO IL.APP.PARAMS  ELSE PRINT 'ERROR OPENING:IL.APP.PARAMS'  ; RETURN
+    OPEN 'ACCOUNT.PARAMS' TO ACCOUNT.PARAMS ELSE PRINT 'ERROR OPENING:ACCOUNT.PARAMS' ; RETURN
     READ PARAMS FROM ACCOUNT.PARAMS, 'VERSION' ELSE PARAMS=''
     READ MODULES.AVAIL FROM IL.APP.PARAMS, PARAMS<11>:'*MODULES' ELSE R=''
   END ELSE
-    OPEN 'MODULE.FILE,IL' TO MODULES ELSE CRT 'ERROR OPENING:MODULES' ; RETURN
-    CALL FILE.OPEN.OK('IL.APP.PARAMS', IL.APP.PARAMS, OK)   ; IF NOT(OK) THEN CRT 'ERROR OPENING:IL.APP.PARAMS'  ; RETURN
-    CALL FILE.OPEN.OK('ACCOUNT.PARAMS', ACCOUNT.PARAMS, OK) ; IF NOT(OK) THEN CRT 'ERROR OPENING:ACCOUNT.PARAMS' ; RETURN
+    OPEN 'MODULE.FILE,IL' TO MODULES ELSE PRINT 'ERROR OPENING:MODULES' ; RETURN
+    CALL FILE.OPEN.OK('IL.APP.PARAMS', IL.APP.PARAMS, OK)   ; IF NOT(OK) THEN PRINT 'ERROR OPENING:IL.APP.PARAMS'  ; RETURN
+    CALL FILE.OPEN.OK('ACCOUNT.PARAMS', ACCOUNT.PARAMS, OK) ; IF NOT(OK) THEN PRINT 'ERROR OPENING:ACCOUNT.PARAMS' ; RETURN
     CALL IDS.READ(PARAMS, ACCOUNT.PARAMS, 'VERSION', 0, 0, ERR) ; IF ERR THEN PARAMS=''
     CALL IDS.READ(MODULES.AVAIL, IL.APP.PARAMS, PARAMS<11>:'*MODULES', 0, 0, ERR) ; IF ERR THEN R=''
   END
   MODULES.ACTIVE=PARAMS<1>
   SYSNUM=PARAMS<11>
-  CRT 'Modules for ':PARAMS<22>:' SYSNUM=':SYSNUM
-  CRT ''
-  CRT '  # Stat Description'
-  CRT '--- ---- ---------------------------------'
+  PRINT 'Modules for ':PARAMS<22>:' SYSNUM=':SYSNUM
+  PRINT ''
+  PRINT '  # Stat Description'
+  PRINT '--- ---- ---------------------------------'
   FOR F=1 TO LEN(MODULES.AVAIL)
     ACTIVE=MODULES.ACTIVE[F,1]
     AVAIL=MODULES.AVAIL[F,1]
     READV DESC FROM MODULES, F, 1 ELSE DESC='Unknown'
-    CRT F 'R#3':' ':
+    PRINT F 'R#3':' ':
     IF AVAIL THEN
-      IF ACTIVE THEN CRT '   1': ELSE CRT '   0':
+      IF ACTIVE THEN PRINT '   1': ELSE PRINT '   0':
     END ELSE
-      CRT ' N/A':
+      PRINT ' N/A':
     END
-    CRT ' ':DESC
+    PRINT ' ':DESC
   NEXT F
 RETURN
 *
