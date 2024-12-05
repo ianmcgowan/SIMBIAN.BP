@@ -1,0 +1,24 @@
+* https://adventofcode.com/2024/day/3
+OSREAD MEM FROM 'AOC3.DAT' ELSE ABORT
+CONVERT CHAR(10) TO "" IN MEM
+*
+M1=0
+M2=0
+DO.MUL=1
+FOR C=1 TO LEN(MEM)
+  IF MEM[C,4]='do()' THEN DO.MUL=1
+  IF MEM[C,7]="don't()" THEN DO.MUL=0
+  IF MEM[C,4]='mul(' THEN
+    T=FIELD(MEM[C+4,LEN(MEM)],')',1) ;* Grab up to the next ')'
+    V1=FIELD(T,',',1) ;* Grab the first value, this should be a number
+    V2=FIELD(T,',',2) ;* Grab the second value, this should be a number
+    V3=FIELD(T,',',3) ;* Grab the third value, this should be blank (there are 3 rows where it's not :-)
+    IF V3 # '' THEN CONTINUE
+    IF V1 # OCONV(V1,'MCN') THEN CONTINUE ;* Skip if not a number
+    IF V2 # OCONV(V2,'MCN') THEN CONTINUE ;* Skip if not a number
+    M1 += V1 * V2
+    IF DO.MUL THEN M2 += V1 * V2
+  END
+NEXT C
+CRT 'Multiplied total 1 is ':M1
+CRT 'Multiplied total 2 is ':M2
