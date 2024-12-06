@@ -1,0 +1,31 @@
+* https://adventofcode.com/2024/day/4
+OSREAD WORDS.RAW FROM 'AOC4.DAT' ELSE ABORT
+CONVERT CHAR(10) TO @AM IN WORDS.RAW
+WORDS=''
+FOR R=1 TO DCOUNT(WORDS.RAW,@AM)
+  FOR C=1 TO LEN(WORDS.RAW<R>)
+    WORDS<R,-1>=WORDS.RAW<R>[C,1]
+  NEXT C
+NEXT R
+*
+MAX.R=DCOUNT(WORDS, @AM)
+MAX.C=DCOUNT(WORDS<1>,@VM) ;* Assume all rows are the same length
+XMAS.COUNT=0
+FOR R=1 TO DCOUNT(WORDS,@AM)
+  FOR C=1 TO DCOUNT(WORDS<R>,@VM)
+    IF WORDS<R,C> # 'A' THEN CONTINUE ;* Starting point will always be an A
+    IF R=1 OR C=1 OR R=MAX.R OR C=MAX.C THEN CONTINUE ;* Skip the edges
+    * Check all 4 diagonals, skip up, down, left, right; preface with D to avoid reserved words
+    DNW=WORDS<R-1,C-1>
+    DNE=WORDS<R-1,C+1>
+    DSW=WORDS<R+1,C-1>
+    DSE=WORDS<R+1,C+1>
+    MAS.COUNT=0
+    IF (DNW = 'S' AND DSE = 'M') OR (DNW = 'M' AND DSE = 'S') THEN MAS.COUNT+=1
+    IF (DNE = 'S' AND DSW = 'M') OR (DNE = 'M' AND DSW = 'S') THEN MAS.COUNT+=1
+    IF MAS.COUNT=2 THEN XMAS.COUNT+=1
+  NEXT C
+NEXT R
+CRT 'X-MAS Count: ':XMAS.COUNT
+STOP
+*
