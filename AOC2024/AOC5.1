@@ -1,0 +1,123 @@
+* https://adventofcode.com/2024/day/5
+OSREAD RULES.RAW FROM 'AOC5.DAT' ELSE ABORT
+CONVERT CHAR(10) TO @AM IN RULES.RAW
+RULES=''
+UPDATES=''
+DO.RULES=1
+FOR R=1 TO DCOUNT(RULES.RAW,@AM)
+  RR=RULES.RAW<R>
+  IF RR='' THEN DO.RULES=0
+  IF DO.RULES THEN
+    VAL1=FIELD(RR,'|',1)
+    VAL2=FIELD(RR,'|',2)
+    * This puzzle is all about the data structure used to hold the rules.  It's a DCG (there is a loop) so keep two lists
+    * 1 = Page number
+    * 2 = List of Pages that must be after this page
+    * 3 = List of Pages that must be before this page
+    LOCATE VAL1 IN RULES<1> BY 'AR' SETTING POS THEN
+      RULES<2,POS,-1>=VAL2
+    END ELSE
+      INS VAL1 BEFORE RULES<1,POS>
+      INS VAL2 BEFORE RULES<2,POS>
+      INS ""   BEFORE RULES<3,POS>
+    END
+    *
+    LOCATE VAL2 IN RULES<1> BY 'AR' SETTING POS THEN
+      RULES<3,POS,-1>=VAL1
+    END ELSE
+      INS VAL2 BEFORE RULES<1,POS>
+      INS ""   BEFORE RULES<2,POS>
+      INS VAL1 BEFORE RULES<3,POS>
+    END
+  END ELSE
+    CONVERT ',' TO @VM IN RR
+    UPDATES<-1>=RR
+  END
+NEXT R
+*
+MIDDLE.PAGES.RIGHT=0
+MIDDLE.PAGES.WRONG=0
+FOR R=1 TO DCOUNT(UPDATES,@AM)
+  UPD=UPDATES<R>
+  NUM.UPDATES=DCOUNT(UPD,@VM)
+  MP=INT(NUM.UPDATES/2+0.5) ;* Are there always an odd number of pages?
+  *
+  RIGHT=1
+  FOR PAGES=1 TO NUM.UPDATES
+    PG=UPD<1,PAGES>
+    * Make sure that all updates before this page are "before" it in the rules
+    FOR BEFORE.PAGES=PAGES-1 TO 1 STEP -1
+      CHECK.PG=UPD<1,BEFORE.PAGES>
+      GOSUB CHECK.BEFORE
+    NEXT BEFORE.PAGES
+    * Make sure that all updates after this page are "after" it in the rules
+    FOR AFTER.PAGES=PAGES+1 TO NUM.UPDATES
+      CHECK.PG=UPD<1,AFTER.PAGES>
+      GOSUB CHECK.AFTER
+    NEXT AFTER.PAGES
+    IF NOT(RIGHT) THEN CONTINUE ;* If one value is wrong, skip the rest
+  NEXT PAGES
+  *
+  IF RIGHT THEN
+    MIDDLE.PAGES.RIGHT+=UPD<1,MP>
+  END ELSE
+    GOSUB FIX.RULES
+  END
+NEXT R
+CRT 'Middle Pages Right: ':MIDDLE.PAGES.RIGHT
+CRT 'Middle Pages Wrong: ':MIDDLE.PAGES.WRONG
+STOP
+*
+CHECK.AFTER:
+  * Check and make sure PG is after CHECK.PG
+  LOCATE PG IN RULES<1> BY 'AR' SETTING POS THEN
+    LOCATE CHECK.PG IN RULES<2,POS> SETTING DUMMY ELSE RIGHT=0
+  END ELSE
+    RIGHT=0
+  END
+RETURN
+*
+CHECK.BEFORE:
+  * Check and make sure PG is before CHECK.PG
+  LOCATE PG IN RULES<1> BY 'AR' SETTING POS THEN
+    LOCATE CHECK.PG IN RULES<3,POS> SETTING DUMMY ELSE RIGHT=0
+  END ELSE
+    RIGHT=0
+  END
+RETURN
+*
+FIX.RULES:
+  * Fix the rules so that the updates are correct, ugh, don't read the wikipedia entry on topological sorting :_)
+  * Instead we do a bubble sort by checking each element aginst the next, swapping ones that are not in the right order, and
+  * keep doing that until no swaps occur.  All the fancy python solutions use a comparator with a sort, we settle for bubbling
+  * One small enhancement - bubble in alternating directions to make fewer passes over the data.
+  LOOP
+    SWAPPED=0
+    FOR PAGES=1 TO NUM.UPDATES-1
+      PG=UPD<1,PAGES>
+      CHECK.PG=UPD<1,PAGES+1>
+      RIGHT=1
+      GOSUB CHECK.AFTER
+      IF NOT(RIGHT) THEN
+        UPD<1,PAGES>=CHECK.PG
+        UPD<1,PAGES+1>=PG
+        SWAPPED=1
+      END
+    NEXT PAGES
+    *
+    FOR PAGES=NUM.UPDATES TO 2 STEP -1
+      PG=UPD<1,PAGES>
+      CHECK.PG=UPD<1,PAGES-1>
+      RIGHT=1
+      GOSUB CHECK.BEFORE
+      IF NOT(RIGHT) THEN
+        UPD<1,PAGES>=CHECK.PG
+        UPD<1,PAGES-1>=PG
+        SWAPPED=1
+      END
+    NEXT PAGES
+  UNTIL SWAPPED=0 DO
+  REPEAT
+  MIDDLE.PAGES.WRONG+=UPD<1,MP>
+RETURN
+*
