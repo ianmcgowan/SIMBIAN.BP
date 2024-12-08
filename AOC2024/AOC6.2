@@ -1,0 +1,96 @@
+* https://adventofcode.com/2024/day/6.2
+OSREAD MAP.ORIG FROM 'AOC6.DAT' ELSE ABORT
+CONVERT CHAR(10) TO @AM IN MAP.ORIG
+DEL MAP.ORIG<DCOUNT(MAP.ORIG,@AM)> ;* Get rid of trailing blank line
+MAX.ROWS=DCOUNT(MAP.ORIG,@AM)
+MAX.COLS=LEN(MAP.ORIG<1>)
+FOR R=1 TO MAX.ROWS
+  C=INDEX(MAP.ORIG<R>,'^',1)
+  IF C THEN START.GUARD.ROW=R ; START.GUARD.COL=C
+NEXT R
+DIRS='N,E,S,W'
+DIRS<2>='-1,0,1,0' ;* Change in rows for dir
+DIRS<3>='0,1,0,-1' ;* Change in cols for dir
+DIRS<4>='^,>,v,<'  ;* Character to use for each direction
+CONVERT ',' TO @VM IN DIRS
+*
+* Do one run with no added obstacles to get the original path - there's no point simulating adding obstacles
+* in places where the guard never visits.  Brute force, but a little finesse never hurt
+MAP=MAP.ORIG
+GUARD.ROW=START.GUARD.ROW
+GUARD.COL=START.GUARD.COL
+GOSUB SIMULATE
+MAP.VISITED.MASTER=MAP.VISITED
+*
+OBSTACLE.COUNT=0
+FOR SR=1 TO MAX.ROWS
+  CRT 'ROW ':SR
+  FOR SC=1 TO MAX.COLS
+    IF MAP.VISITED.MASTER<SR,SC>='' THEN CONTINUE ;* No point simulating this position, never visited
+    GUARD.ROW=START.GUARD.ROW
+    GUARD.COL=START.GUARD.COL
+    IF SR=GUARD.ROW AND SC=GUARD.COL THEN CONTINUE ;* Skip the starting point
+    MAP=MAP.ORIG
+    IF MAP<SR>[SC,1]='#' THEN CONTINUE ;* Already an obstacle, can't add again
+    MAP<SR>=MAP<SR>[1,SC-1]:'#':MAP<SR>[SC+1,MAX.COLS] ;* Insert an obstacle and see if we loop, brute force baby!
+    GOSUB SIMULATE
+    IF LOOP.DETECTED THEN OBSTACLE.COUNT+=1
+  NEXT SC
+NEXT SR
+CRT 'Obstacle count=':OBSTACLE.COUNT
+STOP
+*
+SIMULATE:
+  DIR='N' ;* * Starting out guard is facing North ^
+  GOSUB GET.DIR
+  DONE=0
+  LOOP.DETECTED=0
+  MAP.VISITED=''
+  LOOP
+    GOSUB CHECK.LOOP
+    GOSUB GET.NEXT.POS
+  WHILE NOT(DONE) AND NOT(LOOP.DETECTED) DO
+    IF BLOCKED THEN
+      GOSUB PIVOT.RIGHT
+    END ELSE
+      * Move
+      GUARD.ROW += D.ROW
+      GUARD.COL += D.COL
+    END
+  REPEAT
+RETURN
+*
+CHECK.LOOP:
+  * Have we visited the current cell going in this direction before?
+  LOCATE DIR IN MAP.VISITED<GUARD.ROW,GUARD.COL> SETTING POS THEN
+    LOOP.DETECTED=1
+  END ELSE
+    * We need to store the direction - it's not a loop to visit the same cell but in a different direction
+    INS DIR BEFORE MAP.VISITED<GUARD.ROW,GUARD.COL,-1>
+  END
+RETURN
+*
+GET.DIR:
+  LOCATE DIR IN DIRS<1> SETTING POS THEN
+    D.ROW=DIRS<2,POS>
+    D.COL=DIRS<3,POS>
+    CH=DIRS<4,POS>
+  END
+RETURN
+*
+GET.NEXT.POS:
+  NEXT.ROW = GUARD.ROW + D.ROW
+  NEXT.COL = GUARD.COL + D.COL
+  IF NEXT.ROW > MAX.ROWS OR NEXT.COL > MAX.COLS OR NEXT.ROW = 0 OR NEXT.COL = 0 THEN DONE=1 ; RETURN
+  CELL=MAP<NEXT.ROW>[NEXT.COL,1]
+  IF CELL = '#' THEN BLOCKED=1 ELSE BLOCKED=0
+RETURN
+*
+PIVOT.RIGHT:
+  LOCATE DIR IN DIRS<1> SETTING POS THEN
+    POS=MOD(POS,4)+1
+    DIR=DIRS<1,POS>
+    GOSUB GET.DIR
+  END
+RETURN
+*
