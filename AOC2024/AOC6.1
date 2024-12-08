@@ -37,6 +37,10 @@ WHILE NOT(DONE) DO
     GUARD.COL += D.COL
     PRINT @(GUARD.COL-1, GUARD.ROW-1):CH:
   END
+  T=SYSTEM(12) ;* In Unidata, num of ms since midnight
+  LOOP
+  UNTIL SYSTEM(12)-T > 10 DO
+  REPEAT
 REPEAT
 *
 POSITIONS=0
