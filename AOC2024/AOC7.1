@@ -1,0 +1,71 @@
+* https://adventofcode.com/2024/day/7.1
+DEFFUN GEN(P,L,R)
+OSREAD EQUATIONS FROM 'AOC7.DAT' ELSE ABORT
+CONVERT CHAR(10) TO @AM IN EQUATIONS
+NUM.EQUATIONS=DCOUNT(EQUATIONS,@AM)
+DEL EQUATIONS<NUM.EQUATIONS> ; NUM.EQUATIONS -= 1
+OPERS='+':@VM:'*'
+*
+TOTAL.CAL.RESULT=0
+MEMOS=''
+FOR EQN.NUM=1 TO NUM.EQUATIONS
+  TEST=FIELD(EQUATIONS<EQN.NUM>,':',1)
+  VALS=TRIM(FIELD(EQUATIONS<EQN.NUM>,':',2))
+  CONVERT ' ' TO @VM IN VALS
+  GOSUB GEN.PERMUTATIONS
+  GOSUB CHECK.EQN
+NEXT EQN.NUM
+CRT 'Total calibration result=':TOTAL.CAL.RESULT
+STOP
+*
+GEN.PERMUTATIONS:
+  N=COUNT(VALS,@VM) ;* Not DCOUNT!
+  IF MEMOS<N> # '' THEN
+    * The permutations are the same if the number of values are the same.  Memoize.
+    PERMUTATIONS=MEMOS<N>
+  END ELSE
+    PERMUTATIONS=''
+    X=GEN('',N,PERMUTATIONS) ;* Generate a string with all possible permutations of the operators
+    MEMOS<N>=PERMUTATIONS
+  END
+RETURN
+*
+CHECK.EQN:
+  * Check all possible permutations to see if any match the TEST value
+  VALS.ORIG=VALS
+  LOOP
+    REMOVE PERM FROM PERMUTATIONS SETTING MORE
+    VALS=VALS.ORIG
+    TOTAL=VALS<1,1> ;* No operator precedence, just start with the 1st and YOLO from there
+    FOR V=2 TO DCOUNT(VALS<1>,@VM)
+      NEXT.VAL=VALS<1,V>
+      OP=PERM[V-1,1]
+      BEGIN CASE
+        CASE OP='+'
+          TOTAL+=NEXT.VAL
+        CASE OP='*'
+          TOTAL*=NEXT.VAL
+      END CASE
+      IF TOTAL > TEST THEN EXIT ;* Not gonna get any smaller, may as well bail once we're bigger than TEST
+    NEXT V
+    IF TOTAL = TEST THEN TOTAL.CAL.RESULT+=TOTAL ; EXIT ;* Don't need to try all the rest, just one matching will do
+  WHILE MORE DO
+  REPEAT
+RETURN
+*
+FUNCTION GEN(PREFIX, L, RESULT)
+  * Thanks ChatGPT for the recursive algo - it works, but breaks my brain trying to understand how...
+  * Local functions in U2 are a nice addition!
+  DEFFUN GEN(P,L,R)
+  TOKENS = '+':@VM:'*'
+  IF L = 0 THEN
+    RESULT<1,-1>=PREFIX
+    RETURN 0
+  END
+  *
+  FOR F=1 TO DCOUNT(TOKENS<1>,@VM)
+    TOKEN=TOKENS<1,F>
+    X=GEN(PREFIX:TOKEN, L-1, RESULT)
+  NEXT F
+RETURN 0
+*
