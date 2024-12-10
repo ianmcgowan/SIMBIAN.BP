@@ -1,5 +1,4 @@
 * https://adventofcode.com/2024/day/7.2
-DEFFUN GEN(P,L,R)
 OSREAD EQUATIONS FROM 'AOC7.DAT' ELSE ABORT
 CONVERT CHAR(10) TO @AM IN EQUATIONS
 NUM.EQUATIONS=DCOUNT(EQUATIONS,@AM)
@@ -27,7 +26,7 @@ GEN.PERMUTATIONS:
     PERMUTATIONS=''
     * Generate a string with all possible permutations of the operators
     * Note: this will create a *big* dynamic array - 3^12 = 531,441 combinations
-    X=GEN('',N,PERMUTATIONS)
+    CALL GEN('',N,PERMUTATIONS)
     MEMOS<N>=PERMUTATIONS
   END
 RETURN
@@ -71,19 +70,18 @@ CHECK.EQN:
   REPEAT
 RETURN
 *
-FUNCTION GEN(PREFIX, L, RESULT)
+SUBROUTINE GEN(PREFIX, L, RESULT)
   * Thanks ChatGPT for the recursive algo - it works, but breaks my brain trying to understand how...
   * Local functions in U2 are a nice addition!
-  DEFFUN GEN(P,L,R)
   TOKENS = '+':@VM:'*':@VM:':'
   IF L = 0 THEN
     RESULT<1,-1>=PREFIX
-    RETURN 0
+    RETURN
   END
   *
   FOR F=1 TO DCOUNT(TOKENS<1>,@VM)
     TOKEN=TOKENS<1,F>
-    X=GEN(PREFIX:TOKEN, L-1, RESULT)
+    CALL GEN(PREFIX:TOKEN, L-1, RESULT)
   NEXT F
-RETURN 0
+RETURN
 *
