@@ -1,0 +1,69 @@
+* https://adventofcode.com/2024/day/8.2
+OSREAD GRID FROM 'AOC8.DAT' ELSE ABORT
+CONVERT CHAR(10) TO @AM IN GRID
+MAX.ROW=DCOUNT(GRID,@AM)
+MAX.COL=LEN(GRID<1>)
+DEL GRID<MAX.ROW> ; MAX.ROW-=1
+ANT.LIST=''
+FOR R=1 TO MAX.ROW
+  FOR C=1 TO MAX.COL
+    ANT=GRID<R>[C,1]
+    IF ANT # '.' THEN ANT.LIST<-1>=R:@VM:C:@VM:ANT
+  NEXT C
+NEXT R
+*
+NODES=''
+NUM.ANTS=DCOUNT(ANT.LIST,@AM)
+FOR A1=1 TO NUM.ANTS
+  ROW1=ANT.LIST<A1,1>
+  COL1=ANT.LIST<A1,2>
+  TYPE1=ANT.LIST<A1,3>
+  CRT A1, ROW1, COL1, TYPE1
+  * Each antenna will have a node at the same location
+  LOCATE TYPE1 IN NODES<ROW1, COL1> SETTING POS ELSE
+    NODES<ROW1, COL1, -1>=TYPE1
+  END
+  GOSUB CHECK.ANT
+NEXT R
+*
+TOTAL.NODES=0
+FOR NR=1 TO DCOUNT(NODES,@AM)
+  FOR NC=1 TO DCOUNT(NODES<NR>,@VM)
+    IF DCOUNT(NODES<NR,NC>,@SVM) > 0 THEN TOTAL.NODES+=1
+  NEXT NC
+NEXT NR
+CRT 'Total nodes=':TOTAL.NODES
+STOP
+*
+CHECK.ANT:
+  FOR A2=1 TO NUM.ANTS
+    ROW2=ANT.LIST<A2,1>
+    COL2=ANT.LIST<A2,2>
+    TYPE2=ANT.LIST<A2,3>
+    IF ROW1=ROW2 AND COL1=COL2 THEN CONTINUE ;* Same antenna, ignore
+    IF TYPE1#TYPE2 THEN CONTINUE ;* Not the same type, ignore
+    * Calculate the distance of the x and y coordinates
+    DR=ROW2-ROW1
+    DC=COL2-COL1
+    * Now extend the distance from each point to get two nodes, don't worry about slopes here
+    FOR HARMONIC=-50 TO 50
+      NODE1.R = ROW1 + (DR*2)*HARMONIC
+      NODE1.C = COL1 + (DC*2)*HARMONIC
+      NODE2.R = ROW2 - (DR*2)*HARMONIC
+      NODE2.C = COL2 - (DC*2)*HARMONIC
+      * Now check if the nodes are within the grid
+      IF NODE1.R>=1 AND NODE1.R<=MAX.ROW AND NODE1.C>=1 AND NODE1.C<=MAX.COL THEN
+        * Check to see if this node has already been found
+        LOCATE TYPE1 IN NODES<NODE1.R, NODE1.C> SETTING POS ELSE
+          NODES<NODE1.R, NODE1.C, -1>=TYPE1
+        END
+      END
+      IF NODE2.R>=1 AND NODE2.R<=MAX.ROW AND NODE2.C>=1 AND NODE2.C<=MAX.COL THEN
+        LOCATE TYPE1 IN NODES<NODE2.R, NODE2.C> SETTING POS ELSE
+          NODES<NODE2.R, NODE2.C, -1>=TYPE1
+        END
+      END
+    NEXT HARMONIC
+  NEXT A2
+RETURN
+*
