@@ -19,13 +19,13 @@ OPTIONS=''
 CALL TRIN.GET.ARGS(@SENTENCE, ARGS, PARAMS, OPTIONS)
 
 OPEN 'TRIN.STREAM' TO TRIN.STREAM ELSE
-	GOSUB SETUP
-	OPEN 'TRIN.STREAM' TO TRIN.STREAM ELSE STOP 'SETUP FAILED'
+   GOSUB SETUP
+   OPEN 'TRIN.STREAM' TO TRIN.STREAM ELSE STOP 'SETUP FAILED'
 END
 OPEN 'TRIN.STREAM.LOG' TO TRIN.STREAM.LOG ELSE STOP 201,'TRIN.STREAM.LOG'
 OPEN 'TRIN.STREAM.AUDIT' TO TRIN.STREAM.AUDIT ELSE
-    EXECUTE \CREATE.FILE TRIN.STREAM.AUDIT 227,1\
-    OPEN 'TRIN.STREAM.AUDIT' TO TRIN.STREAM.AUDIT ELSE STOP 201,'TRIN.STREAM.AUDIT'
+   EXECUTE \CREATE.FILE TRIN.STREAM.AUDIT 227,1\
+   OPEN 'TRIN.STREAM.AUDIT' TO TRIN.STREAM.AUDIT ELSE STOP 201,'TRIN.STREAM.AUDIT'
 END
 *
 CALL TRIN.GET.ACCOUNT(ACCOUNT)
@@ -227,24 +227,24 @@ LIST.STREAMS:
 STOP
 
 SETUP:
-    PRINT 'It appears that this account is not setup for STREAM'
-    PRINT 'Would you like to set it up now':
-	INPUT YORN
-	IF YORN # 'Y' THEN STOP
+   PRINT 'It appears that this account is not setup for STREAM'
+   PRINT 'Would you like to set it up now':
+   INPUT YORN
+   IF YORN # 'Y' THEN STOP
 
-	* Create files needed
-	EXECUTE \CREATE.FILE DIR TRIN.STREAM\
-	EXECUTE \CREATE.FILE DIR TRIN.STREAM.LOG\
-    EXECUTE \CREATE.FILE TRIN.STREAM.AUDIT 227,1\
+   * Create files needed
+   EXECUTE \CREATE.FILE DIR TRIN.STREAM\
+   EXECUTE \CREATE.FILE DIR TRIN.STREAM.LOG\
+   EXECUTE \CREATE.FILE TRIN.STREAM.AUDIT 227,1\
 
-	* Add an entry to the script called by dsiroot's cron
-	E= \!echo "sleep 600" >> /usr/local/bin/stream_all\
-	PRINT E
-	EXECUTE E
+   * Add an entry to the script called by dsiroot's cron
+   E= \!echo "sleep 600" >> /usr/local/bin/stream_all\
+   PRINT E
+   EXECUTE E
 
-	E=\!echo "/usr/local/bin/phantom \
-	E:=@ACCOUNT
-	E:=' STREAM \$stream &" >> /usr/local/bin/stream_all'
-	PRINT E
-	EXECUTE E
+   E=\!echo "/usr/local/bin/phantom \
+   E:=@ACCOUNT
+   E:=' STREAM \$stream &" >> /usr/local/bin/stream_all'
+   PRINT E
+   EXECUTE E
 RETURN
