@@ -1,0 +1,136 @@
+SUBROUTINE JSON.GET.ARRAY(JSON.STRING, RESULT, ERR)
+  * Parse a JSON array into a dynamic array
+  * Input: JSON.STRING - A JSON string starting with '['
+  * Output: RESULT - A dynamic array with array elements parsed into rows
+  *
+  CONVERT @AM TO " " IN JSON.STRING ;* Don't have to deal with line delimiters
+  CONVERT CHAR(10) TO " " IN JSON.STRING
+  CONVERT CHAR(13) TO "" IN JSON.STRING
+  JSON.STRING = TRIM(JSON.STRING)
+  JSON.LEN = LEN(JSON.STRING)
+  RESULT = ""
+  ERR=""
+  *
+  POS=1
+  GOSUB SKIP.WHITESPACE
+  IF JSON.STRING[POS,1] <> "[" THEN
+    RETURN  ;* Not a JSON array
+  END
+  POS+=1
+*
+* States for our FSM
+  STATE.EXPECT_VALUE = 1
+  STATE.EXPECT_COMMA_OR_END = 2
+*
+  CURRENT.STATE = STATE.EXPECT_VALUE
+  ELEMENT.COUNT = 0
+*
+  LOOP WHILE POS <= JSON.LEN
+    GOSUB SKIP.WHITESPACE
+    *
+    IF POS > JSON.LEN THEN EXIT
+    C = JSON.STRING[POS,1]
+    *
+    BEGIN CASE
+      CASE CURRENT.STATE = STATE.EXPECT_VALUE
+        IF C = "]" THEN
+        * Empty array or end of array
+          POS = POS + 1
+          EXIT
+        END
+        *
+        ELEMENT.COUNT = ELEMENT.COUNT + 1
+        ELEMENT.START = POS
+        *
+        BEGIN CASE
+          CASE C = "{"  ;* Object
+            NESTING = 1
+            POS = POS + 1
+            LOOP WHILE POS <= JSON.LEN AND NESTING > 0
+              BEGIN CASE
+                CASE JSON.STRING[POS,1] = "{"
+                  NESTING = NESTING + 1
+                CASE JSON.STRING[POS,1] = "}"
+                  NESTING = NESTING - 1
+                CASE JSON.STRING[POS,1] = CHAR(34)
+                  GOSUB SKIP.STRING
+              END CASE
+              POS = POS + 1
+            REPEAT
+            ELEMENT = JSON.STRING[ELEMENT.START, POS-ELEMENT.START]
+            RESULT<ELEMENT.COUNT> = ELEMENT
+          CASE C = "["  ;* Array
+            NESTING = 1
+            POS = POS + 1
+            LOOP WHILE POS <= JSON.LEN AND NESTING > 0
+              BEGIN CASE
+                CASE JSON.STRING[POS,1] = "["
+                  NESTING = NESTING + 1
+                CASE JSON.STRING[POS,1] = "]"
+                  NESTING = NESTING - 1
+                CASE JSON.STRING[POS,1] = CHAR(34)
+                  GOSUB SKIP.STRING
+              END CASE
+              POS = POS + 1
+            REPEAT
+            ELEMENT = JSON.STRING[ELEMENT.START, POS-ELEMENT.START]
+            RESULT<ELEMENT.COUNT> = ELEMENT
+          CASE C = CHAR(34)  ;* String
+            GOSUB SKIP.STRING
+            POS = POS + 1
+            ELEMENT = JSON.STRING[ELEMENT.START, POS-ELEMENT.START]
+            ELEMENT = ELEMENT[2,LEN(ELEMENT)-2] ;* Remove quotes
+            RESULT<ELEMENT.COUNT> = ELEMENT
+          CASE JSON.STRING[POS,4] = "true"
+            RESULT<ELEMENT.COUNT>="true"
+            POS = POS + 4
+          CASE JSON.STRING[POS,5] = "false"
+            RESULT<ELEMENT.COUNT>="false"
+            POS = POS + 5
+          CASE JSON.STRING[POS,4] = "null"
+            RESULT<ELEMENT.COUNT>="null"
+            POS = POS + 4
+          CASE C = "-" OR C MATCHES "1N"  ;* Number
+            LOOP WHILE POS <= JSON.LEN
+              C = JSON.STRING[POS,1]
+              IF C <> "-" AND C <> "." AND C <> "e" AND C <> "E" AND C <> "+" AND NOT(C MATCHES "1N") THEN EXIT
+              POS = POS + 1
+            REPEAT
+            ELEMENT = JSON.STRING[ELEMENT.START, POS-ELEMENT.START]
+            RESULT<ELEMENT.COUNT> = ELEMENT
+          CASE 1
+            ERR="Error: Invalid value type"
+            RETURN
+        END CASE
+        CURRENT.STATE = STATE.EXPECT_COMMA_OR_END
+      CASE CURRENT.STATE = STATE.EXPECT_COMMA_OR_END
+        IF C = "]" THEN
+        * End of array
+          POS = POS + 1
+          EXIT
+        END ELSE IF C = "," THEN
+          POS = POS + 1
+          CURRENT.STATE = STATE.EXPECT_VALUE
+        END ELSE
+          ERR="Error: Expected comma or closing bracket"
+          RETURN
+        END
+    END CASE
+  REPEAT
+RETURN
+*
+SKIP.WHITESPACE:
+  LOOP WHILE POS <= JSON.LEN
+    C = JSON.STRING[POS,1]
+    IF C <> " " AND C <> CHAR(9) AND C <> CHAR(10) AND C <> CHAR(13) THEN EXIT
+    POS = POS + 1
+  REPEAT
+RETURN
+*
+SKIP.STRING:
+  POS = POS + 1
+  LOOP WHILE POS <= JSON.LEN
+    IF JSON.STRING[POS,1] = CHAR(34) AND JSON.STRING[POS-1,1] <> "\" THEN EXIT
+    POS = POS + 1
+  REPEAT
+RETURN

@@ -1,0 +1,138 @@
+PROGRAM JSON.TEST
+PASS=0 ; FAIL=0
+JSON.STRING = ' {"name":"John Doe","age":30,"address":{"street":"123 Main St","city":"Anytown"},'
+JSON.STRING:= ' "phones":["555-1234","555-5678",{"Phone": "555-1212", "Ext": 1234}] }'
+CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
+*
+* Test for top level object
+TEST=1  ; DESC="NO ERR PARSING" ; EXPECTED=\\                                          ; VALUE=ERR             ; GOSUB SHOW.RESULT
+TEST=2  ; DESC="ATB 1 NAME"     ; EXPECTED=\name\                                      ; VALUE=JSON.ARRAY<1,1> ; GOSUB SHOW.RESULT
+TEST=3  ; DESC="ATB 1 TYPE"     ; EXPECTED=\STRING\                                    ; VALUE=JSON.ARRAY<2,1> ; GOSUB SHOW.RESULT
+TEST=4  ; DESC="ATB 1 VALUE"    ; EXPECTED=\John Doe\                                  ; VALUE=JSON.ARRAY<3,1> ; GOSUB SHOW.RESULT
+TEST=5  ; DESC="ATB 2 NAME"     ; EXPECTED=\age\                                       ; VALUE=JSON.ARRAY<1,2> ; GOSUB SHOW.RESULT
+TEST=6  ; DESC="ATB 2 TYPE"     ; EXPECTED=\NUMBER\                                    ; VALUE=JSON.ARRAY<2,2> ; GOSUB SHOW.RESULT
+TEST=7  ; DESC="ATB 2 VALUE"    ; EXPECTED=30                                          ; VALUE=JSON.ARRAY<3,2> ; GOSUB SHOW.RESULT
+TEST=8  ; DESC="ATB 3 NAME"     ; EXPECTED=\address\                                   ; VALUE=JSON.ARRAY<1,3> ; GOSUB SHOW.RESULT
+TEST=9  ; DESC="ATB 3 TYPE"     ; EXPECTED=\OBJECT\                                    ; VALUE=JSON.ARRAY<2,3> ; GOSUB SHOW.RESULT
+TEST=10 ; DESC="ATB 3 VALUE"    ; EXPECTED=\{"street":"123 Main St","city":"Anytown"}\ ; VALUE=JSON.ARRAY<3,3> ; GOSUB SHOW.RESULT
+TEST=11 ; DESC="ATB 4 NAME"     ; EXPECTED=\phones\                                    ; VALUE=JSON.ARRAY<1,4> ; GOSUB SHOW.RESULT
+TEST=12 ; DESC="ATB 4 TYPE"     ; EXPECTED=\ARRAY\                                     ; VALUE=JSON.ARRAY<2,4> ; GOSUB SHOW.RESULT
+TEST=13 ; DESC="ATB 4 VALUE"    ; EXPECTED=\["555-1234","555-5678",{"Phone": "555-1212", "Ext": 1234}]\; VALUE=JSON.ARRAY<3,4> ; GOSUB SHOW.RESULT
+*
+* Test for embedded object inside object
+CALL JSON.GET.OBJECT(JSON.ARRAY<3,3>,ADDR.ARRAY,ERR)
+TEST=14 ; DESC="ADDRESS PARSE"  ; EXPECTED=\\            ; VALUE=ERR             ; GOSUB SHOW.RESULT
+TEST=15 ; DESC="ADDR ATB 1 NAME"; EXPECTED=\street\      ; VALUE=ADDR.ARRAY<1,1> ; GOSUB SHOW.RESULT
+TEST=16 ; DESC="ADDR ATB 1 TYPE"; EXPECTED=\STRING\      ; VALUE=ADDR.ARRAY<2,1> ; GOSUB SHOW.RESULT
+TEST=17 ; DESC="ADDR ATB 1 VAL "; EXPECTED=\123 Main St\ ; VALUE=ADDR.ARRAY<3,1> ; GOSUB SHOW.RESULT
+TEST=18 ; DESC="ADDR ATB 2 NAME"; EXPECTED=\city\        ; VALUE=ADDR.ARRAY<1,2> ; GOSUB SHOW.RESULT
+TEST=19 ; DESC="ADDR ATB 2 TYPE"; EXPECTED=\STRING\      ; VALUE=ADDR.ARRAY<2,2> ; GOSUB SHOW.RESULT
+TEST=20 ; DESC="ADDR ATB 3 VAL "; EXPECTED=\Anytown\     ; VALUE=ADDR.ARRAY<3,2> ; GOSUB SHOW.RESULT
+*
+* Test for embedded object inside array
+CALL JSON.GET.ARRAY(JSON.ARRAY<3,4>,PHONES.REC,ERR)
+TEST=21 ; DESC="PHONE PARSE"   ; EXPECTED=\\                                     ; VALUE=ERR                    ; GOSUB SHOW.RESULT
+TEST=22 ; DESC="PHONE COUNT"   ; EXPECTED=3                                      ; VALUE=DCOUNT(PHONES.REC,@AM) ; GOSUB SHOW.RESULT
+TEST=23 ; DESC="PHONE 1"       ; EXPECTED=\555-1234\                             ; VALUE=PHONES.REC<1>          ; GOSUB SHOW.RESULT
+TEST=24 ; DESC="PHONE 2"       ; EXPECTED=\555-5678\                             ; VALUE=PHONES.REC<2>          ; GOSUB SHOW.RESULT
+TEST=25 ; DESC="PHONE 3"       ; EXPECTED=\{"Phone": "555-1212", "Ext": 1234}\   ; VALUE=PHONES.REC<3>          ; GOSUB SHOW.RESULT
+*
+* Test for embedded object in array
+CALL JSON.GET.OBJECT(PHONES.REC<3>,PHONE,ERR)
+TEST=26 ; DESC="PHONE2 PARSE" ; EXPECTED=\\         ; VALUE=ERR        ; GOSUB SHOW.RESULT
+TEST=27 ; DESC="PHONE2 Name1" ; EXPECTED=\Phone\    ; VALUE=PHONE<1,1> ; GOSUB SHOW.RESULT
+TEST=28 ; DESC="PHONE2 Type1" ; EXPECTED=\STRING\   ; VALUE=PHONE<2,1> ; GOSUB SHOW.RESULT
+TEST=29 ; DESC="PHONE2 Val1"  ; EXPECTED=\555-1212\ ; VALUE=PHONE<3,1> ; GOSUB SHOW.RESULT
+TEST=30 ; DESC="PHONE2 Name2" ; EXPECTED=\Ext\      ; VALUE=PHONE<1,2> ; GOSUB SHOW.RESULT
+TEST=31 ; DESC="PHONE2 Type2" ; EXPECTED=\NUMBER\   ; VALUE=PHONE<2,2> ; GOSUB SHOW.RESULT
+TEST=32 ; DESC="PHONE2 Val2"  ; EXPECTED=1234       ; VALUE=PHONE<3,2> ; GOSUB SHOW.RESULT 
+*
+* Test for embedded quotes, spaces, literals and numbers
+JSON.STRING = '{ "Name": "Ian  \"Nerd King\"\tMcGowan", "Nerd": true, "Cool" : false, "Age" : 59  , "location":null }'
+CALL JSON.GET.OBJECT(JSON.STRING,USER.INFO,ERR)
+TEST=33 ; DESC="USER PARSE" ; EXPECTED=\\        ; VALUE=ERR            ; GOSUB SHOW.RESULT
+TEST=34 ; DESC="NAME NAME"  ; EXPECTED=\Name\    ; VALUE=USER.INFO<1,1> ; GOSUB SHOW.RESULT
+TEST=35 ; DESC="NAME TYPE"  ; EXPECTED=\STRING\  ; VALUE=USER.INFO<2,1> ; GOSUB SHOW.RESULT
+TEST=36 ; DESC="NAME VAL"   ; EXPECTED='Ian  "Nerd King"\tMcGowan'      ; VALUE=USER.INFO<3,1> ; GOSUB SHOW.RESULT
+TEST=37 ; DESC="NERD NAME"  ; EXPECTED=\Nerd\    ; VALUE=USER.INFO<1,2> ; GOSUB SHOW.RESULT
+TEST=38 ; DESC="NERD TYPE"  ; EXPECTED=\LITERAL\ ; VALUE=USER.INFO<2,2> ; GOSUB SHOW.RESULT
+TEST=39 ; DESC="NERD VAL"   ; EXPECTED="true"    ; VALUE=USER.INFO<3,2> ; GOSUB SHOW.RESULT
+TEST=40 ; DESC="GEEK NAME"  ; EXPECTED=\Cool\    ; VALUE=USER.INFO<1,3> ; GOSUB SHOW.RESULT
+TEST=41 ; DESC="GEEK TYPE"  ; EXPECTED=\LITERAL\ ; VALUE=USER.INFO<2,3> ; GOSUB SHOW.RESULT
+TEST=42 ; DESC="GEEK VAL"   ; EXPECTED="false"   ; VALUE=USER.INFO<3,3> ; GOSUB SHOW.RESULT
+TEST=43 ; DESC="AGE NAME"   ; EXPECTED=\Age\     ; VALUE=USER.INFO<1,4> ; GOSUB SHOW.RESULT
+TEST=44 ; DESC="AGE TYPE"   ; EXPECTED=\NUMBER\  ; VALUE=USER.INFO<2,4> ; GOSUB SHOW.RESULT
+TEST=45 ; DESC="AGE VAL"    ; EXPECTED=59        ; VALUE=USER.INFO<3,4> ; GOSUB SHOW.RESULT
+TEST=46 ; DESC="LOC NAME"   ; EXPECTED=\location\; VALUE=USER.INFO<1,5> ; GOSUB SHOW.RESULT
+TEST=47 ; DESC="LOC TYPE"   ; EXPECTED=\LITERAL\ ; VALUE=USER.INFO<2,5> ; GOSUB SHOW.RESULT
+TEST=48 ; DESC="LOC VAL"    ; EXPECTED="null"    ; VALUE=USER.INFO<3,5> ; GOSUB SHOW.RESULT
+*
+* Tests for malformed JSON
+JSON.STRING = \{ "name": "John Doe", "age": 30\
+CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
+TEST=49 ; DESC="Missing Closing Bracket" ; EXPECTED=\Error: Missing closing bracket\ ; VALUE=ERR ; GOSUB SHOW.RESULT
+*
+JSON.STRING = \{ "name": "John Doe" "age": 30 }\
+CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
+TEST=50 ; DESC="Missing Comma Between Elements" ; EXPECTED=\Error: Expected comma or closing brace\ ; VALUE=ERR ; GOSUB SHOW.RESULT
+*
+JSON.STRING = \{ "name": "John Doe", "age": 30, }\
+CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
+TEST=51 ; DESC="Trailing Comma" ; EXPECTED=\Error: Missing closing bracket\ ; VALUE=ERR ; GOSUB SHOW.RESULT
+*
+JSON.STRING = \{ name: "John Doe", age: 30 }\
+CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
+TEST=52 ; DESC="Unquoted Keys" ; EXPECTED=\Error: Expected key string\ ; VALUE=ERR ; GOSUB SHOW.RESULT
+*
+JSON.STRING = \{ 'name': 'John Doe', 'age': 30 }\
+CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
+TEST=53 ; DESC="Single Quotes Instead of Double Quotes" ; EXPECTED=\Error: Expected key string\ ; VALUE=ERR ; GOSUB SHOW.RESULT
+*
+JSON.STRING = \{ "name": "John Doe", // This is the person's name "age": 30 /* This is their age */ }\
+CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
+TEST=54 ; DESC="Comments (Not Allowed in JSON)" ; EXPECTED=\Error: Expected key string\ ; VALUE=ERR ; GOSUB SHOW.RESULT
+*
+JSON.STRING = \{ "name": undefined, "age": 30 }\
+CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
+TEST=55 ; DESC="Undefined Value" ; EXPECTED=\Error: Invalid value type\ ; VALUE=ERR ; GOSUB SHOW.RESULT
+*
+JSON.STRING = \{ "name": "John Doe", "value": NaN, "limit": Infinity }\
+CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
+TEST=56 ; DESC="NaN" ; EXPECTED=\Error: Invalid value type\ ; VALUE=ERR ; GOSUB SHOW.RESULT
+*
+JSON.STRING = \{ "name": "John Doe", "limit": Infinity }\
+CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
+TEST=57 ; DESC="Infinity" ; EXPECTED=\Error: Invalid value type\ ; VALUE=ERR ; GOSUB SHOW.RESULT
+*
+JSON.STRING = '{ "message": "This is a new\line" }'
+CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
+TEST=58 ; DESC="Incorrectly Escaped Characters" ; EXPECTED=\Error: Invalid escape in string\ ; VALUE=ERR ; GOSUB SHOW.RESULT
+*
+JSON.STRING = \{ "name": "John Doe" } extra text\
+CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
+TEST=59 ; DESC="Extra Characters" ; EXPECTED=\Error: Characters after closing bracket\ ; VALUE=ERR ; GOSUB SHOW.RESULT
+*
+JSON.STRING = \{ "name": "John Doe", "name": "Jane Doe" }\
+CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
+TEST=60 ; DESC="Duplicate Key" ; EXPECTED=\Error: Duplicate key detected\ ; VALUE=ERR ; GOSUB SHOW.RESULT
+*
+JSON.STRING = \{ ["name": "John Doe", "name2": "Jane Doe"] }\
+CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
+TEST=61 ; DESC="Anonymous Array" ; EXPECTED=\Error: Expected key string\ ; VALUE=ERR ; GOSUB SHOW.RESULT
+*
+CRT 'Tests:':PASS+FAIL
+CRT 'Pass :':PASS
+CRT 'Fail :':FAIL
+STOP
+*
+SHOW.RESULT:
+  CRT TEST'R#3':' ':DESC'L#30':' ':
+  IF EXPECTED=VALUE THEN
+    CRT 'OK'
+    PASS+=1
+  END ELSE
+    CRT 'FAIL-EXPECTED:':EXPECTED:' GOT:':VALUE
+    FAIL+=1
+  END
+RETURN
+*
