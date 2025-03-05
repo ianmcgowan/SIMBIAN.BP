@@ -20,6 +20,7 @@ E.g. given this JSON:
     "name": "Belgium",
     "capital": "Brussels",
     "population": 11513931,
+    "primeMinister": { "name": "Bart De Wever", "date": "2025-02-03" }
     "languages": ["Dutch", "French", "German"],
     "regions": [ {"name": "Flanders", "pop": 6629000}, {"name": "Wallonia", "pop": 3645000}, {"name": "Brussels", "pop": 1208000} ]
 }
@@ -28,21 +29,31 @@ E.g. given this JSON:
 CALL JSON.GET.OBJECT(JSON, RESULT, ERR) will return
 
 ERR=""
-RESULT<1>=name | capital | population | languages | regions
-RESULT<2>=STRING | STRING | NUMBER | ARRAY | OBJECT
-RESULT<3>=Belgium | Brussels | 11513931 | ["Dutch", "French", "German"] | [ {"name": "Flanders", "pop": 6629000}, {"name": "Wallonia", "pop": 3645000}, {"name": "Brussels", "pop": 1208000} ]
+RESULT<1>=name | capital | population | primeMinister | languages | regions
+RESULT<2>=STRING | STRING | NUMBER | OBJECT | ARRAY | ARRAY
+RESULT<3>=Belgium | Brussels | 11513931 | { "name": "Bart De Wever", "date": "2025-02-03" } | ["Dutch", "French", "German"] | [ {"name": "Flanders", "pop": 6629000}, {"name": "Wallonia", "pop": 3645000}, {"name": "Brussels", "pop": 1208000} ]
 ```
-And you can then extract the languages and regions like so:
+And you can then extract the PM, languages and regions like so:
 
+Prime Minister:
 ```
-LANG.JSON=RESULT<3,4>
+PM.JSON=RESULT<3,4>
+CALL JSON.GET.OBJECT(PM.JSON, PM.REC, ERR)
+
+PM.REC<1>=name | date
+PM.REC<2>=STRING | STRING
+PM.REC<3>=Bart De Wever | 2025-02-03
+```
+Languages:
+```
+LANG.JSON=RESULT<3,5>
 CALL JSON.GET.ARRAY(LANG.JSON, LANGS, ERR) will return
 
 LANGS<1>=Dutch
 LANGS<2>=French
 LANGS<3>=German
 ```
-And 
+Regions: 
 ```
 CALL JSON.GET.ARRAY(REGION.JSON, REGIONS, ERR) will return
 
