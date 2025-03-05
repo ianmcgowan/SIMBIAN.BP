@@ -1,23 +1,24 @@
-$BASICTYPE 'P'
 ***************************************************************************
 * Program: STACK
 * Author : Ian McGowan
 * Created: 1989-06-13
-* Updated: 2024-12-09
+* Updated: 2025-03-03
 * Comment: Stacks TCL commands, utilities for programmers
 ***************************************************************************
-PRINT \Version 2024-12-09 DeLeasify\
+PRINT \Version 2025-03-03 BPI Improvement\
 *
 * STACK is a command line editor, command stack, program stack and useful utilites for TCL
 * It is designed to make life easier and more productive for programmers
 * It is a single program, so it can be used on any Unidata system, and is easy to install
 * The only dependency is the ability to create STACK.HOME in the account, or a QPTR to a file in a central location
 *
-* STACK functions can be divided into 4 categories:
+* STACK functions can be divided into 6 categories:
 * 1) Line editing commands     - Editing the current command line, aims to be bash-like, allows custom key bindings
 * 2) Command stack commands    - Manipulating the command stack, like .L, .X in TCL - fewer options, since you can edit the stack
 * 3) Program stack commands    - Manipulating the program stack, saves typing ED BP PROGRAM.NAME, just do /E3
 * 4) Internal utility commands - Utilities that are built into STACK that are useful for programmers in general
+* 5) InfoLease utilities       - Utilities that are useful for InfoLease programmers
+* 6) Custom utilities          - Functions that are specific to a customer
 *
 STACK.HELP=''
 STACK.HELP<-1>='--------------------- TCL STACK COMMANDS (vt100)-------------------------------'
@@ -25,19 +26,19 @@ STACK.HELP<-1>='Ctrl-A      Start of line (home)       Ctrl-L           Clear sc
 STACK.HELP<-1>='Ctrl-B      Back character (left)      Ctrl-M           Accept line (enter)    '
 STACK.HELP<-1>='Ctrl-D      Delete character (del)     Ctrl-N           Next line (down)       '
 STACK.HELP<-1>='Ctrl-E      End of line (end)          Ctrl-P           Previous line (up)     '
-STACK.HELP<-1>='Ctrl-F      Forward character (right)  Ctrl-R           Completion search      '
+STACK.HELP<-1>='Ctrl-F      Forward character (right)  Ctrl-R           Forward Word (^-right) '
 STACK.HELP<-1>='Ctrl-G      Cancel line (esc)          Ctrl-U           Page Up (pgup)         '
 STACK.HELP<-1>='Ctrl-H      Backspace                  Ctrl-V           Page Down (pgdown)     '
-STACK.HELP<-1>='Ctrl-I      Forward Word (tab)         Ctrl-W           Delete word            '
-STACK.HELP<-1>='Ctrl-K      Delete to end              Ctrl-X           Back word              '
+STACK.HELP<-1>='Ctrl-I      Completion (tab)           Ctrl-W           Delete word (alt-del)  '
+STACK.HELP<-1>='Ctrl-K      Delete to end              Ctrl-X           Back word (^-left)     '
 STACK.HELP<-1>='                                                                               '
-STACK.HELP<-1>='.Dm,n      Delete entry m thru n       ~xyz             List ALL xyz in stack  '
-STACK.HELP<-1>='.H/?       Help                        @xyz             Recall LAST xyz        '
-STACK.HELP<-1>='.I         Toggle detail info off/on   !xyz             Execute xyz O/S command'
+STACK.HELP<-1>='.C         Cleanup History             ~xyz             List ALL xyz in stack  '
+STACK.HELP<-1>='.Dm,n      Delete entry m thru n       @xyz             Recall LAST xyz        '
+STACK.HELP<-1>='.H/?       Help                        !xyz             Execute xyz O/S command'
 STACK.HELP<-1>='.Lm,n      List entry m thru n         Q/INFO           Quit/InfoLease         '
-STACK.HELP<-1>='.P         Change the prompt                                                   '
-STACK.HELP<-1>='.Rn        Restore entry n, edit                                               '
-STACK.HELP<-1>='.T         Turn on timing                                                      '
+STACK.HELP<-1>='.P         Change the prompt           .Rn/.Xn          Restore entry n, edit  '
+STACK.HELP<-1>='.TC        Toggle upper case           .TD              Toggle detail info     '
+STACK.HELP<-1>='.TT        Toggle timing               .TM              Toggle ; for multiline '
 STACK.HELP<-1>='                                                                               '
 STACK.HELP<-1>='---------------------- PROGRAM STACK COMMANDS ---------------------------------'
 STACK.HELP<-1>='/           List the programs in the current project                           '
@@ -47,21 +48,43 @@ STACK.HELP<-1>='/Ex         Edit the x`th program      /WW              Edit the
 STACK.HELP<-1>='/Wx         VI the x`th program        /S               Sort the program stack '
 STACK.HELP<-1>='/Bx         Compile the x`th program   /BR              Compile and run        '
 STACK.HELP<-1>='                                                                               '
-STACK.HELP<-1>='---------------------------- UTILITIES ----------------------------------------'
-STACK.HELP<-1>='ASCII       Show ASCII table                                                   '
+STACK.HELP<-1>='---------------------------- INFOLEASE UTILITIES ------------------------------'
+STACK.HELP<-1>='{C}CI/CM/TM {Customer}Contract Inquiry/Maint/Table Maint             CI 100.1.1'
+STACK.HELP<-1>='AF          ATB Finder, search definitions                            AF MRKTNG'
+STACK.HELP<-1>='ASCII       Show ASCII table                                              ASCII'
+STACK.HELP<-1>='BPI         List table definitions                          BPI LS.CTD.PYMTHIST'
 STACK.HELP<-1>='CHECK.FILE  Show strings in a compiled program /P|/S      CHECK.FILE DISP.00 /P'
+STACK.HELP<-1>='CT          View data records, with labels         CT LS.MASTER 123-1234567-000'
 STACK.HELP<-1>='DDD         Search dictionary definitions                   DDD LS.MASTER EQUIP'
+STACK.HELP<-1>='DESC        Describe columns in a table               DESC LS_OI_CTD_INVOICE_NF'
 STACK.HELP<-1>='DIFF        Compare two files, show differences                            DIFF'
-STACK.HELP<-1>='ICONV/OCONV Test format masks/Convert Data                                     '
-STACK.HELP<-1>='KEYS        Show ASCII key values (try hitting arrow or home/end keys)         '
-STACK.HELP<-1>='LIST.KEYS   Show current key bindings                                          '
+STACK.HELP<-1>='FIELD       Show IL10 attribute/field metadata              FIELD LS.NET.INVEST'
+STACK.HELP<-1>='FIND.MENU   Search the menus                                     FIND.MENU VOID'
+STACK.HELP<-1>='ICONV/OCONV Test format masks/Convert Data                            FIND.MENU'
+STACK.HELP<-1>='KEYS        Show ASCII key values (try hitting arrow keys)                 KEYS'
+STACK.HELP<-1>='LIST.KEYS   Show current key bindings                                 LIST.KEYS'
+STACK.HELP<-1>='LISTA       Show users logged in, as well as locks                        LISTA'
+STACK.HELP<-1>='MODULES     Show available/active modules                               MODULES'
+STACK.HELP<-1>='NED         Edit an IL10 record                   NED LS.MASTER 123-1234567-000'
+STACK.HELP<-1>='NSEL        Run a simple UD command   NSEL LS.INV.NUM N.CONTRACT.KEY N.DATE.DUE'
+STACK.HELP<-1>='PARAM       Show parameter file mapping                               PARAM INV'
 STACK.HELP<-1>='PICKLE      Store data records in prog                  PICKLE DICT LS.MASTER *'
 STACK.HELP<-1>='PIVOT       Summary data                  PIVOT LS.MASTER LESSOR GROSS.CONTRACT'
 STACK.HELP<-1>='PROF        Profile data       PROF LS.MASTER BRANCH NUM.OF.ASSETS BOOKING.DATE'
-STACK.HELP<-1>='RULER       Reset term width, show ruler                                       '
-STACK.HELP<-1>='SETTINGS    Change settings                                                    '
+STACK.HELP<-1>='RS          Edit a recall                                       RS DK.AUDIT.RPT'
+STACK.HELP<-1>='RULER       Reset term width, show ruler                                  RULER'
+STACK.HELP<-1>='SETTINGS    Change settings                                            SETTINGS'
 STACK.HELP<-1>='SF          Search files and dictionaries              SF DICT LS.MASTER ASSETS'
-STACK.HELP<-1>='TRAIN       Teach STACK your key bindings interactively                        '
+STACK.HELP<-1>='SQL         Run a SQL command -SQL SELECT TOP 10 ALTERNATE_ID FROM LS_MASTER_NF'
+STACK.HELP<-1>='SQL-LIST    SQL to L1 -SQL-LIST L1 SELECT TOP 10 ALTERNATE_ID FROM LS_MASTER_NF'
+STACK.HELP<-1>='SQLF        Run a SQL command from a file          SQLF /tmp/queries/Query1.sql'
+STACK.HELP<-1>='SYSINFO     Information about the current environment                   SYSINFO'
+STACK.HELP<-1>='TRAIN       Teach STACK your key bindings interactively                   TRAIN'
+STACK.HELP<-1>='XREF        Show IL10 file/table metadata                        XREF LS.MASTER'
+STACK.HELP<-1>='                                                                               '
+STACK.HELP<-1>='---------------------------- CUSTOM UTILITIES ---------------------------------'
+STACK.HELP<-1>='DEPS        Show the dependency tree for a program       DEPS PROG or DEPS FILE'
+STACK.HELP<-1>='JOBS        Search scheduler for a program/jobname         JOBS <search string>'
 *
 PROMPT ''
 EQUATE RET TO 13, ESC TO 27, NUL TO '',SPC TO ' ',TRUE TO 1, FALSE TO 0
@@ -70,8 +93,8 @@ DIM RECORD.DATA(10)
 TERM=UPCASE(SYSTEM(7))
 CS=@(-1);EOL=@(-4);EOS=@(-3);UP=@(-10);BON=@(-81);BOFF=@(-82)
 IF SYSTEM(33) = "Windows NT" THEN OS.PATH.DELIM = "\" ELSE OS.PATH.DELIM = "/"
-LONG.LINE = 9999;LIST.DET.FLAG=0;TIME.COMMAND=0
-SL.ACTIVE = FALSE ; CAP.ACTIVE=FALSE
+LONG.LINE = 9999;LIST.DET.FLAG=0;TIME.COMMAND.FLAG=0;MULTI.LINE.FLAG=1
+SL.ACTIVE = FALSE
 *
 PWD=@ACCOUNT
 I=LEN(PWD) ; ACC=NUL
@@ -88,7 +111,20 @@ OPEN 'CTLG'   TO CTLG   ELSE STOP 201,'CTLG'   ;* Local catalog
 USERNAME=UPCASE(@LOGNAME)
 HOME.FILE   = 'STACK.HOME'        ;* Everything is stored in this file
 OPEN HOME.FILE TO FVAR ELSE
-  EXEC.LINE=\CREATE.FILE DIR \:HOME.FILE ; GOSUB EXEC.SUB
+  PRINT 'VOC STACK.HOME not found: 1) Create, 2) Link:':
+  INPUT OPT
+  BEGIN CASE
+    CASE OPT=1
+      EXECUTE \CREATE.FILE DIR \:HOME.FILE
+    CASE OPT=2
+      PRINT 'Directory to link to (e.g. /info/CUSTOM/STACK.HOME):':
+      INPUT DIR
+      EXEC.LINE="!mkdir -p ":DIR ; CAP.ACTIVE=FALSE ; GOSUB EXEC.SUB
+      D='DIR' ; D<2>=DIR ; D<3>='D_VOC'
+      WRITE D ON VOC, HOME.FILE
+    CASE 1
+      STOP 'Unable to start STACK'
+  END CASE
   OPEN HOME.FILE TO FVAR ELSE STOP 'Cannot open or create ':HOME.FILE
 END
 HOME.F=FVAR   ;* This can be local, or pointed to a central location for all accounts
@@ -137,7 +173,7 @@ ED.VERB           = SETTINGS<6>
 STAMP.STRING      = SETTINGS<7>
 GET.LINE.FLAG     = SETTINGS<8>
 WORK.FILE         = SETTINGS<9>
-MCU.ON            = SETTINGS<10>
+UPPER.FLAG        = SETTINGS<10>
 STARTUP           = SETTINGS<11>
 PROMT             = SETTINGS<12>
 X.DISP            = SETTINGS<13>
@@ -191,6 +227,67 @@ FOR C=1 TO DCOUNT(STACK,@VM)
 NEXT C
 PRINT SYSTEM(12)-T:' ms to index ':DCOUNT(WORD.LIST,@AM):' words'
 *
+* IL9/IL10 Check
+IL.DB=''
+IL.VER=''
+IL.MAJOR.VER=''
+REV.ATB.LOG=''
+OPEN 'ACCOUNT.PARAMS' TO ACCOUNT.PARAMS THEN
+  READ VERSION FROM ACCOUNT.PARAMS, 'VERSION' ELSE VERSION=''
+  IL.DB=PWD
+  IL.VER=VERSION<4>:'/':VERSION<8>:'.':VERSION<26>
+  IL.MAJOR.VER=9
+  OPEN 'REV.ATB.LOG' TO REV.ATB.LOG ELSE STOP 201,'REV.ATB.LOG'
+  DB='UD'
+END ELSE
+  OSREAD JDBC FROM 'DBConfig.xml' THEN
+    CONVERT CHAR(13) TO '' IN JDBC
+    CONVERT CHAR(10) TO @AM IN JDBC
+    JDBC=JDBC<2> ;* <DataSource>InfoLease</DataSource>
+    JDBC=FIELD(JDBC,'>', 2)
+    JDBC=FIELD(JDBC,'<', 1)
+    IF JDBC # '' THEN
+      OSREAD JDBC.P FROM '../../jdbc-bridge/bin/jdbc.properties' THEN
+        CONVERT CHAR(13) TO '' IN JDBC.P
+        CONVERT CHAR(10) TO @AM IN JDBC.P
+        FOR F=1 TO DCOUNT(JDBC.P,@AM)
+          L=JDBC.P<F>
+          IF JDBC=FIELD(L,'.',1) AND INDEX(L,'url',1) THEN IL.DB=L ; EXIT
+        NEXT F
+      END
+    END
+    IF INDEX(UPCASE(IL.DB),'ORACLE',1) THEN DB='ORA' ELSE DB='MSSQL'
+    OSREAD VER FROM 'version.properties' ELSE VER='il.version=10'
+    CONVERT CHAR(13) TO '' IN VER
+    CONVERT CHAR(10) TO @AM IN VER
+    FOR F=1 TO DCOUNT(VER,@AM)
+      IF FIELD(VER<F>,'=',2) # '' THEN IL.VER=FIELD(VER<F>,'=',2) ; EXIT
+    NEXT F
+    CALL FILE.OPEN('STACK','ACCOUNT.PARAMS',ACCOUNT.PARAMS,'STOP')
+    CALL IDS.READ(VERSION, ACCOUNT.PARAMS, 'VERSION', '', '', BCI.ERROR)
+    IF BCI.ERROR THEN VERSION=''
+    IL.MAJOR.VER=10
+  END
+END
+IF IL.MAJOR.VER # '' THEN
+  IL.SYS.NUM=VERSION<11>
+  IL.OWNER=VERSION<23>:'(':VERSION<24>:')'
+  IL.GROUP=VERSION<25>
+  IL.ACC=VERSION<2>
+  IL.REV=VERSION<3>
+  IL.PARAMS=VERSION<20,1>
+  IL.SYS=VERSION<20,2>
+  IL.VERTEX=VERSION<20,3>
+  IL.OWNER.UFD=''
+  IL.GROUP.UFD=''
+  OPEN 'UFD' TO UFD THEN
+    READV IL.OWNER.UFD FROM UFD, 'infoleaseowner', 1 ELSE NULL
+    READV IL.GROUP.UFD FROM UFD, 'infoleasegroup', 1 ELSE NULL 
+  END
+  *
+  PRINT IL.VER:' ':IL.DB
+  PRINT ; PRINT 'INFO to return to Infolease'
+END
 PRINT '? for Help'
 *
 * You can put commands in the startup file, e.g. .L ; LISTA ; DATE
@@ -242,12 +339,16 @@ COMMAND:
       * Don't look for ; for unix commands
       GOSUB DO.COMMAND
     CASE 1
-      LOOP
-        ANS = FIELD(COMMAND.LIST,COMMAND.SEPERATOR,COMMAND.COUNT)
-      UNTIL ANS = NUL DO
+      IF MULTI.LINE.FLAG THEN
+        LOOP
+          ANS = FIELD(COMMAND.LIST,COMMAND.SEPERATOR,COMMAND.COUNT)
+        UNTIL ANS = NUL DO
+          GOSUB DO.COMMAND
+          COMMAND.COUNT = COMMAND.COUNT + 1
+        REPEAT
+      END ELSE
         GOSUB DO.COMMAND
-        COMMAND.COUNT = COMMAND.COUNT + 1
-      REPEAT
+      END
   END CASE
 RETURN
 *
@@ -255,7 +356,7 @@ DO.COMMAND:
   * Process a single command
   IF NOT(UNIX.COMMAND) THEN
     * Only uppercase, expand aliases, expand prog chars for non-unix commands
-    IF MCU.ON THEN ANS = TRIM(UPCASE(ANS))
+    IF UPPER.FLAG THEN ANS = TRIM(UPCASE(ANS))
     IF ANS[1,5] # 'ALIAS' THEN GOSUB EXPAND.ALIASES
     GOSUB EXPAND.PROG.CHARS
   END
@@ -264,42 +365,45 @@ DO.COMMAND:
   LEN.ANS = LEN(ANS)
   CAP.ACTIVE=FALSE
   FIRST.WORD=FIELD(ANS,' ',1)
-  UPDATE.STACK.FLAG=TRUE
-  COMMANDS='ALIAS,ASCII,CHECK.FILE,DIFF,ICONV,KEYS,LIST.KEYS,'
-  COMMANDS:='OCONV,OFF,PICKLE,PIVOT,PROF,KEY.DEFAULTS,Q,RULER,SETTINGS,SF,TRAIN'
+  COMMANDS='AF,ALIAS,ASCII,BPI,CCI,CCM,CHECK.FILE,CI,CM,CT,DDD,DESC,DIFF,FIELD,FIND.MENU,ICONV,KEYS,LIST.KEYS,SQL-LIST,LISTA,'
+  COMMANDS:='MODULES,NED,NSEL,OCONV,OFF,PARAM,PICKLE,PIVOT,PROF,KEY.DEFAULTS,Q,RS,RULER,SE,SETTINGS,SF,SQL,SQLF,TM,TRAIN,XREF'
+  COMMANDS:=',DEPS,JOBS,SYSINFO'
   CONVERT ',' TO @VM IN COMMANDS
   LOCATE FIRST.WORD IN COMMANDS<1> SETTING INTERNAL.COMMAND ELSE INTERNAL.COMMAND=''
   *
   BEGIN CASE
     CASE INTERNAL.COMMAND
-      ON INTERNAL.COMMAND GOSUB DO.ALIAS, ASCII, CHECK.FILE, DIFF,
-                                CONV, KEYS, LIST.KEYS, CONV,
-                                QUIT, PICKLE, PIVOT, PROFILE, KEY.DEFAULTS, QUIT, RULER, SETTINGS,
-                                SEARCH.FILE, TRAIN
+      GOSUB UPDATE.STACK
+      ON INTERNAL.COMMAND GOSUB ATB.FIND, DO.ALIAS, ASCII, BPI, CCI, CCM, CHECK.FILE, CI, CM, VIEW.RECORD, DDD, IL10.DESC, DIFF, IL10.FIELD,
+                                FIND.MENU, CONV, KEYS, LIST.KEYS, SQL.SEL.LIST, LISTA, LIST.MODULES, IL10.NED, IL10.NSEL, CONV,
+                                LOGOFF, LIST.PARAM, PICKLE, PIVOT, PROFILE, KEY.DEFAULTS, QUIT, RS, RULER, SEARCH.EXAMPLE, SETTINGS,
+                                SEARCH.FILE, SQL.SEL, SQL.FILE, TM, TRAIN, IL10.XREF, DEPS, JOBS, SYSINFO
     CASE ANS[1,1] = STACK.CHAR
       * E.g. .L .X20 .D
       ANS = TRIM(UPCASE(ANS))
       GOSUB STACK.COMMAND
-      UPDATE.STACK.FLAG=FALSE
     CASE ANS[1,1] = PROG.CHAR
       * E.g. /E10 /N3 /BR20
       ANS = TRIM(UPCASE(ANS))
       GOSUB PROG.COMMAND
-      UPDATE.STACK.FLAG=FALSE
     CASE ANS[1,1] = SEARCH.ALL.CHAR
       * E.g. ~xyz
       ANS=ANS[2,999]
       GOSUB SEARCH.ALL
-      UPDATE.STACK.FLAG=FALSE
     CASE OTHERWISE
       * A plain old command to execute
       EXEC.LINE = ANS
       T1=SYSTEM(12)
+      GOSUB UPDATE.STACK
       GOSUB EXEC.SUB
-      IF TIME.COMMAND THEN PRINT SYSTEM(12)-T1:' ms'
+      IF TIME.COMMAND.FLAG THEN PRINT SYSTEM(12)-T1:' ms'
       COMMAND=EXEC.LINE ; GOSUB UPDATE.COMPLETION.LIST
   END CASE
-  IF UPDATE.STACK.FLAG AND STARTUP = NUL THEN
+RETURN
+*
+UPDATE.STACK:
+  * Update the STACK on disk before running a command. Don't log startup commands that run automatically
+  IF STARTUP = NUL THEN
     INS ACC:@VM:DATE():@VM:TIME():@VM:ANS BEFORE STACK<1>
     WRITE STACK ON HOME.F, STACK.ITEM
   END
@@ -334,8 +438,18 @@ DO.ALIAS:
   END CASE
 RETURN
 *
+LOGOFF:
+  * Quit STACK, saving the command and program stacks, logoff
+  COMMON /LOGON/ NAMED.LOGON.DEF(25)
+  GOSUB WRITE.INFO
+  PORT=NAMED.LOGON.DEF(6)
+  PRINT 'Clearing port ':PORT
+  OPEN 'ACC' TO ACC THEN DELETE ACC,PORT
+  CHAIN 'BYE'
+RETURN
+*
 QUIT:
-  * Quit STACK, saving the command and program stacks
+  * Quit STACK, saving the command and program stacks, return to TCL
   GOSUB WRITE.INFO
   STOP
 RETURN
@@ -470,6 +584,16 @@ EXPAND.PROMPT:
         PROMPT.DISP = L:OCONV(DATE(),'D'):R
       CASE F = 'E'
         PROMPT.DISP = L:CHAR(ESC):R
+      CASE F = 'L'
+        IF IL.MAJOR.VER#10 THEN
+          PROMPT.DISP=L:R
+        END ELSE
+          PORT=@UDTNO-1
+          SQL=\SELECT COUNT(*) FROM SESSION_PORTS SP INNER JOIN SYSTEM_SESSION SS ON SS.SESSION_ID = SP.SESSION_ID \
+          SQL:=\INNER JOIN DB_RECORD_LOCKS DRL ON DRL.LOCKED_SESSION_ID = SS.SESSION_ID WHERE SP.PORT_NUMBER = \:PORT
+          CALL IDS.EXECUTE.ANSI.SQL(SQL,'','','',LOCKS)
+          IF LOCKS>0 THEN PROMPT.DISP=L:'(':LOCKS:' LOCKS) ':R ELSE PROMPT.DISP=L:R
+        END
       CASE F = 'R'
         PROMPT.DISP = L:CHAR(13):CHAR(10):R
       CASE F = '#'
@@ -489,9 +613,8 @@ RETURN
 *******************************************************************************
 LIST.STACK:
   * List entries from P2->P1, Defauts: P1=1, P2=20
-  I = DCOUNT(STACK,@AM)
-  IF I = 0 THEN PRINT 'No items present';RETURN
-  IF P2 > I THEN P2 = I
+  IF MAX.STACK = 0 THEN PRINT 'No items present';RETURN
+  IF P2 > MAX.STACK THEN P2 = MAX.STACK
   PRINT
   FOR F = P2 TO P1 STEP -1
     IF LIST.DET.FLAG THEN
@@ -505,6 +628,31 @@ RETURN
 STACK.COMMAND:
   * Process a STACK command, e.g. .L .X20 .D
   BEGIN CASE
+    CASE ANS[1,2]='.C'
+      PRINT 'Clean duplicate commands, keeping latest'
+      PRINT 'Also delete commands older than 365 days? ':
+      INPUT YORN
+      IF YORN='Y' THEN CLEAN.365=1 ELSE CLEAN.365=0
+      SEEN=''
+      F=1 ; CLEANED=0
+      LOOP
+        IF F > DCOUNT(STACK,@AM) THEN EXIT
+        D=STACK<F,2> ; CMD=STACK<F,4>
+        IF CLEAN.365 AND D < DATE() - 365 THEN
+          DEL STACK<F>
+          CLEANED+=1
+        END ELSE
+          LOCATE CMD IN SEEN BY 'AR' SETTING POS THEN
+            DEL STACK<F>
+            CLEANED+=1
+          END ELSE
+            INS CMD BEFORE SEEN<POS>
+            F+=1
+          END
+        END
+      REPEAT
+      WRITE STACK ON HOME.F, STACK.ITEM
+      PRINT CLEANED:' entries cleaned, ':DCOUNT(STACK,@AM):' entries remain'
     CASE ANS[1,2]='.D'
       IF ANS = '.D' THEN ANS = '.D1,1'
       GOSUB GET.PARAMS
@@ -515,8 +663,6 @@ STACK.COMMAND:
       WRITE STACK ON HOME.F, STACK.ITEM
       P1=1 ; P2=20
       GOSUB LIST.STACK
-    CASE ANS='.I'
-      LIST.DET.FLAG=NOT(LIST.DET.FLAG)
     CASE ANS[1,2] = '.L'
       IF ANS = '.L' THEN ANS = '.L,20'
       GOSUB GET.PARAMS
@@ -539,10 +685,18 @@ STACK.COMMAND:
       FOR F=1 TO DCOUNT(STACK.HELP,@AM)
         PRINT STACK.HELP<F>
       NEXT F
-    CASE ANS = '.T'
-      TIME.COMMAND=NOT(TIME.COMMAND)
-    CASE ANS = '.U'
-      IF MCU.ON THEN MCU.ON = FALSE;PRINT 'upper case off' ELSE MCU.ON = TRUE;PRINT 'UPPER CASE ON'
+    CASE ANS='.TD'
+      LIST.DET.FLAG=NOT(LIST.DET.FLAG)
+      PRINT 'Detail=':LIST.DET.FLAG
+    CASE ANS='.TM'
+      MULTI.LINE.FLAG=NOT(MULTI.LINE.FLAG)
+      PRINT 'Multiline=':MULTI.LINE.FLAG
+    CASE ANS = '.TT'
+      TIME.COMMAND.FLAG=NOT(TIME.COMMAND.FLAG)
+      PRINT 'Time command=':TIME.COMMAND.FLAG
+    CASE ANS = '.TC'
+      UPPER.FLAG=NOT(UPPER.FLAG)
+      PRINT 'Upper case=':UPPER.FLAG
     CASE OTHERWISE
       PRINT 'There is no such STACK command':BELL
       PRINT '? for help'
@@ -627,8 +781,7 @@ PROG.COMMAND:
       READ PROGRAMS FROM HOME.F, PROGRAM.ITEM ELSE PROGRAMS = NUL
     CASE PROG.COM = '/WE'
       WRITE PROGRAMS ON HOME.F, PROGRAM.ITEM
-      EXEC.LINE=\ED \:HOME.FILE:\ \:PROGRAM.ITEM
-      GOSUB EXEC.SUB
+      EXECUTE \ED \:HOME.FILE:\ \:PROGRAM.ITEM
       READ PROGRAMS FROM HOME.F, PROGRAM.ITEM ELSE PROGRAMS = NUL
     CASE PROG.COM = '/N'
       GOSUB GET.PROG.NAME
@@ -682,7 +835,7 @@ PROG.COMMAND:
     CASE PROG.COM = '/LL'
       * List the different projects
       EXEC.LINE=\SSELECT \:HOME.FILE:\ WITH @ID = "\:USERNAME:\.PROGRAM_]"\
-      GOSUB EXEC.SUB
+      CAP.ACTIVE=TRUE ; GOSUB EXEC.SUB
       LOOP
         READNEXT ID ELSE EXIT
         PRINT FIELD(ID,'_',2,99)
@@ -889,9 +1042,7 @@ PICKLE:
     IF FILE[1,5]='DICT ' THEN DEL REC<9> ; DEL REC<8> ;* Avoid CD probs
     INS ITEM BEFORE REC<1>
     INS FILE BEFORE REC<1>
-    SWAP @AM WITH '|AM|' IN REC   ; SWAP @VM WITH '|VM|' IN REC
-    SWAP @SVM WITH '|SVM|' IN REC ; SWAP '\' WITH '|BS|' IN REC
-    SWAP CHAR(9) WITH '|TAB|' IN REC
+    RESULT=ENCODE('URLENCODE',1,REC,1,REC,1)
     IF LEN(REC) > 124 THEN
       FIRST=1
       LOOP
@@ -907,11 +1058,10 @@ PICKLE:
     END
   NEXT I
   *
-  * Write out basic code that when run will recreate the record
+  * Write out basic code that when run will recreate the record(s)
   BLOB<-1>='FOR F=1 TO DCOUNT(R,@AM)'
   BLOB<-1>='  REC=R<F>'
-  BLOB<-1>='  SWAP "|AM|" WITH @AM IN REC   ; SWAP "|VM|" WITH @VM IN REC ; SWAP "|SVM|" WITH @SVM IN REC'
-  BLOB<-1>='  SWAP "|TAB|" WITH CHAR(9) IN REC ; SWAP "|BS|" WITH "\" IN REC'
+  BLOB<-1>='  RESULT=ENCODE("URLENCODE",2,REC,1,REC,1)'
   BLOB<-1>='  FILE=REC<1> ; DEL REC<1>'
   BLOB<-1>='  ITEM=REC<1> ; DEL REC<1>'
   BLOB<-1>='  PRINT FILE:" ":ITEM:'
@@ -938,7 +1088,7 @@ SETTINGS:
     PRINT ' 7) STAMP.STRING = ':SETTINGS<7>
     PRINT ' 8) GET.LINE.FLAG= ':SETTINGS<8>
     PRINT ' 9) WORK.FILE    = ':SETTINGS<9>
-    PRINT '10) MCU.ON       = ':SETTINGS<10>
+    PRINT '10) UPPER.FLAG   = ':SETTINGS<10>
     PRINT '11) STARTUP      = ':SETTINGS<11>
     PRINT '12) PROMT        = ':SETTINGS<12>
     PRINT '13) X.DISP       = ':SETTINGS<13>
@@ -1137,9 +1287,7 @@ CHECK.FILE:
     REPEAT
   END
   *
-  EXEC.LINE="!strings ":CAT.PTR<2>
-  GOSUB EXEC.SUB
-  R=EXEC.CAP
+  EXECUTE "!strings ":CAT.PTR<2> CAPTURING R
   *
   FILE.LIST=''
   IF R # '' THEN
@@ -1234,6 +1382,7 @@ RETURN
 *
 PIVOT:
   * Summarize a field, e.g. PIVOT LS.MASTER LESSOR GROSS.CONTRACT EQUIPMENT.COST
+  IF IL.MAJOR.VER # 9 THEN PRINT 'Only works in IL9' ; RETURN
   FILE=FIELD(ANS," ",2) ; ATB =FIELD(ANS," ",3) ; ATB2=FIELD(ANS," ",4) ; ATB3=FIELD(ANS," ",5) ; ATB4=FIELD(ANS," ",6)
   OPEN "DICT ":FILE TO DICT ELSE PRINT "DICT ":FILE:' not a filename' ; RETURN
   READ UREC FROM DICT,"UATB.COUNTER" ELSE
@@ -1251,6 +1400,7 @@ RETURN
 *
 PROFILE:
   * Profile a field, e.g. PROFILE LS.MASTER REQ.SIGNATURE.PHONE
+  IF IL.MAJOR.VER # 9 THEN PRINT 'Only works in IL9' ; RETURN
   FILE=FIELD(ANS," ",2) ; ATB =FIELD(ANS," ",3) ; ATBS=FIELD(ANS," ",4,99)
   EXEC.LINE = \SORT \:FILE:\ WITH \:ATB:\ \:ATB:\ \:ATBS
   GOSUB EXEC.SUB
@@ -1291,7 +1441,8 @@ SEARCH.FILE:
   DATA SSTR2
   DATA SSTR3
   DATA ""
-  EXEC.LINE=\ESEARCH \:FILE:\ WITH @ID # "_]" USING DICT VOC\ ; CAP.ACTIVE=TRUE ; GOSUB EXEC.SUB
+  EXEC.LINE=\ESEARCH \:FILE:\ WITH @ID # "_]" USING DICT VOC\ ; CAP.ACTIVE=TRUE
+  GOSUB EXEC.SUB
   *
   CTR=0 ; FOUND.RECS=''
   LOOP
@@ -1317,7 +1468,7 @@ SEARCH.FILE:
   HDR=@(-1):\SEARCHING FOR "\:SSTR1:\,\:SSTR2:\,\:SSTR3:\" IN \:FILE
   PRINT HDR
   LOOP
-    PRINT CTR'R#4':' ':FOUND.RECS<1,CTR>'L#25':FOUND.RECS<2,CTR>'L#65'
+    PRINT CTR'R#4':' ':FOUND.RECS<1,CTR>'L#60':FOUND.RECS<2,CTR>'L#65'
     CTR+=1
     IF CTR/20=INT(CTR/20) THEN GOSUB SEARCH.FILE.PROMPT
     IF QUIT THEN RETURN
@@ -1477,14 +1628,30 @@ DIFF:
   IF FILE2='' THEN PRINT 'Enter file 2:': ; INPUT FILE2
   ID2=FIELD(ANS,' ',5)
   IF ID2='' THEN PRINT 'Enter ID2   :': ; INPUT ID2
-  CALL FILE.OPEN.OK(FILE1,FVAR1,OK)
+  IF IL.MAJOR.VER=10 THEN
+    CALL FILE.OPEN.OK(FILE1,FVAR1,OK)
+  END ELSE
+    OPEN FILE1 TO FVAR1 THEN OK=TRUE ELSE OK=FALSE
+  END
   IF NOT(OK) THEN PRINT "CAN'T OPEN ":FILE1 ; RETURN
-  CALL FILE.OPEN.OK(FILE2,FVAR2,OK)
+  IF IL.MAJOR.VER=10 THEN
+    CALL FILE.OPEN.OK(FILE2,FVAR2,OK)
+  END ELSE
+    OPEN FILE2 TO FVAR2 THEN OK=TRUE ELSE OK=FALSE
+  END
   IF NOT(OK) THEN PRINT "CAN'T OPEN ":FILE1 ; RETURN
-  CALL IDS.READ(REC1,FVAR1,ID1,0,0,BCI.ERROR) ; IF BCI.ERROR THEN REC1=''
+  IF IL.MAJOR.VER=10 THEN
+    CALL IDS.READ(REC1,FVAR1,ID1,0,0,BCI.ERROR) ; IF BCI.ERROR THEN REC1=''
+  END ELSE
+    READ REC1 FROM FVAR1,ID1 ELSE REC1=''
+  END
   REC1.MAX=DCOUNT(REC1,@AM)
   CONVERT @VM TO '|' IN REC1
-  CALL IDS.READ(REC2,FVAR2,ID2,0,0,BCI.ERROR) ; IF BCI.ERROR THEN REC2=''
+  IF IL.MAJOR.VER=10 THEN
+    CALL IDS.READ(REC2,FVAR2,ID2,0,0,BCI.ERROR) ; IF BCI.ERROR THEN REC2=''
+  END ELSE
+    READ REC2 FROM FVAR2,ID2 ELSE REC2=''
+  END
   REC2.MAX=DCOUNT(REC2,@AM)
   CONVERT @VM TO '|' IN REC2
   IF REC2.MAX > REC1.MAX THEN MAX=REC2.MAX ELSE MAX=REC1.MAX
@@ -1504,8 +1671,8 @@ KEY.DEFAULTS:
   * Load default key bindings - this covers the basics, but you can add your own
   KEYMAP=''
   * Control characters
-  KEYCOMMAND='{Backspace}'   ; KEYPRESS='^H' ; GOSUB ADD.KEYPRESS
   KEYCOMMAND='{Backspace}'   ; KEYPRESS='^?' ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{Backspace}'   ; KEYPRESS='^H' ; GOSUB ADD.KEYPRESS
   KEYCOMMAND='{BackWord}'    ; KEYPRESS='^X' ; GOSUB ADD.KEYPRESS
   KEYCOMMAND='{Clear}'       ; KEYPRESS='^L' ; GOSUB ADD.KEYPRESS
   KEYCOMMAND='{Delete}'      ; KEYPRESS='^D' ; GOSUB ADD.KEYPRESS
@@ -1515,7 +1682,7 @@ KEY.DEFAULTS:
   KEYCOMMAND='{End}'         ; KEYPRESS='^E' ; GOSUB ADD.KEYPRESS
   KEYCOMMAND='{Enter}'       ; KEYPRESS='^J' ; GOSUB ADD.KEYPRESS
   KEYCOMMAND='{Enter}'       ; KEYPRESS='^M' ; GOSUB ADD.KEYPRESS
-  KEYCOMMAND='{ForwardWord}' ; KEYPRESS='^I' ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{ForwardWord}' ; KEYPRESS='^R' ; GOSUB ADD.KEYPRESS
   KEYCOMMAND='{Home}'        ; KEYPRESS='^A' ; GOSUB ADD.KEYPRESS
   KEYCOMMAND='{Left}'        ; KEYPRESS='^B' ; GOSUB ADD.KEYPRESS
   KEYCOMMAND='{PgDown}'      ; KEYPRESS='^V' ; GOSUB ADD.KEYPRESS
@@ -1523,9 +1690,10 @@ KEY.DEFAULTS:
   KEYCOMMAND='{Quit}'        ; KEYPRESS='^G' ; GOSUB ADD.KEYPRESS
   KEYCOMMAND='{Quit}'        ; KEYPRESS='ESC'; GOSUB ADD.KEYPRESS
   KEYCOMMAND='{Right}'       ; KEYPRESS='^F' ; GOSUB ADD.KEYPRESS
-  KEYCOMMAND='{Search}'      ; KEYPRESS='^R' ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{Search}'      ; KEYPRESS='^I' ; GOSUB ADD.KEYPRESS
   KEYCOMMAND='{Up}'          ; KEYPRESS='^P' ; GOSUB ADD.KEYPRESS
   * Putty-compatible keys
+  KEYCOMMAND='{BackWord}'    ; KEYPRESS='ESC[1;5D'  ; GOSUB ADD.KEYPRESS
   KEYCOMMAND='{BackWord}'    ; KEYPRESS='ESC[Z'     ; GOSUB ADD.KEYPRESS
   KEYCOMMAND='{BackWord}'    ; KEYPRESS='ESCESC[D'  ; GOSUB ADD.KEYPRESS
   KEYCOMMAND='{Clear}'       ; KEYPRESS='ESCESC[1~' ; GOSUB ADD.KEYPRESS
@@ -1534,8 +1702,11 @@ KEY.DEFAULTS:
   KEYCOMMAND='{DeleteWord}'  ; KEYPRESS='ESCESC[3~' ; GOSUB ADD.KEYPRESS
   KEYCOMMAND='{Down}'        ; KEYPRESS='ESC[B'     ; GOSUB ADD.KEYPRESS
   KEYCOMMAND='{End}'         ; KEYPRESS='ESC[4~'    ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{End}'         ; KEYPRESS='ESC[F'     ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{ForwardWord}' ; KEYPRESS='ESC[1;5C'  ; GOSUB ADD.KEYPRESS
   KEYCOMMAND='{ForwardWord}' ; KEYPRESS='ESCESC[C'  ; GOSUB ADD.KEYPRESS
   KEYCOMMAND='{Home}'        ; KEYPRESS='ESC[1~'    ; GOSUB ADD.KEYPRESS
+  KEYCOMMAND='{Home}'        ; KEYPRESS='ESC[H'     ; GOSUB ADD.KEYPRESS
   KEYCOMMAND='{Left}'        ; KEYPRESS='ESC[D'     ; GOSUB ADD.KEYPRESS
   KEYCOMMAND='{PgDown}'      ; KEYPRESS='ESC[6~'    ; GOSUB ADD.KEYPRESS
   KEYCOMMAND='{PgUp}'        ; KEYPRESS='ESC[5~'    ; GOSUB ADD.KEYPRESS
@@ -1543,8 +1714,6 @@ KEY.DEFAULTS:
   KEYCOMMAND='{Up}'          ; KEYPRESS='ESC[A'     ; GOSUB ADD.KEYPRESS
   * Xterm-compatible keys
   KEYCOMMAND='{Down}'        ; KEYPRESS='ESCOB'     ; GOSUB ADD.KEYPRESS
-  KEYCOMMAND='{End}'         ; KEYPRESS='ESC[F'     ; GOSUB ADD.KEYPRESS
-  KEYCOMMAND='{Home}'        ; KEYPRESS='ESC[H'     ; GOSUB ADD.KEYPRESS
   KEYCOMMAND='{Left}'        ; KEYPRESS='ESCOD'     ; GOSUB ADD.KEYPRESS
   KEYCOMMAND='{Right}'       ; KEYPRESS='ESCOC'     ; GOSUB ADD.KEYPRESS
   KEYCOMMAND='{Up}'          ; KEYPRESS='ESCOA'     ; GOSUB ADD.KEYPRESS
@@ -2257,3 +2426,1666 @@ GO.END:
   CH.PTR = CURR.LEN
   PRINT BASE:XXDATA[POS,DISP.LEN] MASK:
 RETURN
+*******************************************************************************
+* INFOLEASE UTILITIES
+*******************************************************************************
+IL10.NED:
+  * Simulate the ED command with a record read from SQL server
+  IF IL.MAJOR.VER#10 THEN EXEC.LINE = ANS[2,999] ; GO EXEC.SUB ;* Turn NED into ED
+  OPEN '_HOLD_' TO F.HOLD ELSE STOP 201,'_HOLD_'
+  FILE.NAME=FIELD(ANS,' ',2)
+  K.FILE=FIELD(ANS,' ',3)
+  CALL FILE.OPEN.OK(FILE.NAME, F.FILE, FILE.OPEN.OK)
+  IF NOT(FILE.OPEN.OK) THEN PRINT 'Cannot open ':FILE.NAME ; RETURN
+  CALL IDS.READ(R.FILE, F.FILE,  K.FILE, 0, 0, BCI.ERROR)
+  IF BCI.ERROR # '' THEN PRINT BCI.ERROR ; R.FILE=''
+  R.ORIG=R.FILE
+  *
+  LOOP
+    PRINT DCOUNT(R.FILE,@AM):' fields in record'
+    PRINT 'Enter D)elete, E)dit, L)ist, S)ave or Q)uit:':
+    INPUT OPT
+    BEGIN CASE
+      CASE OPT='D'
+        PRINT 'Are you *really* sure (YES/N):':
+        INPUT YORN
+        IF YORN = 'YES' THEN
+          CALL IDS.DELETE(F.FILE, K.FILE, 0, 0)
+          PRINT FILE.NAME:' ':K.FILE:' deleted'
+          LOG='NED/DELETE'
+          LOG<2>=FILE.NAME
+          LOG<3>=K.FILE
+          R.FILE=''
+          RETURN
+        END
+      CASE OPT='L'
+        R.TMP=R.FILE ;* In case we've edited, VIEW.RECORD will read it in again
+        GOSUB VIEW.RECORD
+        R.FILE=R.TMP
+      CASE OPT='S'
+        CALL IDS.WRITE(R.FILE, F.FILE, K.FILE, 0, 0)
+        PRINT 'Saved.'
+        LOG='NED/SAVE'
+        LOG<2>=FILE.NAME
+        LOG<3>=K.FILE
+        R.ORIG=R.FILE
+      CASE OPT='E'
+        R=R.FILE
+        SWAP CHAR(13):CHAR(10) WITH '||' IN R
+        TMP.FILE=K.FILE
+        CONVERT '*' TO '#' IN TMP.FILE
+        WRITE R ON F.HOLD, TMP.FILE
+        EXECUTE \ED _HOLD_ \:TMP.FILE
+        READ R FROM F.HOLD, TMP.FILE ELSE R=''
+        SWAP '||' WITH CHAR(13):CHAR(10) IN R
+        IF R # R.FILE THEN
+          PRINT 'Record changed, use S to save'
+          R.FILE=R
+        END
+        DELETE F.HOLD, TMP.FILE
+      CASE OPT='Q'
+        IF R.FILE#R.ORIG THEN
+          PRINT 'Record changed, are you sure (Y/N):':
+          INPUT YORN
+          IF YORN # 'Y' THEN OPT=''
+        END
+    END CASE
+  UNTIL OPT='Q' DO
+  REPEAT
+RETURN
+*
+GET.BPI:
+  * Given a BPI name, get the BPI record
+  BPI.REC=''
+  BPI.R=''
+  OPEN 'DATABASE.FILES,IL' TO IL ELSE PRINT 'Cannot open DATABASE.FILES,IL' ; RETURN
+  OPEN 'IL.BPI' TO IL.BPI ELSE PRINT 'Cannot open IL.BPI' ; RETURN
+  * Param 2 can be a BPI or a FILENAME
+  READ BPI.R FROM IL.BPI, BPI ELSE
+    READV IL.MSG FROM IL, BPI, 14 THEN
+      * Sample: "Attached to FLOAT.INCOME bpi."
+      *  "File used to store payment receipt|information temporarily until the|record is printed. Attached to|PYMT.RECEIPT bpi."
+      CONVERT " " TO @VM IN IL.MSG
+      FOR CTR=DCOUNT(IL.MSG<1>,@VM) TO 1 STEP -1
+        W=IL.MSG<1,CTR>
+        READ BPI.R FROM IL.BPI, W THEN
+          BPI=W
+          EXIT
+        END
+      NEXT CTR
+      IF BPI.R = '' THEN CRT 'Cannot get BPI from ':CONVERT(@VM," ",IL.MSG) ; RETURN
+    END ELSE
+      PRINT 'Cannot read DATABASE.FILES,IL',BPI ; RETURN
+    END
+  END
+  *
+  FOR F=1 TO DCOUNT(BPI.R,@AM)
+    L=BPI.R<F>
+    IF L[1,6] = 'EQUATE' THEN
+      FLD.NUM=FIELD(FIELD(L,'(',2),')',1)
+      BPI.REC<FLD.NUM>=FIELD(BPI.R<F>[8,99],' ',1)
+    END
+  NEXT F
+  *
+  CLOSE IL
+  CLOSE IL.BPI
+RETURN
+*
+BPI:
+  * Edit a BPI record
+  IF IL.MAJOR.VER='' THEN PRINT 'Only works in IL' ; RETURN
+  BPI=FIELD(ANS,' ',2)
+  IF BPI='' THEN PRINT 'Usage: BPI <name of infolease file|name of BPI>' ; RETURN
+  GOSUB GET.BPI
+  IF BPI.REC='' THEN RETURN
+  EXEC.LINE=\AE IL.BPI \:BPI
+  GOSUB EXEC.SUB
+RETURN
+*
+GET.FILE.METADATA:
+  * Given FILE.NAME, get column names and types in FILE.META
+  TMP.FILE.NAME=FILE.NAME
+  FILE.META='' ; BPI='' ; TABLE.NAME=''
+  IF FILE.NAME='PARAMETER' THEN
+    * Need to figure out based on record key, not just FILE.NAME
+    GOSUB GET.PARAMETER.BPI
+    IF BPI = '' THEN RETURN
+    IF IL.MAJOR.VER=9 THEN FILE.NAME=BPI ELSE FILE.NAME=TABLE.NAME
+  END
+  *
+  IF IL.MAJOR.VER=9 THEN
+    GOSUB GET.FILE.METADATA.IL9
+  END ELSE
+    GOSUB GET.FILE.METADATA.IL10
+  END
+  FILE.NAME=TMP.FILE.NAME
+  PRINT 'BPI=':BPI:', TABLE NAME=':TABLE.NAME
+RETURN
+*
+GET.PARAMETER.BPI:
+  * Figure out the BPI for a PARAMETER record, based on the key structure
+  TMP.ANS=ANS
+  ANS='/NOLIST' ;* Signal LIST.PARAM to just build the P array, don't list anything
+  GOSUB LIST.PARAM
+  ANS=TMP.ANS
+  *
+  BPI=''
+  FOR I=1 TO DCOUNT(P<1>,@VM)
+    KEY=P<1,I>
+    BEGIN CASE
+      CASE INT(R.ID)
+        BPI='LS.ADDRESS' ; TABLE.NAME='LS_ADDRESS_NF' ; EXIT
+      CASE R.ID=KEY ;* 00*00
+        BPI=P<4,I> ; TABLE.NAME=P<3,I> ; EXIT
+      CASE KEY[1,1]='*'
+        IF FIELD(R.ID,'*',2) = FIELD(KEY,'*',2) THEN BPI=P<4,I> ; TABLE.NAME=P<3,I> ; EXIT
+      CASE INDEX(KEY,'*',1) > 1
+        IF FIELD(R.ID,'*',1):'!' = FIELD(KEY,'*',1):'!' THEN BPI=P<4,I> ; TABLE.NAME=P<3,I> ; EXIT
+    END CASE
+  NEXT I
+RETURN
+*
+GET.FILE.METADATA.IL9:
+  * Get metadata for a file in IL9 from REV.ATB.LOG
+  BPI=FILE.NAME
+  GOSUB GET.BPI
+  FOR I=1 TO DCOUNT(BPI.REC,@AM)
+    ATB=BPI.REC<I>
+    FILE.META<1,I>=ATB
+    READ AREC FROM REV.ATB.LOG,ATB ELSE AREC=''
+    FILE.META<2,I>=AREC<14> ;* S, MV, MS
+    FILE.META<3,I>=AREC<10> ;* Mask, E.g. MR2, D4/, MTS
+  NEXT I
+  TABLE.NAME=TMP.FILE.NAME
+RETURN
+*
+GET.FILE.METADATA.IL10:
+  * Get metadata for a file in IL10 from METADATA_FIELDS
+  SELECT.COMMAND = \SELECT\
+  SELECT.COMMAND := \ STRING_POS, FIELD_NAME, VALUE_TYPE, FIELD_TYPE, TABLE_NAME, BPI\
+  SELECT.COMMAND := \ FROM METADATA_FIELDS WHERE FILE_NAME = '\:FILE.NAME:\' OR BPI = '\:BPI:\'\
+  SELECT.COMMAND := \ ORDER BY STRING_POS\
+  CALL IDS.EXECUTE.ANSI.SQL(SELECT.COMMAND,'','','',MF.REC)
+  BPI=MF.REC<1,6> ; TABLE.NAME=MF.REC<1,5>
+  FOR I=1 TO DCOUNT(MF.REC,@AM)
+    STRING_POS=MF.REC<I,1>
+    FILE.META<1,STRING_POS>=MF.REC<I,2>
+    FILE.META<2,STRING_POS>=MF.REC<I,3>
+    BEGIN CASE
+      CASE MF.REC<I,4>='DATE'
+        FILE.META<3,STRING_POS>='D4/'
+      CASE MF.REC<I,4>='DECIMAL'
+        FILE.META<3,STRING_POS>='MD2'
+      CASE MF.REC<I,4>='INTEGER'
+        FILE.META<3,STRING_POS>='MD0'
+      CASE MF.REC<I,4>='MONEY'
+        FILE.META<3,STRING_POS>='MD2'
+      CASE MF.REC<I,4>='TIME'
+        FILE.META<3,STRING_POS>='MTS'
+      CASE 1
+        FILE.META<3,STRING_POS>='' ;* Leave all the rest alone
+    END CASE
+  NEXT I
+RETURN
+*
+VIEW.RECORD:
+  * View a record in a file, showing field names and values
+  IF IL.MAJOR.VER='' THEN PRINT 'Only works in IL' ; RETURN
+  FILE.NAME=FIELD(ANS,' ',2)
+  CALL FILE.OPEN.OK(FILE.NAME, F.FILE, FILE.OPEN.OK)
+  IF NOT(FILE.OPEN.OK) THEN PRINT 'Error opening ':FILE.NAME ; RETURN
+  R.ID=FIELD(ANS,' ',3)
+  GOSUB GET.FILE.METADATA
+  MAT RECORD.DATA='' ; RECORDS='' ; FLD=3 ; REC.NO=1 ; MAX.REC.COUNT=0
+  LOOP
+    R.ID=FIELD(ANS,' ',FLD)
+  UNTIL R.ID='' DO
+    RECORDS<-1>=R.ID
+    IF IL.MAJOR.VER=9 THEN
+      READ R1 FROM F.FILE, R.ID ELSE PRINT 'Cannot read ':FILE.NAME:' ':R.ID ; RETURN
+    END ELSE
+      CALL IDS.READ(R1, F.FILE, R.ID, 0, 0, BCI.ERROR)
+      IF BCI.ERROR # '' THEN PRINT BCI.ERROR:' ':R.ID ; RETURN
+    END
+    RECORD.DATA(REC.NO)=R1
+    MAX.REC.NO=REC.NO
+    REC.COUNT=DCOUNT(R1,@AM)
+    IF REC.COUNT>MAX.REC.COUNT THEN MAX.REC.COUNT=REC.COUNT
+    REC.NO+=1
+    IF REC.NO=11 THEN PRINT 'Too many records' ; RETURN
+    FLD+=1
+  REPEAT
+  COL.WID=INT((TERM.WIDTH-25)/MAX.REC.NO)-1
+  MSK='L#':COL.WID
+  *
+  IF MAX.REC.COUNT=0 THEN PRINT 'No lines in record(s)'
+  FOR I=1 TO MAX.REC.COUNT
+    ATB=FILE.META<1,I> ; TYPE=FILE.META<3,I>
+    PRINT I 'R#3':') ':
+    IF FILE.META # '' THEN PRINT ATB'L#20':
+    FOR REC.NO=1 TO MAX.REC.NO
+      VALUE=RECORD.DATA(REC.NO)<I>
+      GOSUB VIEW.RECORD.ATB
+      PRINT '|':VALUE[1,COL.WID]:SPACE(COL.WID-LEN(VALUE)):
+    NEXT REC.NO
+    PRINT ''
+  NEXT I
+RETURN
+*
+VIEW.RECORD.ATB:
+  * Format a field value for VIEW.RECORD
+  IF VALUE='' THEN RETURN
+  FOR M=1 TO DCOUNT(VALUE<1>,@VM)
+    BEGIN CASE
+      CASE TYPE='D4/'
+        VALUE<1,M>=OCONV(VALUE<1,M>,'D4-YMD')
+      CASE TYPE[1,3]='MD2'
+        VALUE<1,M>=OCONV(VALUE<1,M>,'MR2,')
+    END CASE
+  NEXT M
+  CONVERT @VM TO '|' IN VALUE
+RETURN
+*
+FIND.MENU:
+  * Find a menu or program in the menu system, breadth first search
+  IF IL.MAJOR.VER='' THEN PRINT 'Only works in IL' ; RETURN
+  OPEN "DB.MENUS" TO MENU.F ELSE PRINT 'Cannot open DB.MENUS' ; RETURN
+  STR=FIELD(ANS,' ',2)
+  IF STR='' THEN
+    PRINT "Enter menu or program to search for : ": ; INPUT STR
+    IF STR="" OR STR="/" THEN RETURN
+  END
+  STR = OCONV(STR,"MCU")
+  MENU.LIST=''
+  MENU.LIST<1>=1
+  MENU.LIST<2>=0
+  MENU.CTR=1
+  LOOP
+    MENU=MENU.LIST<1,MENU.CTR>
+    PATH=MENU.LIST<2,MENU.CTR>
+    IF MENU='' THEN EXIT
+    GOSUB SEARCH.MENU
+    MENU.CTR+=1
+  REPEAT
+  CLOSE MENU.F
+RETURN
+*
+SEARCH.MENU:
+  * Search a menu for a string, add any menus found to MENU.LIST so they are searched too
+  READ R FROM MENU.F, MENU THEN
+    TITLES = OCONVS(R<2>,"MCU") ; PROGS  = OCONVS(R<3>,"MCU") ; FLAGS = R<4> ; TYPES = R<5>
+    I = DCOUNT(PROGS,@VM)
+    FOR F = 1 TO I
+      IF INDEX(PROGS<1,F>,STR,1) # 0 OR INDEX(TITLES<1,F>,STR,1) # 0 THEN
+        PRINT MENU"R#5":" ":TITLES<1,F>"L#27":"  ":TYPES<1,F>'L#1':" ":PROGS<1,F>"L#50":" ":PATH:',':F
+      END
+      IF FLAGS<1,F>='M' THEN MENU.LIST<1,-1>=PROGS<1,F> ; MENU.LIST<2,-1>=PATH:',':F
+    NEXT F
+  END
+RETURN
+*
+CI:
+  * CONTRACT INQUIRY, wrapper around CMAINT.00
+  IF IL.MAJOR.VER='' THEN PRINT 'Only works in IL' ; RETURN
+  GOSUB REMOVE.CONTROL.CHARS ;* Pasting from excel often brings in a CR or &nbsp
+  CONTRACT=FIELD(ANS,' ',2)
+  DATA 0
+  DATA 0
+  DATA 0
+  DATA 0
+  IF CONTRACT # '' THEN
+    CONVERT '_' TO '-' IN CONTRACT
+    CONVERT '.' TO '-' IN CONTRACT
+    DATA FIELD(CONTRACT,'-',1)
+    DATA FIELD(CONTRACT,'-',2,2)
+  END
+  EXEC.LINE=\CMAINT.00\ ; GOSUB EXEC.SUB
+RETURN
+*
+CM:
+  * CONTRACT MAINTENANCE, wrapper around CMAINT.00
+  IF IL.MAJOR.VER='' THEN PRINT 'Only works in IL' ; RETURN
+  GOSUB REMOVE.CONTROL.CHARS ;* Pasting from excel often brings in a CR or &nbsp
+  CONTRACT=FIELD(ANS,' ',2)
+  DATA 1
+  DATA 0
+  DATA 0
+  DATA 0
+  IF CONTRACT # '' THEN
+    CONVERT '_' TO '-' IN CONTRACT
+    CONVERT '.' TO '-' IN CONTRACT
+    DATA FIELD(CONTRACT,'-',1)
+    DATA FIELD(CONTRACT,'-',2,2)
+  END
+  EXEC.LINE=\CMAINT.00\ ; GOSUB EXEC.SUB
+RETURN
+*
+CCI:
+  * CUSTOMER INQUIRY
+  IF IL.MAJOR.VER='' THEN PRINT 'Only works in IL' ; RETURN
+  GOSUB REMOVE.CONTROL.CHARS ;* Pasting from excel often brings in a CR or &nbsp
+  DATA 0
+  DATA 0
+  DATA 0
+  IF FIELD(ANS,' ',2) # '' THEN
+    DATA FIELD(ANS,' ',2)
+  END
+  EXEC.LINE=\CDMAINT.00\ ; GOSUB EXEC.SUB
+RETURN
+*
+CCM:
+  * CUSTOMER MAINTENANCE
+  IF IL.MAJOR.VER='' THEN PRINT 'Only works in IL' ; RETURN
+  GOSUB REMOVE.CONTROL.CHARS ;* Pasting from excel often brings in a CR or &nbsp
+  DATA 1
+  DATA 0
+  DATA 0
+  IF FIELD(ANS,' ',2) # '' THEN
+    DATA FIELD(ANS,' ',2)
+  END
+  EXEC.LINE=\CDMAINT.00\ ; GOSUB EXEC.SUB
+RETURN
+*
+TM:
+  * TABLE MAINTENANCE
+  IF IL.MAJOR.VER='' THEN PRINT 'Only works in IL' ; RETURN
+  DATA 1
+  DATA 0
+  EXEC.LINE=\TMAINT.00\ ; GOSUB EXEC.SUB
+RETURN
+*
+RS:
+  * Recall Shell
+  IF IL.MAJOR.VER # 9 THEN PRINT 'Only works in IL9' ; RETURN
+  DATA 1
+  DATA 1
+  RECALL=FIELD(ANS,' ',2)
+  IF RECALL # '' THEN DATA RECALL
+  EXECUTE \RECALL.00\
+RETURN
+*
+ATB.FIND:
+  * Search for an ATB in REV.ATB.LOG
+  * HCAC>AF NUM.OF.ASSETS
+  * NUM.OF.ASSETS
+  *
+  * IL.BPI                BILLING
+  * FILE(S)               LS.MASTER,LS.BILLING  PT.PARTICIPATIONS,PT.BILLING
+  * FIELD                 9
+  * CHANGE LOG INDEX      02*0009
+  * CHANGE LOG KEY        247
+  * TYPE                  INTEGER
+  * MASK                  MD0
+  * S/MV                  S
+  * CONTROLLING/DEPENDENT
+  * SUB/MASTER FIELDS
+  * CHG DESCRIPTION       Number Of Assets
+  * The number of active assets associated with the contract.
+  *
+  IF IL.MAJOR.VER='' THEN PRINT 'Only works in IL' ; RETURN
+  CALL FILE.OPEN.OK("IL.TB.CHNG.LOG", IL.TB.CHNG.LOG, FILE.OPEN.OK)
+  IF NOT(FILE.OPEN.OK) THEN PRINT 'Cannot open IL.TB.CHNG.LOG'      ; RETURN
+  CALL FILE.OPEN.OK("IL.CHANGE.LOG.INDEX", IL.CHANGE.LOG.INDEX, FILE.OPEN.OK)
+  IF NOT(FILE.OPEN.OK) THEN PRINT 'Cannot open IL.CHANGE.LOG.INDEX' ; RETURN
+  CALL FILE.OPEN.OK("REV.ATB.LOG", REV.ATB.LOG, FILE.OPEN.OK)
+  IF NOT(FILE.OPEN.OK) THEN PRINT 'Cannot open REV.ATB.LOG'         ; RETURN
+  CALL FILE.OPEN.OK("HELP.TEXT.USA", HELP.TEXT.USA, FILE.OPEN.OK)
+  IF NOT(FILE.OPEN.OK) THEN PRINT 'Cannot open HELP.TEXT.USA'       ; RETURN
+  MSK="L#22"
+  ATB = FIELD(ANS," ",2)
+  IF ATB="" THEN RETURN
+  IF IL.MAJOR.VER=9 THEN
+    BCI.ERROR=''
+    READ AREC FROM REV.ATB.LOG, ATB ELSE BCI.ERROR='CANNOT READ REV.ATB.LOG ':ATB
+  END ELSE
+    CALL IDS.READ(AREC, REV.ATB.LOG, ATB, 0, 0, BCI.ERROR)
+  END
+  IF BCI.ERROR THEN
+    ATBREC=""
+    IF IL.MAJOR.VER=9 THEN
+      EXEC.LINE=\SSELECT REV.ATB.LOG = "[\:ATB:\]"\
+      PRINT EXEC.LINE
+      GOSUB EXEC.SUB
+    END ELSE
+      SELECT.COMMAND=\SELECT ALTERNATE_ID FROM REV_ATB_LOG_NF WHERE ALTERNATE_ID LIKE '%\:ATB:\%' ORDER BY ALTERNATE_ID\
+      PRINT SELECT.COMMAND
+      CALL IDS.EXECUTE.ANSI.SQL.ERROR(SELECT.COMMAND, '', '', '', KEY.LIST, ERR, '', '', '', '0', '','')
+      SELECT KEY.LIST
+    END
+    CTR=0
+    LOOP
+      READNEXT ID ELSE EXIT
+      IF ID='' THEN CONTINUE
+      CTR+=1
+      PRINT CTR "L#4":ID
+      ATBREC<CTR>=ID
+    REPEAT
+    IF CTR=0 THEN RETURN
+    PRINT
+    PRINT "Enter choice (1-":CTR:"): ": ; INPUT CHOICE
+    IF CHOICE="" OR CHOICE="/" THEN RETURN
+    ATB=ATBREC<CHOICE>
+    IF ATB="" THEN RETURN
+    IF IL.MAJOR.VER=9 THEN
+      BCI.ERROR=''
+      READ AREC FROM REV.ATB.LOG, ATB ELSE BCI.ERROR='ERROR REV.ATB.LOG ':ATB
+    END ELSE
+      CALL IDS.READ(AREC, REV.ATB.LOG, ATB, 0, 0, BCI.ERROR)
+    END
+    IF BCI.ERROR THEN
+      PRINT ATB:' not found in REV.ATB.LOG' ; RETURN
+    END
+  END
+  *
+  MAXV=DCOUNT(AREC<5>,@VM)
+  FNAMES=""
+  FOR J=1 TO MAXV
+    IF AREC<5,J>[1,2] # "BK" THEN FNAMES<-1>=(AREC<5,J>:",":AREC<6,J>)'L#35':" ":AREC<30,J>
+  NEXT J
+  *
+  IF IL.MAJOR.VER=9 THEN
+    BCI.ERROR=''
+    READV CKEY FROM IL.CHANGE.LOG.INDEX, AREC<24>, 1 ELSE BCI.ERROR='ERROR IL.CHANGE.LOG.INDEX ':AREC<24>
+  END ELSE
+    CALL IDS.READV(CKEY, IL.CHANGE.LOG.INDEX, AREC<24>, '', 1, 0, 0, BCI.ERROR)
+  END
+  IF BCI.ERROR THEN CKEY=""
+  IF IL.MAJOR.VER=9 THEN
+    BCI.ERROR=''
+    READ CHNG_REC FROM IL.TB.CHNG.LOG, CKEY ELSE BCI.ERROR='ERROR IL.TB.CHNG.LOG ':CKEY
+  END ELSE
+    CALL IDS.READ(CHNG_REC, IL.TB.CHNG.LOG, CKEY, 0, 0, BCI.ERROR)
+  END
+  IF BCI.ERROR THEN CHNG_REC=""
+  IF IL.MAJOR.VER=9 THEN
+    BCI.ERROR=''
+    READ HELP.TEXT FROM HELP.TEXT.USA, ATB ELSE BCI.ERROR='ERROR HELP.TEXT.USA ':ATB
+  END ELSE
+    CALL IDS.READ(HELP.TEXT, HELP.TEXT.USA, ATB, 0, 0, BCI.ERROR)
+  END
+  IF BCI.ERROR THEN HELP.TEXT=""
+  CONVERT "~" TO "" IN HELP.TEXT
+  DEP=AREC<16>
+  CONVERT @VM TO "," IN DEP
+  PRINT ATB
+  PRINT
+  PRINT "IL.BPI" MSK               :AREC<1>
+  PRINT "FILE(S)" MSK              :FNAMES<1>
+  IF DCOUNT(FNAMES,@AM) > 1 THEN
+    FOR J=2 TO DCOUNT(FNAMES,@AM)
+      PRINT " " MSK:FNAMES<J>
+    NEXT J
+  END
+  PRINT "FIELD" MSK                :AREC<2>
+  PRINT "LENGTH" MSK               :AREC<13>
+  PRINT "DISP LEN" MSK             :AREC<12>:AREC<11>
+  PRINT "CHANGE LOG INDEX" MSK     :AREC<24>
+  PRINT "CHANGE LOG KEY" MSK       :CKEY
+  PRINT "TYPE" MSK                 :AREC<3>
+  PRINT "MASK" MSK                 :AREC<10>
+  PRINT "S/MV" MSK                 :AREC<14>
+  PRINT "CONTROLLING/DEPENDENT" MSK:AREC<15>
+  PRINT "SUB/MASTER FIELDS" MSK    :DEP
+  PRINT "CHG DESCRIPTION" MSK      :CHNG_REC<1>
+  PRINT "COMMENTS" MSK             :AREC<32>
+  PRINT
+  MAXV=DCOUNT(HELP.TEXT<2>,@VM)
+  FOR J=1 TO MAXV
+    PRINT HELP.TEXT<2,J>
+  NEXT J
+  IF IL.MAJOR.VER=10 THEN
+    PRINT
+    SELECT.HDR=\BPI,FILE_NAME,FIELD_NAME,POS,TABLE_NAME,COLUMN_NAME,MV/S,TYPE,LEN,SCALE\
+    SELECT.COMMAND = \SELECT BPI,FILE_NAME,FIELD_NAME,STRING_POS,TABLE_NAME,COLUMN_NAME,VALUE_TYPE,FIELD_TYPE,FIELD_LENGTH,SCALE\
+    SELECT.COMMAND  :=\ FROM METADATA_FIELDS\
+    SELECT.COMMAND  :=\ WHERE STRING_POS=\:AREC<2>:\ AND BPI='\:AREC<1>:\'\
+    EMAIL=''
+    GOSUB IL10.SEL
+  END
+RETURN
+*
+LISTA:
+  * List users logged in, as well as locks
+  IF IL.MAJOR.VER='' THEN PRINT 'Only works in IL' ; RETURN
+  IF IL.MAJOR.VER=9 THEN GOSUB LISTA.IL9 ELSE GOSUB LISTA.IL10
+RETURN
+*
+LISTA.IL9:
+  * List all users/locks in IL9
+  OPEN 'ACC' TO ACC.F ELSE STOP 201,'ACC'
+  OPEN 'INFO.STATUS' TO INFO.STATUS ELSE STOP 201,'INFO.STATUS'
+  SELECT ACC.F
+  USER.LIST=''
+  LOOP
+    READNEXT PORT ELSE EXIT
+    READ REC FROM ACC.F, PORT THEN
+      READ MENU FROM INFO.STATUS, PORT'R%3' ELSE MENU='TCL'
+      MENU=MENU<DCOUNT(MENU,@AM)> ;* Show the last item
+      USER=REC<5>
+      DATE=REC<2>
+      TIME=REC<3>
+      LOCATE PORT IN USER.LIST<4> BY 'AR' SETTING POS ELSE NULL
+      INS USER BEFORE USER.LIST<1,POS>
+      INS DATE BEFORE USER.LIST<2,POS>
+      INS TIME BEFORE USER.LIST<3,POS>
+      INS PORT BEFORE USER.LIST<4,POS>
+      INS MENU BEFORE USER.LIST<5,POS>
+    END
+  REPEAT
+  *GET.LOCKS
+  LOCK.LIST=''
+  FLIST=''
+  FLIST<-1>='AS.FEATURE'
+  FLIST<-1>='AS.MASTER'
+  FLIST<-1>='AUVB.PARAMETER'
+  FLIST<-1>='BQ.PARAMETER'
+  FLIST<-1>='CS.MASTER'
+  FLIST<-1>='DATA.MASKING.PARAMETER'
+  FLIST<-1>='DB.RECORD.LOCKS'
+  FLIST<-1>='DE.MASTER'
+  FLIST<-1>='FIELD.SECURITY'
+  FLIST<-1>='INFO-SYSTEM'
+  FLIST<-1>='IT.INSURANCE'
+  FLIST<-1>='IT.INSURANCE.AGENT'
+  FLIST<-1>='LS.BANK.DEPOSIT'
+  FLIST<-1>='LS.DISCOUNT.PACKAGE'
+  FLIST<-1>='LS.DISCOUNT.WORKSHEET'
+  FLIST<-1>='LS.GL.HISTORY'
+  FLIST<-1>='LS.MASTER'
+  FLIST<-1>='LS.POST.DATED.CHECK'
+  FLIST<-1>='LS.SUPER.QUOTE'
+  FLIST<-1>='LS.WK.CASH'
+  FLIST<-1>='MISC'
+  FLIST<-1>='MM.GROUP'
+  FLIST<-1>='PARAMETER'
+  FLIST<-1>='PROCESSOR.PARAMETER'
+  FLIST<-1>='TRED.FUTURE.PROC.DATES'
+  FLIST<-1>='USERS.MENUS'
+  FLIST<-1>='WL.FOLLOW.UP'
+  FLIST<-1>='WL.PARAMETER'
+  *
+  FOR G=1 TO DCOUNT(FLIST,@AM)
+    FILE='DB.RECORD.LOCKS,':FLIST<G>
+    OPEN FILE TO FVAR THEN
+      SELECT FVAR
+      LOOP
+        READNEXT LOCK.ID ELSE EXIT
+        READ REC FROM FVAR, LOCK.ID THEN
+          PORT=REC<1>
+          DATE=REC<2>
+          TIME=REC<3>
+          USER=REC<4>
+          LOCK.LIST<1,-1>=FILE
+          LOCK.LIST<2,-1>=LOCK.ID
+          LOCK.LIST<3,-1>=PORT
+          LOCK.LIST<4,-1>=DATE
+          LOCK.LIST<5,-1>=TIME
+          LOCK.LIST<6,-1>=USER
+          LOCATE PORT IN USER.LIST<4> SETTING POS THEN
+            USER.LIST<6,POS>=LOCK.ID:',':USER.LIST<6,POS>
+          END
+        END
+      REPEAT
+      CLOSE FVAR
+    END
+  NEXT G
+  *
+  PRINT @(-1):'USERS'
+  PRINT
+  PRINT 'Port':' ':'User''L#12':' ':'Date''L#10':' ':'Time''L#8':' ':
+  PRINT 'Time On''L#8':' ':'Menu''L#30':' ':'L'
+  PRINT '----':' ':STR('-',12):' ':STR('-',10):' ':STR('-',8):' ':
+  PRINT STR('-',8):' ':STR('-',30):' ':'-'
+  FOR F=1 TO DCOUNT(USER.LIST<1>,@VM)
+    DUR=TIME()-USER.LIST<3,F>
+    IF DUR<0 THEN DUR+=86400 ;* Roll over midnight, add back number of seconds in a day
+    PRINT USER.LIST<4,F>'R#4':' ':
+    PRINT USER.LIST<1,F>'L#12':' ':
+    PRINT USER.LIST<2,F>'D4/':' ':
+    PRINT USER.LIST<3,F>'MTS':' ':
+    PRINT DUR'MTS':' ':
+    PRINT USER.LIST<5,F>'L#30':' ':
+    IF USER.LIST<6,F>#'' THEN PRINT '*' ELSE PRINT ' '
+  NEXT F
+  *
+  PRINT
+  PRINT 'LOCKS'
+  PRINT
+  PRINT 'Table''L#20':' ':'ID''L#25':' ':'Port''L#4':' ':
+  PRINT 'Date''L#5':' ':'Time''L#5':' ':'User''L#15'
+  PRINT STR('-',20):' ':STR('-',25):' ':STR('-',4):' ':
+  PRINT STR('-',5):' ':STR('-',5):' ':STR('-',15)
+  FOR L=1 TO DCOUNT(LOCK.LIST<1>,@VM)
+    FILE=FIELD(LOCK.LIST<1,L>,',',2)
+    PRINT FILE'L#20':' ':LOCK.LIST<2,L>'L#25':' ':LOCK.LIST<3,L>'R#4':' ':
+    PRINT (LOCK.LIST<4,L>'D4/')[1,5]:' ':LOCK.LIST<5,L>'MT':' ':LOCK.LIST<6,L>'L#15'
+  NEXT L
+  *
+  CLOSE ACC.F
+  CLOSE INFO.STATUS
+  *
+RETURN
+*
+LISTA.IL10:
+  * List all users/locks in IL10
+  PRINT 'User Sessions'
+  PRINT '-------------'
+  SELECT.HDR=\USER_ID,PORT,LOGIN_FROM,LOGIN_DATE,LAST_ACTIVITY,IDLE_MINS\
+  SELECT.COMMAND=\SELECT USER_ID,RIGHT('    '+dbo.FIELD(SESSION_ID,'_',2),4),LOGIN_FROM,LOGIN_DATE,LAST_ACTIVITY,\
+  SELECT.COMMAND:=\RIGHT(CONCAT(SPACE(9),DATEDIFF(mi, LAST_ACTIVITY, CURRENT_TIMESTAMP)),9) \
+  SELECT.COMMAND:=\FROM SYSTEM_SESSION ORDER BY LOGIN_FROM, LOGIN_DATE DESC\
+  EMAIL=''
+  GOSUB IL10.SEL
+  PRINT ''
+  PRINT 'Record Locks'
+  PRINT '------------'
+  *
+  * Kudos to whoever at IDS cleaned up the mess that is IL9 locking!
+  SELECT.HDR=\FILE_NAME,ID,LOCKED_USER,LOCKED_DATE\
+  SELECT.COMMAND=\SELECT FILE_NAME,ID,LOCKED_USER,LOCKED_DATE\
+  SELECT.COMMAND:=\ FROM DB_RECORD_LOCKS ORDER BY FILE_NAME,ID\
+  GOSUB IL10.SEL
+  PRINT ''
+  PRINT 'Processing Flags'
+  PRINT '----------------'
+  *
+  * Show processing flags
+  SELECT.HDR=\USER_ID,UPDATE_CODE,UPDATE_CODE_DATE,UPDATE_CODE_DESC\
+  SELECT.COMMAND=\SELECT SS.USER_ID, SP.UPDATE_CODE, SP.UPDATE_CODE_DATE, SP.UPDATE_CODE_DESC \
+  SELECT.COMMAND:=\FROM SESSION_PORTS SP LEFT OUTER JOIN SYSTEM_SESSION SS ON SS.SESSION_ID = SP.SESSION_ID \
+  SELECT.COMMAND:=\WHERE UPDATE_CODE <> 0\
+  GOSUB IL10.SEL
+RETURN
+*
+SEARCH.EXAMPLE:
+  * Calculate all possible ATB's for an example contract
+  IF IL.MAJOR.VER # 9 THEN PRINT 'Only works in IL9' ; RETURN
+  FILE=FIELD(ANS,' ',2)
+  @ID=FIELD(ANS,' ',3)
+  IF FILE='' OR @ID='' THEN
+    PRINT 'Usage: SE <FNAME> <ID>'
+    RETURN
+  END
+  OPEN FILE TO F ELSE PRINT 'Cannot open ':FILE ; RETURN
+  OPEN "DICT ":FILE TO @DICT ELSE PRINT 'Cannot open DICT ':FILE ; RETURN
+  READ @RECORD FROM F, @ID ELSE PRINT 'Cannot read ':@ID:' in ':FILE ; RETURN
+  CLOSE F
+  OUTPUT=''
+  EXECUTE \SSELECT DICT \:FILE:\ WITH F1 = "I" USING DICT VOC\
+  LOOP
+    READNEXT FLD ELSE EXIT
+    PRINT FLD:'=':
+    VAL=CALCULATE(FLD)
+    PRINT VAL
+    IF @CONV # '' THEN VAL=OCONV(VAL,@CONV)
+    *OUTPUT<-1>=FLD:'=':VAL
+  REPEAT
+  WRITE OUTPUT ON VOC, 'OUTPUT.TMP'
+  EXECUTE \AE VOC OUTPUT.TMP\
+RETURN
+*
+IL10.XREF:
+  * Show metadata cross reference for a file or table.  Works best given an IL9 FILE.NAME like XREF LS.MASTER,LS.BILLING
+  IF IL.MAJOR.VER # 10 THEN PRINT 'Only works in IL10' ; RETURN
+  EMAIL=''
+  FILE.NAME = FIELD(ANS,' ',2)
+  FIELD.NAME = FIELD(ANS,' ',3)
+  *
+  SELECT.HDR=\BPI,FILE_NAME,FIELD_NAME,STRING_POS,TABLE_NAME,COLUMN_NAME,VALUE_TYPE,FIELD_TYPE\
+  SELECT.COMMAND = \SELECT\
+  SELECT.COMMAND := \ MFILES.BPI, MFILES.FILE_NAME, MFIELDS.FIELD_NAME, MFIELDS.STRING_POS,\
+  SELECT.COMMAND := \ CASE WHEN MFILES.BPI='NO_BPI' THEN MFILES.TABLE_NAME ELSE MFIELDS.TABLE_NAME END,\
+  SELECT.COMMAND := \ MFIELDS.COLUMN_NAME, MFIELDS.VALUE_TYPE, MFIELDS.FIELD_TYPE\
+  SELECT.COMMAND := \ FROM METADATA_FILES MFILES \
+  SELECT.COMMAND := \ LEFT OUTER JOIN METADATA_FIELDS MFIELDS ON MFILES.FILE_NAME = MFIELDS.FILE_NAME\
+  IF INDEX(FILE.NAME,'%',1) THEN
+    SELECT.COMMAND := \ WHERE (MFILES.FILE_NAME LIKE '\:FILE.NAME:\' OR MFILES.TABLE_NAME LIKE '\:FILE.NAME:\')\
+  END ELSE
+    SELECT.COMMAND := \ WHERE (MFILES.FILE_NAME = '\:FILE.NAME:\' OR MFILES.TABLE_NAME = '\:FILE.NAME:\')\
+  END
+  IF FIELD.NAME # '' THEN SELECT.COMMAND :=\ AND FIELD_NAME LIKE '%\:FIELD.NAME:\%'\
+  SELECT.COMMAND := \ ORDER BY FILE_NAME, STRING_POS\
+  *
+  GOSUB IL10.SEL
+RETURN
+*
+IL10.FIELD:
+  * Show all ATB's for a file from METADATA_FIELDS, e.g. FIELD RENEWAL
+  IF IL.MAJOR.VER # 10 THEN PRINT 'Only works in IL10' ; RETURN
+  FLD = FIELD(ANS,' ',2)
+  SELECT.HDR=\BPI,FILE_NAME,FIELD_NAME,MV_POS,TABLE_NAME,COLUMN_NAME,MV/S,TYPE,LEN,SCALE\
+  SELECT.COMMAND = \SELECT BPI,FILE_NAME,FIELD_NAME,STRING_POS,TABLE_NAME,COLUMN_NAME,VALUE_TYPE,FIELD_TYPE,FIELD_LENGTH,SCALE\
+  SELECT.COMMAND  :=\ FROM METADATA_FIELDS\
+  SELECT.COMMAND  :=\ WHERE FIELD_NAME LIKE '%\:FLD:\%' OR COLUMN_NAME LIKE '%\:FLD:\%'\
+  EMAIL=''
+  GOSUB IL10.SEL
+RETURN
+*
+IL10.DESC:
+  * Show SQL table structure, this gets some columns not shown in META_DATA_FIELDS, but still doesn't include COMPUTED columns
+  IF IL.MAJOR.VER # 10 THEN PRINT 'Only works in IL10' ; RETURN
+  TABLE = FIELD(ANS,' ',2)
+  SELECT.HDR=\COL,COLUMN_NAME,DATA_TYPE,WIDTH\
+  IF DB='ORA' THEN
+    SELECT.COMMAND = \SELECT COLUMN_ID, COLUMN_NAME, DATA_TYPE, CHAR_COL_DECL_LENGTH \
+    SELECT.COMMAND:= \FROM ALL_TAB_COLUMNS \
+    SELECT.COMMAND:= \WHERE TABLE_NAME = '\:TABLE:\'\
+  END ELSE
+    SELECT.COMMAND = \SELECT ORDINAL_POSITION, COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH \
+    SELECT.COMMAND:= \FROM INFORMATION_SCHEMA.COLUMNS \
+    SELECT.COMMAND:= \WHERE TABLE_NAME = '\:TABLE:\'\
+  END
+  SELECT.COMMAND:= \ORDER BY 1\
+  EMAIL=''
+  GOSUB IL10.SEL
+RETURN
+*
+IL10.NSEL:
+  * Run a SELECT statement and display the results
+  IF IL.MAJOR.VER # 10 THEN PRINT 'Only works in IL10' ; RETURN
+  PRMT=1
+  EXECLINE='SELECT ':FIELD(ANS,' ',2,999)
+  CALL EXECUTE.SELECT.SUB(EXECLINE,ERR.MSG,1,'',0,SELECTED.LIST,1,'',0,'',0,0)
+  CTR=0
+  LOOP
+    READNEXT ID FROM SELECTED.LIST ELSE EXIT
+    CTR+=1
+    PRINT CTR'R#6':') ':ID
+    IF CTR/20=INT(CTR/20) AND PRMT THEN
+      PRINT ':':
+      INPUT AAA
+      IF AAA = '/' OR AAA='Q' THEN RETURN
+      IF AAA = 'N' THEN PRMT=0
+    END
+  REPEAT
+RETURN
+*
+SQL.SEL:
+  * Run a SELECT statement from the command line and display the results, e.g. SQL SELECT COUNT(*) FROM WK_INVOICE_NF
+  IF IL.MAJOR.VER # 10 THEN PRINT 'Only works in IL10' ; RETURN
+  SELECT.HDR=''
+  SELECT.COMMAND=FIELD(ANS,' ',2,200)
+  EMAIL=''
+  GOSUB IL10.SEL
+RETURN
+*
+SQL.FILE:
+  * Run a SELECT statement from a file and display the results, e.g. SQLF _HOLD_ TEST.sql
+  * This expects the first line of the SQL file to be a comment containing delimited field names
+  * It jams all lines in the file together before executing, so use /* Comments */ NOT -- Comments
+  IF IL.MAJOR.VER # 10 THEN PRINT 'Only works in IL10' ; RETURN
+  SELECT.HDR=''
+  FILE=FIELD(ANS,' ',2) ;* Spaces in file name are not supported
+  EMAIL=FIELD(ANS,' ',3)
+  OSREAD SELECT.COMMAND FROM FILE ELSE PRINT FILE:' not found' ; RETURN
+  IF SELECT.COMMAND<1>[1,2]='--' THEN
+    SELECT.HDR=SELECT.COMMAND<1>[3,999]
+    CONVERT CHAR(9) TO @VM IN SELECT.HDR
+    DEL SELECT.COMMAND<1>
+  END
+  CONVERT @AM TO ' ' IN SELECT.COMMAND
+  SWAP CHAR(13):CHAR(10) WITH ' ' IN SELECT.COMMAND
+  * Check for parameter requests before running SQL
+  LOOP
+    I=INDEX(SELECT.COMMAND,'@',1)
+  UNTIL I=0 DO
+    I+=1 ; P='' ; DONE=0
+    LOOP
+      C=SELECT.COMMAND[I,1]
+      IF (C < 'A' OR C > 'Z') AND C # '_' AND C # '.' THEN DONE=1
+    UNTIL DONE DO
+      P:=C
+      I+=1
+    REPEAT
+    PRINT 'Enter a value for ':P:':':
+    INPUT VAL
+    SWAP '@':P WITH VAL IN SELECT.COMMAND
+  REPEAT
+  GOSUB IL10.SEL
+RETURN
+*
+SQL.SEL.LIST:
+  * This runs a SQL command and saves the results to a list, e.g. SQL-LIST L1 SELECT TOP 10 ALTERNATE_ID FROM LS_MASTER_NF
+  * Will run the SQL and save the results to a saved list
+  IF IL.MAJOR.VER # 10 THEN PRINT 'Only works in IL10' ; RETURN
+  LIST=FIELD(ANS,' ',2)
+  SELECT.COMMAND=FIELD(ANS,' ',3,200)
+  FIRST.WORD=FIELD(ANS,' ',3)
+  IF FIRST.WORD = 'SELECT' THEN
+    PRINT SELECT.COMMAND
+    PARAM=''
+    CALL IDS.EXECUTE.ANSI.SQL(SELECT.COMMAND,PARAM,'','',KEY.LIST)
+    CALL CONVERT.LIST(KEY.LIST)
+    EXECUTE \SAVE.LIST \:LIST PASSLIST KEY.LIST
+  END ELSE
+    * Assume we're running from a file
+      SELECT.HDR=''
+      FILE=FIELD(ANS,' ',3) ;* Spaces in file name are not supported
+      OSREAD SELECT.COMMAND FROM FILE ELSE PRINT FILE:' not found' ; RETURN
+      CONVERT CHAR(13) TO '' IN SELECT.COMMAND
+      CONVERT CHAR(10) TO ' ' IN SELECT.COMMAND
+      PARAM=''
+      FOR F=DCOUNT(SELECT.COMMAND,@AM) TO 1 STEP -1
+        IF SELECT.COMMAND<F>[1,2]='--' THEN DEL SELECT.COMMAND<F>
+      NEXT F
+      PRINT SELECT.COMMAND
+      CALL IDS.EXECUTE.ANSI.SQL(SELECT.COMMAND,PARAM,'','',KEY.LIST)
+      CALL CONVERT.LIST(KEY.LIST)
+      EXECUTE \SAVE.LIST \:LIST PASSLIST KEY.LIST
+  END
+RETURN
+*
+IL10.SEL:
+  * Run a SELECT statement and display the results
+  IF IL.MAJOR.VER # 10 THEN PRINT 'Only works in IL10' ; RETURN
+  PARAM=''
+  CONVERT ',' TO @VM IN SELECT.HDR
+  IF SHOW.SELECT THEN PRINT SELECT.COMMAND ; PRINT
+  CALL IDS.EXECUTE.ANSI.SQL.ERROR(SELECT.COMMAND, PARAM, '', '', KEY.LIST, ERR, '', '', '', '0', '','')
+  DISP.MAX=DCOUNT(KEY.LIST,@AM)
+  PRINT DISP.MAX:' items selected, ERR=':ERR
+  IF DISP.MAX=0 THEN RETURN
+  IF EMAIL # '' THEN
+    CSV.FILE=FILE:'.csv'
+    CONVERT ',' TO '|' IN KEY.LIST ;* Deal with embedded commas in the data
+    CONVERT @VM TO ',' IN KEY.LIST
+    IF SELECT.HDR # '' THEN
+      CONVERT @VM TO ',' IN SELECT.HDR
+      INS SELECT.HDR BEFORE KEY.LIST<1>
+    END
+    SWAP @AM WITH CHAR(10) IN KEY.LIST
+    WRITE KEY.LIST ON HOLD, CSV.FILE
+    CALL STACK.MAIL.SUB('@LOGNAME', '@LOGNAME', '_HOLD_/':CSV.FILE, CSV.FILE, 'PATH')
+  END ELSE
+    * Get widths
+    CONVERT ',' TO @VM IN SELECT.HDR
+    W=''
+    IF SELECT.HDR # '' THEN
+      INS SELECT.HDR BEFORE KEY.LIST<1>
+      DISP.MAX+=1
+    END
+    FOR R=1 TO 100 ;* Just check the first 100 rows for widths
+      IF KEY.LIST<R>='' THEN EXIT
+      FOR C=1 TO DCOUNT(KEY.LIST<R>,@VM)
+        L=LEN(KEY.LIST<R,C>)
+        IF L > W<C> THEN W<C>=L
+      NEXT C
+    NEXT R
+    *
+    * Print the header
+    DISP.START=1
+    IF SELECT.HDR # '' THEN
+      DISP.START=2
+      FOR C=1 TO DCOUNT(KEY.LIST<1>,@VM)
+        PRINT FMT(KEY.LIST<1,C>,'L#':W<C>):' ':
+      NEXT C
+      PRINT
+      *
+      FOR C=1 TO DCOUNT(KEY.LIST<1>,@VM)
+        PRINT STR('-',W<C>):' ':
+      NEXT C
+      PRINT
+    END
+    * Now the data
+    FOR R=DISP.START TO DISP.MAX
+      IF SELECT.HDR = '' THEN PRINT R,:
+      FOR C=1 TO DCOUNT(KEY.LIST<R>,@VM)
+        PRINT FMT(KEY.LIST<R,C>,'L#':W<C>):' ':
+      NEXT C
+      PRINT
+    NEXT R
+  END
+RETURN
+*
+LIST.MODULES:
+  * List all modules in the system
+  IF IL.MAJOR.VER='' THEN PRINT 'Only works in IL' ; RETURN
+  IF IL.MAJOR.VER = 9 THEN
+    OPEN 'MODULE.FILE,IL' TO MODULES        ELSE PRINT 'ERROR OPENING:MODULES'        ; RETURN
+    OPEN 'IL.APP.PARAMS'  TO IL.APP.PARAMS  ELSE PRINT 'ERROR OPENING:IL.APP.PARAMS'  ; RETURN
+    OPEN 'ACCOUNT.PARAMS' TO ACCOUNT.PARAMS ELSE PRINT 'ERROR OPENING:ACCOUNT.PARAMS' ; RETURN
+    READ PARAMS FROM ACCOUNT.PARAMS, 'VERSION' ELSE PARAMS=''
+    READ MODULES.AVAIL FROM IL.APP.PARAMS, PARAMS<11>:'*MODULES' ELSE R=''
+  END ELSE
+    OPEN 'MODULE.FILE,IL' TO MODULES ELSE PRINT 'ERROR OPENING:MODULES' ; RETURN
+    CALL FILE.OPEN.OK('IL.APP.PARAMS', IL.APP.PARAMS, OK)   ; IF NOT(OK) THEN PRINT 'ERROR OPENING:IL.APP.PARAMS'  ; RETURN
+    CALL FILE.OPEN.OK('ACCOUNT.PARAMS', ACCOUNT.PARAMS, OK) ; IF NOT(OK) THEN PRINT 'ERROR OPENING:ACCOUNT.PARAMS' ; RETURN
+    CALL IDS.READ(PARAMS, ACCOUNT.PARAMS, 'VERSION', 0, 0, ERR) ; IF ERR THEN PARAMS=''
+    CALL IDS.READ(MODULES.AVAIL, IL.APP.PARAMS, PARAMS<11>:'*MODULES', 0, 0, ERR) ; IF ERR THEN R=''
+  END
+  SRCH=UPCASE(FIELD(ANS,' ',2))
+  MODULES.ACTIVE=PARAMS<1>
+  SYSNUM=PARAMS<11>
+  PRINT 'Modules for ':PARAMS<22>:' SYSNUM=':SYSNUM
+  PRINT ''
+  PRINT '  # Stat Description'
+  PRINT '--- ---- ---------------------------------'
+  FOR F=1 TO LEN(MODULES.AVAIL)
+    ACTIVE=MODULES.ACTIVE[F,1]
+    AVAIL=MODULES.AVAIL[F,1]
+    READV DESC FROM MODULES, F, 1 ELSE DESC='Unknown'
+    IF SRCH='' OR INDEX(UPCASE(DESC),SRCH,1) THEN
+      PRINT F 'R#3':' ':
+      IF AVAIL THEN
+        IF ACTIVE THEN PRINT '   1': ELSE PRINT '   0':
+      END ELSE
+        PRINT ' N/A':
+      END
+      PRINT ' ':DESC
+    END
+  NEXT F
+RETURN
+*
+LIST.PARAM:
+  * List PARAMETER records, also used from GET.PARAMETER.BPI for XREF info
+  * 1=PREFIX
+  * 2=DESCRIPTION
+  * 3=TABLE NAME
+  * 4=BPI
+  IF IL.MAJOR.VER='' THEN PRINT 'Only works in IL' ; RETURN
+  P=''
+  P<1,-1>=STR('-', 18)                  ; P<2,-1>=STR('-',33)
+  P<3,-1>=STR('-',30)                   ; P<4,-1>=STR('-',30)
+  P<1,-1>='Key Prefix'                  ; P<2,-1>='Description'
+  P<3,-1>='RDBMS Table'                 ; P<4,-1>='BPI'
+  P<1,-1>=STR('-', 18)                  ; P<2,-1>=STR('-',33)
+  P<3,-1>=STR('-',30)                   ; P<4,-1>=STR('-',30)
+  P<1,-1>='00*00'                       ; P<2,-1>='Lease System Parameters'
+  P<3,-1>='PARAMETER_NF'                ; P<4,-1>='PARAMETER'
+  P<1,-1>='00*00A'                      ; P<2,-1>='Temporary Lease System Params'
+  P<3,-1>='TEMP_PARAMETER_NF'           ; P<4,-1>='TEMP.PARAMETER'
+  P<1,-1>='00*00B'                      ; P<2,-1>='Additional Lease System Params'
+  P<3,-1>='ADDL_PARAMETER_NF'           ; P<4,-1>='ADDL.PARAMETER'
+  P<1,-1>='00*00IRR'                    ; P<2,-1>='IRR Parameter'
+  P<3,-1>='IRR_PARAMETER_NF'            ; P<4,-1>='IRR.PARAMETER'
+  P<1,-1>='00*00RPT'                    ; P<2,-1>='Report Parameter'
+  P<3,-1>='RPT_PARAMETER_NF'            ; P<4,-1>='RPT.PARAMETER'
+  P<1,-1>='*00'                         ; P<2,-1>='Lessor Parameters'
+  P<3,-1>='LESSOR_NF'                   ; P<4,-1>='LESSOR'
+  P<1,-1>='*00A'                        ; P<2,-1>='Temporary Lessor'
+  P<3,-1>='TEMP_LESSOR_NF'              ; P<4,-1>='TEMP.LESSOR'
+  P<1,-1>='*00B'                        ; P<2,-1>='Additional Lessor'
+  P<3,-1>='ADDL_LESSOR_NF'              ; P<4,-1>='ADDL.LESSOR'
+  P<1,-1>='*00GL'                       ; P<2,-1>='Multiple Bookset'
+  P<3,-1>='MULTIPLE_BOOKSET_NF'         ; P<4,-1>='MULTIPLE.BOOKSET'
+  P<1,-1>='*00UD'                       ; P<2,-1>='Lessor User-Defined'
+  P<3,-1>='LESSOR_USER_NF'              ; P<4,-1>='LESSOR.USER'
+  P<1,-1>='*ACH'                        ; P<2,-1>='Lessor ACH Flags'
+  P<3,-1>='LESSOR_ACH_FLAGS_NF'         ; P<4,-1>='LESSOR.ACH.FLAGS'
+  P<1,-1>='*ADVICE*'                    ; P<2,-1>='Advice Follow-up'
+  P<3,-1>='ADVICE_FOLLOW_UP_NF'         ; P<4,-1>='ADVICE.FOLLOW.UP'
+  P<1,-1>='*COMMISSION'                 ; P<2,-1>='Commission'
+  P<3,-1>='COMMISSION_NF'               ; P<4,-1>='COMMISSION'
+  P<1,-1>='*WARNING.MESSAGES'           ; P<2,-1>='Lessor Warning Messages'
+  P<3,-1>='LESSOR_WARNING_MESSAGES_NF'  ; P<4,-1>='LESSOR.WARNING.MESSAGES'
+  P<1,-1>='[Lessor Id]'                 ; P<2,-1>='Lessor Address'
+  P<3,-1>='LS_ADDRESS_NF'               ; P<4,-1>='LS.ADDRESS'
+  P<1,-1>='10*'                         ; P<2,-1>='Personnel'
+  P<3,-1>='PERSONNEL_INFO_NF'           ; P<4,-1>='PERSONNEL.INFO'
+  P<1,-1>='12*'                         ; P<2,-1>='Office'
+  P<3,-1>='OFFICE_DATA_NF'              ; P<4,-1>='OFFICE.DATA'
+  P<1,-1>='13*'                         ; P<2,-1>='Vendor/Dealer'
+  P<3,-1>='PARAM_ADDRESS_NF'            ; P<4,-1>='PARAM.ADDRESS'
+  P<1,-1>='13APA*'                      ; P<2,-1>='Additional Vendor/Dealer Address'
+  P<3,-1>='ADDL_PARAM_ADDRESS_NF'       ; P<4,-1>='ADDL.PARAM.ADDRESS'
+  P<1,-1>='14*'                         ; P<2,-1>='Reason Code'
+  P<3,-1>='REASON_CODE_NF'              ; P<4,-1>='REASON.CODE'
+  P<1,-1>='15*'                         ; P<2,-1>='Collateral Code'
+  P<3,-1>='TB_COLLATERAL_NF'            ; P<4,-1>='COLLATERAL_NON_UD'
+  P<1,-1>='16*'                         ; P<2,-1>='Equipment Category'
+  P<3,-1>='EQUIP_CODE_DEFAULTS_NF'      ; P<4,-1>='EQUIP.CODE.DEFAULTS'
+  P<1,-1>='17*'                         ; P<2,-1>='Tax Description'
+  P<3,-1>='TAX_DESC_TBL_NF'             ; P<4,-1>='TAX.DESC.TBL'
+  P<1,-1>='18*'                         ; P<2,-1>='Property Tax Status'
+  P<3,-1>='PROP_TAX_STATUS_TBL_NF'      ; P<4,-1>='PROP.TAX.STATUS.TBL'
+  P<1,-1>='19*'                         ; P<2,-1>='Region'
+  P<3,-1>='REGION_TABLE_NF'             ; P<4,-1>='REGION.TABLE'
+  P<1,-1>='20*'                         ; P<2,-1>='Remit To'
+  P<3,-1>='REMIT_ADDRESS_NF'            ; P<4,-1>='REMIT.ADDRESS'
+  P<1,-1>='21*'                         ; P<2,-1>='Base Rate Indicator'
+  P<3,-1>='FLOAT_BANK_NF'               ; P<4,-1>='FLOAT.BANK'
+  P<1,-1>='22*'                         ; P<2,-1>='Broker Address'
+  P<3,-1>='BROKER_TABLE_NF'             ; P<4,-1>='BROKER.TABLE'
+  P<1,-1>='23*'                         ; P<2,-1>='General Ledger Account'
+  P<3,-1>='GL_ACCT_TABLE_NF'            ; P<4,-1>='GL.ACCT.TABLE'
+  P<1,-1>='24*'                         ; P<2,-1>='Branch'
+  P<3,-1>='BRANCH_DATA_NF'              ; P<4,-1>='BRANCH.DATA'
+  P<1,-1>='26*'                         ; P<2,-1>='Department'
+  P<3,-1>='DEPARTMENT_NF'               ; P<4,-1>='DEPARTMENT'
+  P<1,-1>='27*'                         ; P<2,-1>='Business'
+  P<3,-1>='TB_BUSINESS_NF'              ; P<4,-1>='BUSINESS_NON_UD'
+  P<1,-1>='28*'                         ; P<2,-1>='Program Type'
+  P<3,-1>='PROG_TYPE_DEFAULTS_NF'       ; P<4,-1>='PROG.TYPE.DEFAULTS'
+  P<1,-1>='29*'                         ; P<2,-1>='Payment Plan'
+  P<3,-1>='TB_PAYMENT_PLAN_NF'          ; P<4,-1>='PAYMENT.PLAN_NON_UD'
+  P<1,-1>='30*'                         ; P<2,-1>='Promotion'
+  P<3,-1>='PROMOTION_TBL_NF'            ; P<4,-1>='PROMOTION.TBL'
+  P<1,-1>='31*'                         ; P<2,-1>='Account Type'
+  P<3,-1>='TB_ACCT_TYPE_NF'             ; P<4,-1>='ACCT.TYPE_NON_UD'
+  P<1,-1>='32*'                         ; P<2,-1>='Business Type'
+  P<3,-1>='TB_BUSINESS_TYPE_NF'         ; P<4,-1>='BUSINESS.TYPE_NON_UD'
+  P<1,-1>='33*'                         ; P<2,-1>='Application Status'
+  P<3,-1>='TB_STATUS_NF'                ; P<4,-1>='STATUS_NON_UD'
+  P<1,-1>='34*'                         ; P<2,-1>='Disposition Payment Type'
+  P<3,-1>='TB_DISP_PAYMENT_TYPE_NF'     ; P<4,-1>='DISP.PAYMENT.TYPE_NON_UD'
+  P<1,-1>='35*'                         ; P<2,-1>='Disposition/Inventory'
+  P<3,-1>='DISP_INVENT_TABLE_NF'        ; P<4,-1>='DISP.INVENT.TABLE'
+  P<1,-1>='36*'                         ; P<2,-1>='Bank Additional User-Defined'
+  P<3,-1>='AUS_BANKS_NF'                ; P<4,-1>='AUS.BANKS'
+  P<1,-1>='39*'                         ; P<2,-1>='Product Line'
+  P<3,-1>='PROD_LINE_DEFAULTS_NF'       ; P<4,-1>='PROD.LINE.DEFAULTS'
+  P<1,-1>='40*'                         ; P<2,-1>='Insurance Type'
+  P<3,-1>='TB_INSURANCE_TYPE_NF'        ; P<4,-1>='INSURANCE.TYPE_NON_UD'
+  P<1,-1>='41*'                         ; P<2,-1>='Insurance Status'
+  P<3,-1>='TB_INSURANCE_STATUS_NF'      ; P<4,-1>='INSURANCE.STATUS_NON_UD'
+  P<1,-1>='42*'                         ; P<2,-1>='Contract Status'
+  P<3,-1>='CONTRACT_STATUS_INFO_NF'     ; P<4,-1>='CONTRACT.STATUS.INFO'
+  P<1,-1>='43*'                         ; P<2,-1>='Guaranteed Residual'
+  P<3,-1>='TB_GUARANTEED_RESIDUAL_NF'   ; P<4,-1>='GUARANTEED.RESIDUAL_NON_UD'
+  P<1,-1>='45*'                         ; P<2,-1>='Country Code'
+  P<3,-1>='COUNTRY_CODES_NF'            ; P<4,-1>='COUNTRY.CODES'
+  P<1,-1>='ACTIVITY.DE*'                ; P<2,-1>='Activity (Inv. Interface)'
+  P<3,-1>='INV_INT_DATA_ELEMENTS_NF'    ; P<4,-1>='INV.INT.DATA.ELEMENTS'
+  P<1,-1>='ADDL.BUYOUT*'                ; P<2,-1>='Additional Buyout Info'
+  P<3,-1>='ADDL_BUYOUT_DEFAULT_NF'      ; P<4,-1>='ADDL.BUYOUT.DEFAULT'
+  P<1,-1>='ADJ*'                        ; P<2,-1>='Adjustment Code'
+  P<3,-1>='ADJUSTMENT_CODE_TBL_NF'      ; P<4,-1>='ADJUSTMENT.CODE.TBL'
+  P<1,-1>='ADMIN*'                      ; P<2,-1>='Administrative Code'
+  P<3,-1>='TB_ADMINISTRATIVE_CODE_NF'   ; P<4,-1>='ADMINISTRATIVE.CODE_NON_UD'
+  P<1,-1>='AP.INTERFACE*1'              ; P<2,-1>='API Parameters'
+  P<3,-1>='API_PARAMETERS_NF'           ; P<4,-1>='API.PARAMETERS'
+  P<1,-1>='ASSET.DE*'                   ; P<2,-1>='Asset (Inv. Interface)'
+  P<3,-1>='INV_INT_DATA_ELEMENTS_NF'    ; P<4,-1>='INV.INT.DATA.ELEMENTS'
+  P<1,-1>='ASSET.STATUS*'               ; P<2,-1>='Asset Status'
+  P<3,-1>='TB_ASSET_STATUS_NF'          ; P<4,-1>='ASSET.STATUS_NON_UD'
+  P<1,-1>='ASSOCIATION*'                ; P<2,-1>='Association'
+  P<3,-1>='ASSOC_REL_PARTY_NF'          ; P<4,-1>='ASSOC.REL.PARTY'
+  P<1,-1>='BANK*'                       ; P<2,-1>='Bank Address'
+  P<3,-1>='BANK_ADDRESS_NF'             ; P<4,-1>='BANK.ADDRESS'
+  P<1,-1>='BANK.ADDL*'                  ; P<2,-1>='Additional Bank Address'
+  P<3,-1>='ADDL_BANK_ADDRESS_NF'        ; P<4,-1>='ADDL.BANK.ADDRESS'
+  P<1,-1>='BI.TYPE*'                    ; P<2,-1>='Blended Income Type'
+  P<3,-1>='TB_BLENDED_INCOME_TYPE_NF'   ; P<4,-1>='BLENDED.INCOME.TYPE_NON_UD'
+  P<1,-1>='BID*'                        ; P<2,-1>='Blended Income Defaults'
+  P<3,-1>='BLENDED_INCOME_DEF_NF'       ; P<4,-1>='BLENDED.INCOME.DEF'
+  P<1,-1>='BLENDED.INCOME*'             ; P<2,-1>='Blended Income Parameter'
+  P<3,-1>='BLENDED_INCOME_TBL_NF'       ; P<4,-1>='BLENDED.INCOME.TBL'
+  P<1,-1>='BUS.PLAN*'                   ; P<2,-1>='Business Plan'
+  P<3,-1>='BUS_PLAN_DEFAULTS_NF'        ; P<4,-1>='BUS.PLAN.DEFAULTS'
+  P<1,-1>='BUS.SEG*'                    ; P<2,-1>='Business Segment'
+  P<3,-1>='BUS_SEGMENT_NF'              ; P<4,-1>='BUS.SEGMENT'
+  P<1,-1>='BUYOUT*'                     ; P<2,-1>='Buyout Parameters'
+  P<3,-1>='BUYOUT_DEFAULT_NF'           ; P<4,-1>='BUYOUT.DEFAULT'
+  P<1,-1>='CADDR.DE*'                   ; P<2,-1>='Customer Address (Inv. Interface)'
+  P<3,-1>='INV_INT_DATA_ELEMENTS_NF'    ; P<4,-1>='INV.INT.DATA.ELEMENTS'
+  P<1,-1>='CCA*'                        ; P<2,-1>='CCA Class'
+  P<3,-1>='CCA_CLASS_DEPR_NF'           ; P<4,-1>='null'
+  P<1,-1>='CHECK.TYPE*'                 ; P<2,-1>='Check Type'
+  P<3,-1>='CHECK_TYPE_NF'               ; P<4,-1>='CHECK.TYPE'
+  P<1,-1>='CHRG.DE*'                    ; P<2,-1>='Charge Info (Inv. Interface)'
+  P<3,-1>='INV_INT_DATA_ELEMENTS_NF'    ; P<4,-1>='INV.INT.DATA.ELEMENTS'
+  P<1,-1>='CHRG.TYPE*'                  ; P<2,-1>='Open Item Charge Types'
+  P<3,-1>='CHARGE_TYPE_TABLE_NF'        ; P<4,-1>='CHARGE.TYPE.TABLE'
+  P<1,-1>='CHRG.TYPE.INDEX*'            ; P<2,-1>='Open Item Charge Type Indexes'
+  P<3,-1>='CHARGE_TYPE_INDEX_NF'        ; P<4,-1>='CHARGE.TYPE.INDEX'
+  P<1,-1>='CNTC.DE*'                    ; P<2,-1>='Contact (Inv. Interface)'
+  P<3,-1>='INV_INT_DATA_ELEMENTS_NF'    ; P<4,-1>='INV.INT.DATA.ELEMENTS'
+  P<1,-1>='CURRENCY*'                   ; P<2,-1>='Currency Code'
+  P<3,-1>='CURRENCY_CODES_NF'           ; P<4,-1>='CURRENCY.CODES'
+  P<1,-1>='DEALER.DISTRICT*'            ; P<2,-1>='Dealer District'
+  P<3,-1>='TB_DEALER_DISTRICT_NF'       ; P<4,-1>='DEALER.DISTRICT_NON_UD'
+  P<1,-1>='DEALER.PARAM*'               ; P<2,-1>='Dealer Parameter'
+  P<3,-1>='DEALER_PARAM_NF'             ; P<4,-1>='DEALER.PARAM'
+  P<1,-1>='DEALER.REGION*'              ; P<2,-1>='Dealer Region'
+  P<3,-1>='TB_DEALER_REGION_NF'         ; P<4,-1>='DEALER.REGION_NON_UD'
+  P<1,-1>='DEALER.SALESMAN*'            ; P<2,-1>='Dealer Salesman'
+  P<3,-1>='DLR_SALESMAN_NF'             ; P<4,-1>='DLR.SALESMAN'
+  P<1,-1>='DEALER.SERIES*'              ; P<2,-1>='Dealer Series'
+  P<3,-1>='TB_DEALER_SERIES_NF'         ; P<4,-1>='DEALER.SERIES_NON_UD'
+  P<1,-1>='DEALER.STATUS*'              ; P<2,-1>='Dealer Status'
+  P<3,-1>='DEALER_STATUS_NF'            ; P<4,-1>='DEALER.STATUS'
+  P<1,-1>='DLR.RECOURSE*'               ; P<2,-1>='Dealer Recourse'
+  P<3,-1>='TB_DEALER_RECOURSE_NF'       ; P<4,-1>='DEALER.RECOURSE_NON_UD'
+  P<1,-1>='EARLY.TERM.OPTION*'          ; P<2,-1>='Early Term Option'
+  P<3,-1>='TB_EARLY_TERM_OPTION_NF'     ; P<4,-1>='EARLY.TERM.OPTION_NON_UD'
+  P<1,-1>='ER*'                         ; P<2,-1>='Exchange Rate'
+  P<3,-1>='EXCHANGE_RATE_NF'            ; P<4,-1>='EXCHANGE.RATE'
+  P<1,-1>='FAC*'                        ; P<2,-1>='Void Factura Reason'
+  P<3,-1>='TB_VOID_FACTURA_REASON_NF'   ; P<4,-1>='VOID.FACTURA.REASON_NON_UD'
+  P<1,-1>='FIN.CLASS*'                  ; P<2,-1>='Finance Class'
+  P<3,-1>='TB_FINANCE_CLASS_NF'         ; P<4,-1>='FINANCE.CLASS_NON_UD'
+  P<1,-1>='FIN.PLAN*'                   ; P<2,-1>='Finance Plan'
+  P<3,-1>='TB_FINANCE_PLAN_NF'          ; P<4,-1>='FINANCE.PLAN_NON_UD'
+  P<1,-1>='FOLLOW.UP*'                  ; P<2,-1>='Follow Up'
+  P<3,-1>='FOLLOW_UP_CODES_NF'          ; P<4,-1>='FOLLOW.UP.CODES'
+  P<1,-1>='GL.LINK.INDEX*'              ; P<2,-1>='General Ledger Link Index'
+  P<3,-1>='TB_GL_LINK_INDEX_NF'         ; P<4,-1>='GL.LINK.INDEX_NON_UD'
+  P<1,-1>='GROUP.MISC.CODES*'           ; P<2,-1>='Group Misc GL Codes'
+  P<3,-1>='GROUP_MISC_CODES_NF'         ; P<4,-1>='GROUP.MISC.CODES'
+  P<1,-1>='HOLIDAY.TBL*'                ; P<2,-1>='Holiday/Weekend'
+  P<3,-1>='HOLIDAY_WEEKEND_NF'          ; P<4,-1>='HOLIDAY.WEEKEND'
+  P<1,-1>='IDC.DESC*'                   ; P<2,-1>='IDC Description'
+  P<3,-1>='TB_IDC_DESC_NF'              ; P<4,-1>='IDC.DESC_NON_UD'
+  P<1,-1>='INVOICE.FORMAT*'             ; P<2,-1>='Invoice Format'
+  P<3,-1>='INVOICE_FORMAT_TABLE_NF'     ; P<4,-1>='INVOICE.FORMAT.TABLE'
+  P<1,-1>='IP*'                         ; P<2,-1>='Insurance Parameter'
+  P<3,-1>='INSURANCE_PARAMETER_NF'      ; P<4,-1>='INSURANCE.PARAMETER'
+  P<1,-1>='IRS.CAT*'                    ; P<2,-1>='IRS Category/Tax'
+  P<3,-1>='IRS_CAT_DEFAULTS_NF'         ; P<4,-1>='IRS.CAT.DEFAULTS'
+  P<1,-1>='ITP'                         ; P<2,-1>='Insurance Tape Parameter'
+  P<3,-1>='INS_TAPE_PARAMETER_NF'       ; P<4,-1>='INS.TAPE.PARAMETER'
+  P<1,-1>='L.NATIONALITY*'              ; P<2,-1>='Nationality'
+  P<3,-1>='TB_NATIONALITY_NF'           ; P<4,-1>='NATIONALITY_NON_UD'
+  P<1,-1>='LANG*'                       ; P<2,-1>='Language'
+  P<3,-1>='TB_LANGUAGE_NF'              ; P<4,-1>='LANGUAGE_NON_UD'
+  P<1,-1>='LEGAL.S*'                    ; P<2,-1>='Legal Status'
+  P<3,-1>='TB_LEGAL_STATUS_NF'          ; P<4,-1>='LEGAL.STATUS_NON_UD'
+  P<1,-1>='LESSEE.CONTACT*'             ; P<2,-1>='Lessee Contact Permitted'
+  P<3,-1>='TB_LESSEE_CONTACT_PERMIT_NF' ; P<4,-1>='LESSEE.CONT.PERMITTED_NON_UD'
+  P<1,-1>='LESSOR.SUB*'                 ; P<2,-1>='Lessor Subsidiary'
+  P<3,-1>='SUBSIDIARY_ADDRESS_NF'       ; P<4,-1>='SUBSIDIARY.ADDRESS'
+  P<1,-1>='LKE.POOL*'                   ; P<2,-1>='Like Kind Exchange Pool'
+  P<3,-1>='TB_LIKE_KIND_EXCHANGE_PO_NF' ; P<4,-1>='LIKE.KIND.EXCHANGE.POOL_NON_UD'
+  P<1,-1>='LOCAL.SIC.CODE*'             ; P<2,-1>='Local SIC Code'
+  P<3,-1>='LOCAL_SIC_CODE_TBL_NF'       ; P<4,-1>='LOCAL.SIC.CODE.TBL'
+  P<1,-1>='LOCKBOX.PARAMS'              ; P<2,-1>='Lockbox Parameters'
+  P<3,-1>='LOCKBOX_PARAMETERS_NF'       ; P<4,-1>='LOCKBOX.PARAMETERS'
+  P<1,-1>='MILE.CAT*'                   ; P<2,-1>='Mileage Category'
+  P<3,-1>='TB_MILEAGE_CATEGORY_NF'      ; P<4,-1>='MILEAGE.CATEGORY_NON_UD'
+  P<1,-1>='MISC.PARAM*'                 ; P<2,-1>='Miscellaneous Parameters'
+  P<3,-1>='MISC_PARAM_DEFAULTS_NF'      ; P<4,-1>='MISC.PARAM.DEFAULTS'
+  P<1,-1>='MMR.ASSET.DE*'               ; P<2,-1>='MMR Asset (Inv. Interface)'
+  P<3,-1>='INV_INT_DATA_ELEMENTS_NF'    ; P<4,-1>='INV.INT.DATA.ELEMENTS'
+  P<1,-1>='MMR.ASSET.RATE.DE*'          ; P<2,-1>='MMR Asset Rate (Inv. Interface)'
+  P<3,-1>='INV_INT_DATA_ELEMENTS_NF'    ; P<4,-1>='INV.INT.DATA.ELEMENTS'
+  P<1,-1>='MMR.CHRG.DE*'                ; P<2,-1>='MMR Charge (Inv. Interface)'
+  P<3,-1>='INV_INT_DATA_ELEMENTS_NF'    ; P<4,-1>='INV.INT.DATA.ELEMENTS'
+  P<1,-1>='NJS.FLAG'                    ; P<2,-1>='NJS Flag'
+  P<3,-1>='NJS_FLAG_NF'                 ; P<4,-1>='NJS.FLAG'
+  P<1,-1>='PAYMENT.STATUS*'             ; P<2,-1>='Payment Status'
+  P<3,-1>='TB_PAYMENT_STATUS_NF'        ; P<4,-1>='PAYMENT.STATUS_NON_UD'
+  P<1,-1>='PAYMENT.TYPE*'               ; P<2,-1>='Payment Type'
+  P<3,-1>='PYMT_TYPE_NF'                ; P<4,-1>='PYMT.TYPE'
+  P<1,-1>='PENDING.CODE*'               ; P<2,-1>='Pending Code'
+  P<3,-1>='PENDING_CODE_TBL_NF'         ; P<4,-1>='PENDING.CODE.TBL'
+  P<1,-1>='POLICY.STATUS*'              ; P<2,-1>='Policy Status'
+  P<3,-1>='TB_POLICY_STATUS_NF'         ; P<4,-1>='POLICY.STATUS_NON_UD'
+  P<1,-1>='PROGRAM.CONTROL*'            ; P<2,-1>='Program Control'
+  P<3,-1>='TB_PROGRAM_CONTROL_NF'       ; P<4,-1>='PROGRAM.CONTROL_NON_UD'
+  P<1,-1>='PUR.OPT*'                    ; P<2,-1>='Purchase Option'
+  P<3,-1>='PURCHASE_OPTION_TABLE_NF'    ; P<4,-1>='PURCHASE.OPTION.TABLE'
+  P<1,-1>='PURPOSE.LOAN*'               ; P<2,-1>='Purpose Of Loan'
+  P<3,-1>='TB_PURPOSE_OF_LOAN_NF'       ; P<4,-1>='PURPOSE.OF.LOAN_NON_UD'
+  P<1,-1>='PUT.TO*'                     ; P<2,-1>='Put To'
+  P<3,-1>='TB_PUT_TO_NF'                ; P<4,-1>='PUT.TO_NON_UD'
+  P<1,-1>='QUOTE.BUYOUT*'               ; P<2,-1>='Quote Buyout'
+  P<3,-1>='QUOTE_BUYOUT_TBL_NF'         ; P<4,-1>='QUOTE.BUYOUT.TBL'
+  P<1,-1>='RCPT*'                       ; P<2,-1>='Void Receipt Reason'
+  P<3,-1>='TB_VOID_RECEIPT_REASON_NF'   ; P<4,-1>='VOID.RECEIPT.REASON_NON_UD'
+  P<1,-1>='RECOURSE*'                   ; P<2,-1>='Recourse'
+  P<3,-1>='TB_RECOURSE_CODE_NF'         ; P<4,-1>='RECOURSE.CODE_NON_UD'
+  P<1,-1>='RECOVERY.STATUS*'            ; P<2,-1>='Recovery Status'
+  P<3,-1>='TB_RECOVERY_STATUS_NF'       ; P<4,-1>='RECOVERY.STATUS_NON_UD'
+  P<1,-1>='RELATIONSHIP*'               ; P<2,-1>='Relationship'
+  P<3,-1>='RELATIONSHIP_DATA_NF'        ; P<4,-1>='RELATIONSHIP.DATA'
+  P<1,-1>='REM.PUR.OPTION*'             ; P<2,-1>='Remarketing Purchase Option'
+  P<3,-1>='TB_REMARKETING_PURCHASE_NF'  ; P<4,-1>='REMARKETING.PURCH.OPT_NON_UD'
+  P<1,-1>='RENEWAL.OPTION*'             ; P<2,-1>='Renewal Option'
+  P<3,-1>='RENEWAL_OPTION_NF'           ; P<4,-1>='RENEWAL.OPTION'
+  P<1,-1>='REPO.STATUS*'                ; P<2,-1>='Repossession Status'
+  P<3,-1>='REPOSSESSION_CODE_NF'        ; P<4,-1>='REPOSSESSION.CODE'
+  P<1,-1>='RESERVE*'                    ; P<2,-1>='Reserve Code'
+  P<3,-1>='TB_RESERVE_CODE_NF'          ; P<4,-1>='RESERVE.CODE_NON_UD'
+  P<1,-1>='RESIDUAL.GUAR*'              ; P<2,-1>='Residual Guarantee'
+  P<3,-1>='TB_RESIDUAL_GUARANTEE_NF'    ; P<4,-1>='RESIDUAL.GUARANTEE_NON_UD'
+  P<1,-1>='RESIDUAL.OWNER*'             ; P<2,-1>='Residual Owner'
+  P<3,-1>='TB_RESIDUAL_OWNER_NF'        ; P<4,-1>='RESIDUAL.OWNER_NON_UD'
+  P<1,-1>='RESIDUAL.SHARING*'           ; P<2,-1>='Residual Sharing'
+  P<3,-1>='TB_RESIDUAL_SHARING_NF'      ; P<4,-1>='RESIDUAL.SHARING_NON_UD'
+  P<1,-1>='RESTOCKING.FEE*'             ; P<2,-1>='Restocking Fee Obligation'
+  P<3,-1>='TB_RESTOCK_FEE_OBLIGATIO_NF' ; P<4,-1>='RESTOCK.FEE.OBLIGATION_NON_UD'
+  P<1,-1>='RETURN.COSTS.PD*'            ; P<2,-1>='Return Costs Paid'
+  P<3,-1>='TB_RETURN_COSTS_PAID_NF'     ; P<4,-1>='RETURN.COSTS.PAID_NON_UD'
+  P<1,-1>='REVS.PT*'                    ; P<2,-1>='REVS Plate Type'
+  P<3,-1>='TB_REVS_PLATE_TYPE_NF'       ; P<4,-1>='REVS.PLATE.TYPE_NON_UD'
+  P<1,-1>='REVS.ST*'                    ; P<2,-1>='REVS State'
+  P<3,-1>='TB_REVS_STATE_NF'            ; P<4,-1>='REVS.STATE_NON_UD'
+  P<1,-1>='SCAN.LINE.DE*'               ; P<2,-1>='Scan Line (Inv. Interface)'
+  P<3,-1>='INV_INT_DATA_ELEMENTS_NF'    ; P<4,-1>='INV.INT.DATA.ELEMENTS'
+  P<1,-1>='SCORE.DECISION*'             ; P<2,-1>='Credit Score Decision'
+  P<3,-1>='TB_CREDIT_SCORE_DECISION_NF' ; P<4,-1>='CREDIT.SCORE.DECISION_NON_UD'
+  P<1,-1>='SCORE.STATUS*'               ; P<2,-1>='Credit Score Status'
+  P<3,-1>='CREDIT_SCORE_STATUS_NF'      ; P<4,-1>='CREDIT.SCORE.STATUS'
+  P<1,-1>='SCORING.CODE*'               ; P<2,-1>='Scoring Code'
+  P<3,-1>='SCORING_CODE_NF'             ; P<4,-1>='SCORING.CODE'
+  P<1,-1>='SEC.PARTY*'                  ; P<2,-1>='Secure Party'
+  P<3,-1>='LESSOR_SEC_PARTY_NF'         ; P<4,-1>='LESSOR.SEC.PARTY'
+  P<1,-1>='SOURCE*'                     ; P<2,-1>='Source'
+  P<3,-1>='TB_SOURCE_NF'                ; P<4,-1>='SOURCE_NON_UD'
+  P<1,-1>='SPECIAL.INST*'               ; P<2,-1>='Special Instructions'
+  P<3,-1>='TB_SPECIAL_INSTRUCTIONS_NF'  ; P<4,-1>='SPECIAL.INSTRUCTIONS_NON_UD'
+  P<1,-1>='SPLIT.DE*'                   ; P<2,-1>='Invoice Interface Data Elements'
+  P<3,-1>='INV_INT_DATA_ELEMENTS_NF'    ; P<4,-1>='INV.INT.DATA.ELEMENTS'
+  P<1,-1>='SSP'                         ; P<2,-1>='System Security'
+  P<3,-1>='SC_SECURE_PARAM_NF'          ; P<4,-1>='SC.SECURE.PARAM'
+  P<1,-1>='UCC.STATE*'                  ; P<2,-1>='Filing State'
+  P<3,-1>='FILING_STATE_NF'             ; P<4,-1>='FILING.STATE'
+  P<1,-1>='UCC.STATUS*'                 ; P<2,-1>='Filing Status'
+  P<3,-1>='FILING_STATUS_TABLE_NF'      ; P<4,-1>='FILING.STATUS.TABLE'
+  P<1,-1>='UCC.TITLE.CODE*'             ; P<2,-1>='Filing Code'
+  P<3,-1>='FILING_CODE_NF'              ; P<4,-1>='FILING.CODE'
+  P<1,-1>='UK.POOL*'                    ; P<2,-1>='UK Pool'
+  P<3,-1>='UK_POOL_NUM_NF'              ; P<4,-1>='UK.POOL.NUM'
+  P<1,-1>='USG.ASSET.DE*'               ; P<2,-1>='Usage Asset (Inv. Interface)'
+  P<3,-1>='INV_INT_DATA_ELEMENTS_NF'    ; P<4,-1>='INV.INT.DATA.ELEMENTS'
+  P<1,-1>='USG.CHRG.DE*'                ; P<2,-1>='Usage Charge (Inv. Interface)'
+  P<3,-1>='INV_INT_DATA_ELEMENTS_NF'    ; P<4,-1>='INV.INT.DATA.ELEMENTS'
+  P<1,-1>='VLMAKE*'                     ; P<2,-1>='Vehicle Make'
+  P<3,-1>='TB_VEHICLE_MAKE_NF'          ; P<4,-1>='VEHICLE.MAKE_NON_UD'
+  P<1,-1>='VLMODEL*'                    ; P<2,-1>='Vehicle Model'
+  P<3,-1>='TB_VEHICLE_MODEL_NF'         ; P<4,-1>='VEHICLE.MODEL_NON_UD'
+  P<1,-1>='VLOPT*'                      ; P<2,-1>='Vehicle Option'
+  P<3,-1>='TB_VEHICLE_OPTION_NF'        ; P<4,-1>='VEHICLE.OPTION_NON_UD'
+  P<1,-1>='WAREHOUSE*'                  ; P<2,-1>='Warehouse Location'
+  P<3,-1>='TB_WAREHOUSE_LOCATION_NF'    ; P<4,-1>='WAREHOUSE.LOCATION_NON_UD'
+  P<1,-1>='WHOLESALE.PLAN*'             ; P<2,-1>='Wholesale Plan'
+  P<3,-1>='TB_WHOLESALE_PLAN_NF'        ; P<4,-1>='WHOLESALE.PLAN_NON_UD'
+  P<1,-1>='WL.FOLLOW-UP.CODE*'          ; P<2,-1>='Worklist Follow-Up Codes'
+  P<3,-1>='WORKLIST_FOLLOW_UP_CODES_NF' ; P<4,-1>='WORKLIST.FOLLOW.UP.CODES'
+  P<1,-1>='WP.PARAM'                    ; P<2,-1>='Word Processing'
+  P<3,-1>='WP_PARAM_NF'                 ; P<4,-1>='WP.PARAM'
+  P<1,-1>=STR('-', 18)                  ; P<2,-1>=STR('-',33)
+  P<3,-1>=STR('-',30)                   ; P<4,-1>=STR('-',30)
+  *
+  IF ANS='/NOLIST' THEN RETURN ;* This is passed by GET.PARAMETER.BPI - we need to populate P, but don't want to display anything
+  PARAM.SEARCH = UPCASE(FIELD(ANS, ' ', 2))
+  MAX.P = DCOUNT(P<1>, @VM)
+  FOR F = 1 TO MAX.P
+    SEARCH.STRING = UPCASE(P<1,F>:' ':P<2,F>:' ':P<3,F>:' ':P<4,F>)
+    PRINT.LINE = (PARAM.SEARCH = '') OR INDEX(SEARCH.STRING, PARAM.SEARCH, 1) > 0 OR F < 4 OR F = MAX.P
+    IF PRINT.LINE THEN PRINT '|':P<1,F>'L#18':'|':P<2,F>'L#33':'|':P<3,F>'L#30':'|':P<4,F>'L#30':'|'
+  NEXT F
+RETURN
+*
+SYSINFO:
+  IF IL.MAJOR.VER = '' THEN PRINT 'Only works in IL' ; RETURN
+  EXEC.LINE="!hostname" ; CAP.ACTIVE=TRUE ; GOSUB EXEC.SUB
+  HOST.NAME=EXEC.CAP<1>
+  PRINT 'Hostname    :':HOST.NAME
+  PRINT 'Environment :':
+  HOST.1=UPCASE(HOST.NAME[1,1])
+  BEGIN CASE
+    CASE HOST.1='D'
+      PRINT 'DEV'
+    CASE HOST.1='T'
+      PRINT 'UAT'
+    CASE HOST.1='P'
+      PRINT 'PRD'
+    CASE 1
+      PRINT 'Unknown:':HOST.1
+  END CASE
+  PRINT 'OS Version  :':
+  IF OS.PATH.DELIM = "\" THEN
+    EXECUTE \!ver\ CAPTURING OSVER
+    DEL OSVER<1> ; OSVER=OSVER<1>
+  END ELSE
+    EXECUTE \!uname -a\ CAPTURING OSVER
+  END
+  PRINT OSVER[1,30]
+  PRINT 'IL Version  :':IL.VER
+  PRINT 'IL DB       :':IL.DB:
+  IF IL.DB # IL.ACC THEN PRINT ' # ':IL.ACC ELSE PRINT ''
+  PRINT 'System Num  :':IL.SYS.NUM
+  PRINT 'IL Owner    :':'DB=':IL.OWNER:' FILE=':IL.OWNER.UFD
+  PRINT 'IL Group    :':'DB=':IL.GROUP:' FILE=':IL.GROUP.UFD
+  PRINT 'Info-Rev    :':IL.REV
+  PRINT 'Info-Params :':IL.PARAMS
+  PRINT 'Sys         :':IL.SYS
+  PRINT 'Vertex      :':IL.VERTEX
+  * PRINT VERTEX.LAST.UPDATED?
+  CALL FILE.OPEN('STACK','PARAMETER',PARAMETER,'STOP')
+  IF IL.MAJOR.VER=9 THEN
+    READ PARAM FROM PARAMETER,'00*00' ELSE PARAM=''
+  END ELSE
+    CALL IDS.READ(PARAM, PARAMETER, '00*00', 0, 0, BCI.ERROR)
+    IF BCI.ERROR THEN PARAM=''
+  END
+  PRINT 'Month End   :':OCONV(PARAM<14>,'D-YMD'):' (':PARAM<15>:'-':
+  * Get these descriptions from CODES.USA MF:MONTHEND
+  BEGIN CASE
+    CASE PARAM<15>=0
+      PRINT 'No Period-End or Year-End':
+    CASE PARAM<15>=1
+      PRINT 'Income, Cash Period-End not done':
+    CASE PARAM<15>=2
+      PRINT 'Income Period-End not done':
+    CASE PARAM<15>=3
+      PRINT 'Income Period-End done but not Cash':
+    CASE PARAM<15>=4
+      PRINT 'Cash':
+    CASE PARAM<15>=5
+      PRINT 'Close & Purge not done':
+    CASE PARAM<15>=6
+      PRINT 'Year-End not done':
+    CASE 1
+      PRINT 'Unknown MONTHEND.CODE':
+  END CASE
+  PRINT ')'
+  * PRINT CURRENT.MONTH AND LAST.ME.DATE
+  PRINT 'Aged Thru   :':OCONV(PARAM<13>,'D-YMD')
+  PRINT 'Invd Thru   :':OCONV(PARAM<10>,'D-YMD')
+RETURN
+*******************************************************************************
+* CUSTOM UTILITIES
+*******************************************************************************
+DEPS:
+  PARAM=UPCASE(FIELD(ANS,' ',2))
+  OPTION=UPCASE(FIELD(ANS,' ',3))
+  BUILD.OK=1 ; REBUILD=0 ; TYPE=''
+  OPEN 'FCB.DEPS' TO F.FCB.DEPS ELSE REBUILD=1
+  OPEN 'CUSTOM.BP' TO F.CUSTOM.BP ELSE REBUILD=1
+  IF REBUILD THEN GOSUB DEPS.BUILD
+  IF NOT(BUILD.OK) THEN RETURN
+  READV R FROM VOC, PARAM, 1 ELSE R=''
+  IF R='C' THEN TYPE='PROGRAM'
+  IF INDEX(R,'F',1) THEN TYPE='FILE'
+  BEGIN CASE
+    CASE PARAM='REFRESH'
+      GOSUB DEPS.BUILD
+    CASE TYPE='FILE'
+      FILE.NAME=PARAM
+      PRINT 'FILE DEPS OF ':FILE.NAME
+      READV R FROM F.FCB.DEPS, FILE.NAME, 3 ELSE R=''
+      FOR F=1 TO DCOUNT(R<1>,@VM)
+        PRINT F'R#3':') ':R<1,F>
+      NEXT F
+    CASE TYPE='PROGRAM'
+      PROG.NAME=PARAM
+      LOOP
+        PRINT 'PROGRAM DEPS OF ':PROG.NAME
+        READ R FROM F.FCB.DEPS, PROG.NAME ELSE R=''
+        PROG.LIST=''
+        R1=DCOUNT(R<1>,@VM)
+        FOR F=1 TO R1
+          PROG.LIST<1,-1>=R<1,F>
+        NEXT F
+        PROG.LIST<2>=PROG.NAME
+        R2=DCOUNT(R<4>,@VM)
+        FOR F=1 TO R2
+          PROG.LIST<3,-1>=R<4,F>
+        NEXT F
+        IF R2 > R1 THEN MAX=R2 ELSE MAX=R1
+        PRINT SPACE(4):'CALLED/EXECUTED FROM' 'L#35':' ':'PROGRAM' 'L#35':' ':'CALLS/EXECUTES' 'L#35'
+        FOR F=1 TO MAX
+          PRINT F'R#3':' ':PROG.LIST<1,F>'L#35':' ':PROG.LIST<2,F>'L#35':' ':PROG.LIST<3,F>'L#35'
+        NEXT F
+        PRINT 'Enter Ln for left side # or Rn for right side, ENTER to exit:':
+        INPUT O
+        IF O[1,1]='L' THEN PROG.NAME=PROG.LIST<1,O[2,9]>
+        IF O[1,1]='R' THEN PROG.NAME=PROG.LIST<3,O[2,9]>
+        IF O='' THEN EXIT
+      REPEAT
+  END CASE
+RETURN
+*
+DEPS.BUILD:
+  BUILD.OK=0
+  * DEP.REC<1>=CALLED BY
+  * DEP.REC<2>=CALLS
+  * DEP.REC<3>=OPENS
+  * DEP.REC<4>=READS
+  * DEP.REC<5>=WRITES
+  * DEP.REC<6>=CLEARS
+  * DEP.REC<7>=INCLUDES
+  * DEP.REC<8>=JOBS
+  *
+  OPEN 'FCB.DEPS' TO F.FCB.DEPS ELSE
+    EXECUTE \CREATE.FILE FCB.DEPS 1113,1\
+    OPEN 'FCB.DEPS' TO F.FCB.DEPS ELSE PRINT 'Cannot open or create FCB.DEPS' ; BUILD.OK=0 ; RETURN
+  END
+  CLEARFILE F.FCB.DEPS
+  *
+  OPEN 'CUSTOM.BP' TO F.CUSTOM.BP ELSE
+    D='DIR'
+    D<2>='/info/CUSTOM/BP'
+    D<3>='D_UFD'
+    WRITE D ON VOC, 'CUSTOM.BP'
+    OPEN 'CUSTOM.BP' TO F.CUSTOM.BP ELSE PRINT 'Cannot open or link to CUSTOM.BP' ; BUILD.OK=0 ; RETURN
+  END
+  *
+  KEYWORDS=CONVERT(",",@AM,"CALL,CHAIN,CLEARFILE,EXECUTE,INCLUDE,$INCLUDE,OPEN,READ,WRITE")
+  *
+  EXECUTE \SSELECT CUSTOM.BP WITH @ID # "_]"\
+  LOOP
+    READNEXT ID ELSE EXIT
+    CRT ID
+    READ PROGRAM FROM F.CUSTOM.BP, ID ELSE CONTINUE
+    FILE.HANDLES=''
+    DEFERRED=''
+    READ DEP.REC FROM F.FCB.DEPS, ID ELSE DEP.REC=''
+    MAX.LINE=DCOUNT(PROGRAM,@AM)
+    FOR LINE.CTR=1 TO MAX.LINE
+      GOSUB PROCESS.LINE
+    NEXT LINE.CTR
+    WRITE DEP.REC ON F.FCB.DEPS, ID
+  REPEAT
+  * Re-process any deferred lines
+  BUILD.OK=1
+RETURN
+*
+PROCESS.LINE:
+  LINE=TRIM(PROGRAM<LINE.CTR>) ;* removes leading, trailing and contiguous spaces
+  FIRST=FIELD(LINE,' ',1)
+  IF FIRST='IF' OR FIRST='ELSE' OR FIRST='CASE' THEN
+    * E.g. IF A=B THEN EXECUTE "SPECIAL.PROG"
+    * and we're going to ditch everything
+    LOOP
+      FIRST=FIELD(LINE,' ',1)
+      LOCATE FIRST IN KEYWORDS SETTING POS THEN EXIT ELSE DEL LINE<1>
+    UNTIL LINE='' DO
+    REPEAT
+  END
+  SECOND=FIELD(LINE,' ',2)
+  BEGIN CASE
+    CASE SECOND[1,9]='FILE.OPEN'              ;* CALL FILE.OPEN(PROG,'FILE.NAME,SUB.FILE',F.FILE.NAME,'STOP')
+      LINE=CONVERT(' ','',LINE)
+      FRM=INDEX(LINE,',',1)+1
+      CH=LINE[FRM,1]
+      IF CH=\"\ OR CH=\'\ OR CH='\' THEN
+        * Look forward until we find the closing quote
+        X=FRM+1 ; LL=LEN(LINE)
+        LOOP
+          NEXT.CH=LINE[X,1]
+        UNTIL NEXT.CH=CH OR X>LL DO
+          X+=1
+        REPEAT
+        S=LINE[FRM,X-FRM+1]
+        GOSUB REMOVE.QUOTES
+      END ELSE
+        * Filename is a variable so don't have to worry about embedded commas
+        S=FIELD(LINE,',',2)
+        GOSUB REMOVE.QUOTES
+      END
+      FVAR=FIELD(LINE,',',3)
+      GOSUB CHECK.OPEN
+    CASE FIRST='CALL'                         ;* CALL SUBR(1,2,3) or CALL SUBR ( 1, 2, 3)
+      LINE=CONVERT(' ','',LINE[6,999])
+      SUBR=FIELD(LINE,'(',1)
+      READV T FROM VOC, SUBR, 1 ELSE RETURN ;* Make sure the thing we're calling is a cataloged program
+      IF T # 'C' THEN RETURN ;* Only care about cataloged programs
+      LOCATE SUBR IN DEP.REC<2> BY 'AL' SETTING POS ELSE INS SUBR BEFORE DEP.REC<2,POS>
+      READV CALLED.BY FROM F.FCB.DEPS, SUBR, 1 ELSE CALLED.BY=''
+      LOCATE ID IN CALLED.BY<1> BY 'AL' SETTING POS ELSE
+        INS ID BEFORE CALLED.BY<1,POS>
+        WRITEV CALLED.BY ON F.FCB.DEPS, SUBR, 1
+      END
+    CASE FIRST='CLEARFILE'                    ;* CLEARFILE FVAR
+      LOCATE SECOND IN FILE.HANDLES<1> SETTING POS THEN
+        * Figure out which file is being cleared and store in DEP.REC
+        DEP.REC<8,-1>=DEP.REC<5,POS>
+      END
+    CASE FIRST='EXECUTE' OR FIRST='CHAIN'     ;* EXECUTE "NJS.EXIT2" or EXECUTE STMT
+      S=SECOND
+      GOSUB REMOVE.QUOTES
+      EXEC=S
+      IF EXEC='' THEN RETURN
+      IF LEN(EXEC) > 100 THEN RETURN ;* Not a valid ID to check, skip
+      READV T FROM VOC, EXEC, 1 ELSE RETURN ;* Make sure the thing we're executing is a VOC entry
+      IF T # 'C' THEN RETURN ;* Only care about cataloged programs
+      LOCATE EXEC IN DEP.REC<4> BY 'AL' SETTING POS ELSE INS EXEC BEFORE DEP.REC<4,POS>
+      READV CALLED.BY FROM F.FCB.DEPS, EXEC, 1 ELSE CALLED.BY=''
+      LOCATE ID IN CALLED.BY<1> BY 'AL' SETTING POS ELSE
+        INS ID BEFORE CALLED.BY<1,POS>
+        WRITEV CALLED.BY ON F.FCB.DEPS, EXEC, 1
+      END
+    CASE FIRST='INCLUDE' OR FIRST='$INCLUDE'  ;* INCLUDE CUSTOM,BPI ASSIGN.VARS or $INCLUDE RECORD.LOCKS.DIM FROM IL.BPI
+      LINE.REC=CONVERT(' ',@AM,LINE)
+      IF INDEX(LINE,'FROM',1) THEN
+        INC.FILE=LINE.REC<4>
+        INC.ITEM=LINE.REC<2>
+      END ELSE
+        INC.FILE=LINE.REC<2>
+        INC.ITEM=LINE.REC<3>
+      END
+      INC=INC.FILE:' ':INC.ITEM
+      LOCATE INC IN DEP.REC<7> BY 'AL' SETTING POS ELSE
+        INS INC BEFORE DEP.REC<7,POS>
+      END
+    CASE FIRST[1,4]='OPEN'                         ;* OPEN "LS.MASTER,LS.BILLING" TO FVAR ELSE..  OPEN "","LS.MASTER" TO ..
+      IF FIRST[5,1]=\"\ OR FIRST[5,1]=\'\ THEN
+        LINE='OPEN ':LINE[5,LEN(LINE)]
+        FIRST=FIELD(LINE,' ',1)
+        SECOND=FIELD(LINE,' ',2)
+      END
+      IF FIRST # 'OPEN' THEN RETURN
+      SWAP \"",\ WITH \\ IN SECOND
+      SWAP \'',\ WITH \\ IN SECOND
+      S=SECOND
+      GOSUB REMOVE.QUOTES
+      FRM=INDEX(LINE,'TO',1)
+      X=FRM+3
+      LL=LEN(LINE)
+      LOOP
+        NEXT.CH=LINE[X,1]
+      UNTIL NEXT.CH=' ' OR X>LL DO
+        X+=1
+      REPEAT
+      FVAR=LINE[FRM+3,X-FRM-3]
+      GOSUB CHECK.OPEN
+    CASE FIRST='READ'                         ;* READ R FROM FVAR ELSE
+    CASE FIRST='WRITE'                        ;* WRITE R ON FVAR ELSE
+  END CASE
+RETURN
+*
+CHECK.OPEN:
+  IF S='' THEN RETURN ;* Could not figure out assignment
+  FILE.NAME=S
+  OPEN FILE.NAME TO DUMMY THEN CLOSE DUMMY ELSE RETURN
+  LOCATE FILE.NAME IN DEP.REC<3> BY 'AL' SETTING POS THEN
+    * Hmm, opened the same file twice, 2nd one is the winner
+    FILE.HANDLES<1,POS>=FVAR
+  END ELSE
+    INS FILE.NAME BEFORE DEP.REC<3,POS>
+    INS FVAR      BEFORE FILE.HANDLES<1,POS>
+  END
+  *
+  * Also create a reverse index from filename to program
+  *
+  READ R FROM F.FCB.DEPS, FILE.NAME ELSE R=''
+  LOCATE ID IN R<1> BY 'AL' SETTING POS ELSE
+    INS ID BEFORE R<1,POS>
+  END
+  WRITE R ON F.FCB.DEPS, FILE.NAME
+RETURN
+*
+GET.VAR.ASSIGNMENT:
+  * Work backwards from current line looking for assighment
+  VAR=''
+  FOR X=LINE.CTR-1 TO 1 STEP -1
+    TMP.LINE=CONVERT(' ','',TRIM(PROGRAM<X>)) ;* Get rid of all spaces, so STMT="NJS.EXIT2" and STMT  =  "NJS.EXIT2" are same
+    IF FIELD(TMP.LINE,'=',1)=S THEN VAR=FIELD(TMP.LINE,'=',2) ; EXIT
+  NEXT X
+RETURN
+*
+REMOVE.QUOTES:
+  S=CONVERT(\"'\,"\\",S) ;* Convert all quotes to one type
+  IF S[1,1]='\' THEN
+    * A quoted string, all good, remove quotes
+    S=S[2,LEN(S)-2]
+  END ELSE
+    * Not a quoted string, search backwards for assignment
+    GOSUB GET.VAR.ASSIGNMENT
+    S=VAR
+  END
+RETURN
+*
+JOBS:
+  IF IL.MAJOR.VER#9 THEN PRINT 'Only works in IL9' ; RETURN
+  OPEN 'JOB.SCHEDULER' TO F.JOB.SCHEDULER ELSE PRINT 'JOB.SCHEDULER is not a file in this account' ; RETURN
+  OPEN 'JOB.SCHEDULER.TABLE' TO F.JOB.SCHEDULER.TABLE ELSE PRINT 'JOB.SCHEDULER.TABLE is not a file in this account' ; RETURN
+  SRCH=UPCASE(FIELD(ANS,' ',2))
+  OUTPUT.LIST=''
+  * Now figure out which job each task is part of (could be more than one!), and also if the job name matches, include all tasks
+  EXECUTE \SSELECT JOB.SCHEDULER\ CAPTURING DUMMY
+  LOOP
+    READNEXT ID ELSE EXIT
+    IF INDEX(UPCASE(ID),SRCH,1) THEN JOB.MATCHED=1 ELSE JOB.MATCHED=0
+    READ REC FROM F.JOB.SCHEDULER, ID ELSE CONTINUE
+    FOR J=1 TO DCOUNT(REC<1>,@VM)
+      TASK=REC<1,J>
+      DB=REC<2,J>
+      FQ=REC<3,J>
+      PH=REC<4,J>
+      LAST.RUN.DATE=REC<9>
+      LAST.RUN.TIME=REC<10>
+      READ TASK.REC FROM F.JOB.SCHEDULER.TABLE, TASK THEN
+        TASK.DESC=CONVERT(@VM,'|',TASK.REC<1>)
+        TASK.CMD=CONVERT(@VM,'|',TASK.REC<2>)
+      END ELSE
+        TASK.DESC='Unknown'
+        TASK.CMD='N/A'
+      END
+      IF INDEX(UPCASE(TASK.REC),SRCH,1) THEN TASK.MATCHED=1 ELSE TASK.MATCHED=0
+      IF JOB.MATCHED OR TASK.MATCHED THEN
+        OUTPUT.LIST<-1>=ID:@VM:TASK:@VM:DB:@VM:FQ:@VM:PH:@VM:LAST.RUN.DATE:@VM:LAST.RUN.TIME:@VM:TASK.DESC:@VM:TASK.CMD:@VM:J
+      END
+    NEXT J
+  REPEAT
+  *
+  GOSUB GET.TERM.WIDTH
+  BEGIN CASE
+    CASE TERM.WIDTH <= 80
+      MSK='L#15'
+    CASE TERM.WIDTH <= 132
+      MSK='L#41'
+    CASE 1
+      MSK='L#50'
+  END CASE
+  HDR='##':' ':'JOB' 'L#8':' ':'TASK#''L#5':' ':'TASK DESC' MSK:' ':'TASK CMD' MSK:' ':'DB' 'L#2':' ':'FQ' 'L#2':' '
+  HDR:='PH' 'L#2':' ':'LAST DATE' 'R#10':' ':'TIME' 'R#5':' ':'POS'
+  LOOP
+    PRINT @(-1):HDR
+    FOR J=1 TO DCOUNT(OUTPUT.LIST,@AM)
+      PRINT J'R#2':' ':
+      PRINT OUTPUT.LIST<J,1>'L#8':' ':
+      PRINT OUTPUT.LIST<J,2>'L#5' :' ':
+      PRINT OUTPUT.LIST<J,8>MSK:' ':
+      PRINT OUTPUT.LIST<J,9>MSK:' ':
+      PRINT OUTPUT.LIST<J,3>'L#2' :' ':
+      PRINT OUTPUT.LIST<J,4>'L#2' :' ':
+      PRINT OUTPUT.LIST<J,5>'L#2' :' ':
+      PRINT FMT(OUTPUT.LIST<J,6>'D4/','R#10'):' ':
+      PRINT FMT(OUTPUT.LIST<J,7>'MT','R#5'):' ':
+      PRINT OUTPUT.LIST<J,10>'R#3'
+    NEXT J
+    PRINT
+    PRINT 'DB=C-Current,P-Post Batch,M-Monthend'
+    PRINT 'FQ=B-Both,D=Daily,M-Monthly,O-One Time'
+    PRINT 'Enter # to view, / to exit:':
+    INPUT N
+    IF N='' OR N='/' THEN EXIT
+    DATA OUTPUT.LIST<N,1>
+    EXECUTE \JOB.SCHEDULER.MAINT\
+  REPEAT
+RETURN
+*
