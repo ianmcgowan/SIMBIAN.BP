@@ -120,25 +120,27 @@ JSON.STRING = \{ ["name": "John Doe", "name2": "Jane Doe"] }\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
 TEST=61 ; DESC="Anonymous Array" ; EXPECTED=\Error: Expected key string\ ; VALUE=ERR ; GOSUB SHOW.RESULT
 *
+* Test JSON.GET.QUERY
+*
 JSON.STRING = ' {"name":"John Doe","age":30,"address":{"street":"123 Main St","city":"Anytown"},'
 JSON.STRING:= ' "phones":["555-1234","555-5678",{"Phone": "555-1212", "Ext": 1234}] }'
 CALL JSON.GET.QUERY(JSON.STRING, '.name', RESULT, ERR)
-TEST=62 ; DESC="Query Parse OK" ; EXPECTED="" ; VALUE=ERR ; GOSUB SHOW.RESULT
-TEST=63 ; DESC="Query Attrib" ; EXPECTED="John Doe" ; VALUE=RESULT ; GOSUB SHOW.RESULT
+TEST=62 ; DESC="Query Parse OK"      ; EXPECTED=""                                        ; VALUE=ERR    ; GOSUB SHOW.RESULT
+TEST=63 ; DESC="Query Attrib"        ; EXPECTED="John Doe"                                ; VALUE=RESULT ; GOSUB SHOW.RESULT
 CALL JSON.GET.QUERY(JSON.STRING, '.address.city', RESULT, ERR)
-TEST=64 ; DESC="Query Attrib Nested" ; EXPECTED="Anytown" ; VALUE=RESULT ; GOSUB SHOW.RESULT
+TEST=64 ; DESC="Query Attrib Nested" ; EXPECTED="Anytown"                                 ; VALUE=RESULT ; GOSUB SHOW.RESULT
 CALL JSON.GET.QUERY(JSON.STRING, '.phones.[1]', RESULT, ERR)
-TEST=65 ; DESC="Query Array" ; EXPECTED="555-1234" ; VALUE=RESULT ; GOSUB SHOW.RESULT
+TEST=65 ; DESC="Query Array"         ; EXPECTED="555-1234"                                ; VALUE=RESULT ; GOSUB SHOW.RESULT
 CALL JSON.GET.QUERY(JSON.STRING, '.phones.[3].Ext', RESULT, ERR)
-TEST=66 ; DESC="Query Array Nested" ; EXPECTED="1234" ; VALUE=RESULT ; GOSUB SHOW.RESULT
+TEST=66 ; DESC="Query Array Nested"  ; EXPECTED="1234"                                    ; VALUE=RESULT ; GOSUB SHOW.RESULT
 CALL JSON.GET.QUERY(JSON.STRING, 'name', RESULT, ERR)
-TEST=67 ; DESC="Missing root ." ; EXPECTED="Error: Invalid query, must start with ." ; VALUE=ERR ; GOSUB SHOW.RESULT
+TEST=67 ; DESC="Missing root ."      ; EXPECTED="Error: Invalid query, must start with ." ; VALUE=ERR    ; GOSUB SHOW.RESULT
 CALL JSON.GET.QUERY(JSON.STRING, '.', RESULT, ERR)
-TEST=68 ; DESC="Null query" ; EXPECTED=JSON.STRING ; VALUE=RESULT ; GOSUB SHOW.RESULT
+TEST=68 ; DESC="Null query"          ; EXPECTED=JSON.STRING                               ; VALUE=RESULT ; GOSUB SHOW.RESULT
 CALL JSON.GET.QUERY(JSON.STRING, '.missing', RESULT, ERR)
-TEST=69 ; DESC="Missing attribute" ; EXPECTED="Error: Attribute missing not found" ; VALUE=ERR ; GOSUB SHOW.RESULT
+TEST=69 ; DESC="Missing attribute"   ; EXPECTED="Error: Attribute missing not found"      ; VALUE=ERR    ; GOSUB SHOW.RESULT
 CALL JSON.GET.QUERY(JSON.STRING, '.[1]', RESULT, ERR)
-TEST=70 ; DESC="Array expected" ; EXPECTED="Error: mismatched query type" ; VALUE=ERR ; GOSUB SHOW.RESULT
+TEST=70 ; DESC="Array expected"      ; EXPECTED="Error: mismatched query type"            ; VALUE=ERR    ; GOSUB SHOW.RESULT
 *
 CRT 'Tests:':PASS+FAIL
 CRT 'Pass :':PASS
