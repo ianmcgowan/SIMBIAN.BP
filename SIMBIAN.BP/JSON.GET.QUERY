@@ -1,0 +1,43 @@
+SUBROUTINE JSON.GET.QUERY(JSON.STRING, QUERY, RESULT, ERR)
+  * Query a JSON object to return a value
+  * Input : JSON.STRING - A JSON object or array starting with '{' or '['
+  * Query : QUERY - A string that lists the query similar to a basic JQ query
+  * Output: RESULT - either an object, array, 
+  * Examples:
+  * JSON.STRING = ' {"name":"John Doe","age":30,"address":{"street":"123 Main St","city":"Anytown"},'
+  * JSON.STRING:= ' "phones":["555-1234","555-5678",{"Phone": "555-1212", "Ext": 1234}] }'
+  * QUERY='.name'          ; RESULT=John Doe
+  * QUERY='.address.city   ; RESULT=Anytown
+  * QUERY='.phones.[3].Ext ; RESULT=1234
+  RESULT=''
+  ERR=''
+  QUERY=TRIM(QUERY)
+  IF QUERY[1,1] # '.' THEN ERR="Error: Invalid query, must start with ."
+  IF QUERY # '.' THEN CONVERT '.' TO @VM IN QUERY
+  CURRENT.JSON=JSON.STRING
+  FOR Q=2 TO DCOUNT(QUERY<1>,@VM)
+    SUB.QUERY=QUERY<1,Q>
+    IF SUB.QUERY[1,1]='[' THEN QUERY.TYPE='ARRAY' ELSE QUERY.TYPE='OBJECT'
+    FIRST.CHAR=TRIM(CURRENT.JSON)[1,1]
+    BEGIN CASE
+      CASE FIRST.CHAR = '{' AND QUERY.TYPE = 'OBJECT'
+        CALL JSON.GET.OBJECT(CURRENT.JSON, OBJECT, ERR)
+        LOCATE SUB.QUERY IN OBJECT<1> SETTING POS THEN
+          CURRENT.JSON=OBJECT<3,POS>
+        END ELSE
+          ERR='Error: Attribute ':SUB.QUERY:' not found'
+          RETURN
+        END
+      CASE FIRST.CHAR = '[' AND QUERY.TYPE = 'ARRAY'
+        INDX=SUB.QUERY[2,LEN(SUB.QUERY)-2]
+        IF NOT(NUM(INDX)) THEN ERR='Error: invalid array index' ; RETURN
+        IF INDX < 1 THEN ERR='Error: invalid array index , 1'   ; RETURN
+        CALL JSON.GET.ARRAY(CURRENT.JSON, ARRAY, ERR)
+        CURRENT.JSON=ARRAY<INDX>
+      CASE 1
+        ERR='Error: mismatched query type'
+        RETURN
+    END CASE
+  NEXT Q
+  RESULT=CURRENT.JSON
+RETURN
