@@ -1,22 +1,26 @@
 SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
   * Parse a JSON object into a dynamic array
-  * Input : JSON.STRING - A JSON object starting with '{' E.g. { "name": value, "name2": value2 }
+  * Input : JSON.STRING - A JSON object starting with '{' E.g. { "name": value, "name2": value2 } - this is modified!
   * Output: RESULT - A dynamic array with keys in attribute 1, types in attribute 2 and values in attribute 3
   *         Values may contain complex objects or arrays - call JSON.GET.OBJECT or JSON.GET.ARRAY to parse those
+  *         ERR - Any error messages, with a position.  PRINT JSON.STRING ; PRINT SPACE(ERR.POS-1):"^" to view from caller
   * Note  : We expect the json to be well-formed, so don't check for all possible errors. If in doubt, use https://jsonlint.com
   CONVERT @AM TO " " IN JSON.STRING ;* Don't have to deal with line delimiters
   CONVERT CHAR(10) TO " " IN JSON.STRING
   CONVERT CHAR(13) TO "" IN JSON.STRING
-  CONVERT CHAR(9) TO " " IN JSON.STRING
   JSON.STRING = TRIM(JSON.STRING," ","B")
   JSON.LEN = LEN(JSON.STRING)
   RESULT = ""
   ERR=""
   *
+  IF JSON.STRING = "" THEN
+    ERR = "Error: Empty string"
+    RETURN
+  END
   POS=1
   GOSUB SKIP.WHITESPACE
   IF JSON.STRING[POS,1] <> "{" THEN
-    ERR="Error: Not a JSON object"
+    ERR="Error: Not a JSON object at position ":POS
     RETURN
   END
   POS+=1
@@ -46,7 +50,7 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
         END
         *
         IF C <> CHAR(34) THEN
-          ERR="Error: Expected key string"
+          ERR="Error: Expected key string at position ":POS
           RETURN
         END
         *
@@ -61,7 +65,7 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
         REPEAT
         *
         IF POS > JSON.LEN THEN
-          ERR="Error: Unterminated string"
+          ERR="Error: Unterminated string at position ":KEY.START
           RETURN
         END
         *
@@ -70,7 +74,7 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
         CURRENT.STATE = STATE.EXPECT_COLON
       CASE CURRENT.STATE = STATE.EXPECT_COLON
         IF C <> ":" THEN
-          ERR="Error: Expected :"
+          ERR="Error: Expected : at position ":POS
           RETURN
         END
         POS = POS + 1
@@ -93,6 +97,7 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
                   NESTING = NESTING - 1
                 CASE JSON.STRING[POS,1] = CHAR(34)
                   GOSUB SKIP.STRING
+                  IF ERR # '' THEN RETURN
                 CASE 1
                   NULL ;* Slurp all characters into the object
               END CASE
@@ -110,6 +115,7 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
                   NESTING = NESTING - 1
                 CASE JSON.STRING[POS,1] = CHAR(34)
                   GOSUB SKIP.STRING
+                  IF ERR # '' THEN RETURN
                 CASE 1
                   NULL ;* Slurp all characters into array
               END CASE
@@ -118,6 +124,7 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
           CASE C = CHAR(34)  ;* String
             VALUE.TYPE="STRING"
             GOSUB SKIP.STRING
+            IF ERR # '' THEN RETURN
             POS = POS + 1
           CASE JSON.STRING[POS,4] = "true" ;* Literal
             VALUE.TYPE="LITERAL"
@@ -136,7 +143,7 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
               POS = POS + 1
             REPEAT
           CASE 1
-            ERR="Error: Invalid value type"
+            ERR="Error: Invalid value type at position ":POS
             RETURN
         END CASE
         *
@@ -148,7 +155,7 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
         *
         * Add the key-value pair to our result
         LOCATE CURRENT.KEY IN RESULT<1> SETTING DUMMY THEN
-          ERR="Error: Duplicate key detected"
+          ERR=\Error: Duplicate key "\:CURRENT.KEY:\" detected at position \:VALUE.START
           RETURN
         END
         RESULT<1,-1> = CURRENT.KEY
@@ -166,7 +173,7 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
             POS = POS + 1
             CURRENT.STATE = STATE.EXPECT_KEY
           CASE 1
-            ERR="Error: Expected comma or closing brace"
+            ERR="Error: Expected comma or closing brace at position ":POS
             RETURN
         END CASE
     END CASE
@@ -175,7 +182,7 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
     ERR="Error: Missing closing bracket"
   END ELSE
     IF JSON.STRING[POS,LEN(POS)] # "" THEN
-      ERR="Error: Characters after closing bracket"
+      ERR="Error: Characters after closing bracket at position ":POS
     END
   END
 RETURN
@@ -197,16 +204,36 @@ SKIP.STRING:
     IF C = CHAR(34) AND C.PREV <> "\" THEN EXIT
     IF C="\" THEN
       * Check for allowed escape characters
+      POS = POS + 1
+      IF POS > JSON.LEN THEN
+        ERR = "Error: Unterminated escape sequence at position ":POS
+        RETURN
+      END
+      C.NEXT = JSON.STRING[POS,1]
       BEGIN CASE
         CASE C.NEXT='"' OR C.NEXT="\" OR C.NEXT="/" OR C.NEXT="b" OR C.NEXT="f" OR C.NEXT="n" OR C.NEXT="r" OR C.NEXT="t"
-          NULL
-        CASE C.NEXT="u" AND NUM(JSON.STRING[POS+2,4])
-          NULL
+          POS = POS + 1
+        CASE C.NEXT="u"
+          IF POS + 4 > JSON.LEN THEN
+            ERR = "Error: Unterminated Unicode escape sequence at position ":POS
+            RETURN
+          END
+          UNICODE.PART = JSON.STRING[POS+1,4]
+          IF NOT(UNICODE.PART MATCHES "4X") THEN
+            ERR = "Error: Invalid Unicode escape sequence at position ":POS
+            RETURN
+          END
+          POS = POS + 4
         CASE 1
-          ERR="Error: Invalid escape in string"
+          ERR="Error: Invalid escape in string at position ":POS
+          RETURN
       END CASE
     END
     POS = POS + 1
   REPEAT
+  IF POS > JSON.LEN THEN
+    ERR = "Error: Unterminated string at position ":POS
+    RETURN
+  END
 RETURN
 *
