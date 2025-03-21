@@ -54,21 +54,10 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
           RETURN
         END
         *
-        * Extract the key
         KEY.START = POS + 1
         POS = POS + 1
-        *
-        LOOP WHILE POS <= JSON.LEN
-          C = JSON.STRING[POS,1]
-          IF C = CHAR(34) AND JSON.STRING[POS-1,1] <> "\" THEN EXIT
-          POS = POS + 1
-        REPEAT
-        *
-        IF POS > JSON.LEN THEN
-          ERR="Error: Unterminated string at position ":KEY.START
-          RETURN
-        END
-        *
+        GOSUB SKIP.STRING
+        IF ERR <> "" THEN RETURN
         CURRENT.KEY = JSON.STRING[KEY.START, POS-KEY.START]
         POS = POS + 1
         CURRENT.STATE = STATE.EXPECT_COLON
@@ -97,7 +86,7 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
                   NESTING = NESTING - 1
                 CASE JSON.STRING[POS,1] = CHAR(34)
                   GOSUB SKIP.STRING
-                  IF ERR # '' THEN RETURN
+                  IF ERR <> '' THEN RETURN
                 CASE 1
                   NULL ;* Slurp all characters into the object
               END CASE
@@ -115,7 +104,7 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
                   NESTING = NESTING - 1
                 CASE JSON.STRING[POS,1] = CHAR(34)
                   GOSUB SKIP.STRING
-                  IF ERR # '' THEN RETURN
+                  IF ERR <> '' THEN RETURN
                 CASE 1
                   NULL ;* Slurp all characters into array
               END CASE
@@ -124,7 +113,7 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
           CASE C = CHAR(34)  ;* String
             VALUE.TYPE="STRING"
             GOSUB SKIP.STRING
-            IF ERR # '' THEN RETURN
+            IF ERR <> '' THEN RETURN
             POS = POS + 1
           CASE JSON.STRING[POS,4] = "true" ;* Literal
             VALUE.TYPE="LITERAL"
@@ -181,7 +170,7 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
   IF NOT(CLOSING.BRACKET) THEN
     ERR="Error: Missing closing bracket"
   END ELSE
-    IF JSON.STRING[POS,LEN(POS)] # "" THEN
+    IF JSON.STRING[POS,LEN(POS)] <> "" THEN
       ERR="Error: Characters after closing bracket at position ":POS
     END
   END
