@@ -70,83 +70,142 @@ TEST=48 ; DESC="LOC VAL"    ; EXPECTED="null"    ; VALUE=USER.INFO<3,5> ; GOSUB 
 * Tests for malformed JSON
 JSON.STRING = \{ "name": "John Doe", "age": 30\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
-TEST=49 ; DESC="Missing Closing Bracket" ; EXPECTED=\Error: Missing closing bracket\ ; VALUE=ERR ; GOSUB SHOW.RESULT
+TEST=49 ; DESC="Missing Closing Bracket" ; EXPECTED=\Error: Missing closing bracket\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
 JSON.STRING = \{ "name": "John Doe" "age": 30 }\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
-TEST=50 ; DESC="Missing Comma Between Elements" ; EXPECTED=\Error: Expected comma or closing brace at position 22\ ; VALUE=ERR ; GOSUB SHOW.RESULT
+TEST=50 ; DESC="Missing Comma Between Elements" ; EXPECTED=\Error: Expected comma or closing brace at position 22\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
 JSON.STRING = \{ "name": "John Doe", "age": 30, }\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
-TEST=51 ; DESC="Trailing Comma" ; EXPECTED=\Error: Missing closing bracket\ ; VALUE=ERR ; GOSUB SHOW.RESULT
+TEST=51 ; DESC="Trailing Comma" ; EXPECTED=\Error: Missing closing bracket\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
 JSON.STRING = \{ name: "John Doe", age: 30 }\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
-TEST=52 ; DESC="Unquoted Keys" ; EXPECTED=\Error: Expected key string at position 3\ ; VALUE=ERR ; GOSUB SHOW.RESULT
+TEST=52 ; DESC="Unquoted Keys" ; EXPECTED=\Error: Expected key string at position 3\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
 JSON.STRING = \{ 'name': 'John Doe', 'age': 30 }\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
-TEST=53 ; DESC="Single Quotes Instead of Double Quotes" ; EXPECTED=\Error: Expected key string at position 3\ ; VALUE=ERR ; GOSUB SHOW.RESULT
+TEST=53 ; DESC="Single Quotes Instead of Double Quotes" ; EXPECTED=\Error: Expected key string at position 3\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
 JSON.STRING = \{ "name": "John Doe", // This is the person's name "age": 30 /* This is their age */ }\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
-TEST=54 ; DESC="Comments (Not Allowed in JSON)" ; EXPECTED=\Error: Expected key string at position 23\ ; VALUE=ERR ; GOSUB SHOW.RESULT
+TEST=54 ; DESC="Comments (Not Allowed in JSON)" ; EXPECTED=\Error: Expected key string at position 23\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
 JSON.STRING = \{ "name": undefined, "age": 30 }\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
-TEST=55 ; DESC="Undefined Value" ; EXPECTED=\Error: Invalid value type at position 11\ ; VALUE=ERR ; GOSUB SHOW.RESULT
+TEST=55 ; DESC="Undefined Value" ; EXPECTED=\Error: Invalid value type at position 11\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
 JSON.STRING = \{ "name": "John Doe", "value": NaN, "limit": Infinity }\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
-TEST=56 ; DESC="NaN" ; EXPECTED=\Error: Invalid value type at position 32\ ; VALUE=ERR ; GOSUB SHOW.RESULT
+TEST=56 ; DESC="NaN" ; EXPECTED=\Error: Invalid value type at position 32\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
 JSON.STRING = \{ "name": "John Doe", "limit": Infinity }\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
-TEST=57 ; DESC="Infinity" ; EXPECTED=\Error: Invalid value type at position 32\ ; VALUE=ERR ; GOSUB SHOW.RESULT
+TEST=57 ; DESC="Infinity" ; EXPECTED=\Error: Invalid value type at position 32\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
 JSON.STRING = '{ "message": "This is a new\line" }'
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
-TEST=58 ; DESC="Incorrectly Escaped Characters" ; EXPECTED=\Error: Invalid escape in string at position 29\ ; VALUE=ERR ; GOSUB SHOW.RESULT
+TEST=58 ; DESC="Incorrectly Escaped Characters" ; EXPECTED=\Error: Invalid escape in string at position 29\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
 JSON.STRING = \{ "name": "John Doe" } extra text\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
-TEST=59 ; DESC="Extra Characters" ; EXPECTED=\Error: Characters after closing bracket at position 23\ ; VALUE=ERR ; GOSUB SHOW.RESULT
+TEST=59 ; DESC="Extra Characters" ; EXPECTED=\Error: Characters after closing bracket at position 23\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
 JSON.STRING = \{ "name": "John Doe", "name": "Jane Doe" }\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
-TEST=60 ; DESC="Duplicate Key" ; EXPECTED=\Error: Duplicate key "name" detected at position 31\ ; VALUE=ERR ; GOSUB SHOW.RESULT
+TEST=60 ; DESC="Duplicate Key" ; EXPECTED=\Error: Duplicate key "name" detected at position 31\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
 JSON.STRING = \{ ["name": "John Doe", "name2": "Jane Doe"] }\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
-TEST=61 ; DESC="Anonymous Array" ; EXPECTED=\Error: Expected key string at position 3\ ; VALUE=ERR ; GOSUB SHOW.RESULT
+TEST=61 ; DESC="Anonymous Array" ; EXPECTED=\Error: Expected key string at position 3\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
 JSON.STRING = ' {"name":"John Doe","age":30,"address":{"street":"123 Main St","city":"Anytown"},'
 JSON.STRING:= ' "phones":["555-1234","555-5678",{"Phone": "555-1212", "Ext": 1234}] }'
 *
 CALL JSON.GET.QUERY(JSON.STRING, '.name', RESULT, ERR)
-TEST=62 ; DESC="Query Parse OK"      ; EXPECTED=""                                        ; VALUE=ERR    ; GOSUB SHOW.RESULT
-TEST=63 ; DESC="Query Attrib"        ; EXPECTED="John Doe"                                ; VALUE=RESULT ; GOSUB SHOW.RESULT
+TEST=62 ; DESC="Query Parse OK"      ; EXPECTED=""                                        ; VALUE=ERR        ; GOSUB SHOW.RESULT
+TEST=63 ; DESC="Query Attrib"        ; EXPECTED="John Doe"                                ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
 *
 CALL JSON.GET.QUERY(JSON.STRING, '.address.city', RESULT, ERR)
-TEST=64 ; DESC="Query Attrib Nested" ; EXPECTED="Anytown"                                 ; VALUE=RESULT ; GOSUB SHOW.RESULT
+TEST=64 ; DESC="Query Attrib Nested" ; EXPECTED="Anytown"                                 ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
 *
 CALL JSON.GET.QUERY(JSON.STRING, '.phones.[1]', RESULT, ERR)
-TEST=65 ; DESC="Query Array"         ; EXPECTED="555-1234"                                ; VALUE=RESULT ; GOSUB SHOW.RESULT
+TEST=65 ; DESC="Query Array"         ; EXPECTED="555-1234"                                ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
 *
 CALL JSON.GET.QUERY(JSON.STRING, '.phones.[3].Ext', RESULT, ERR)
-TEST=66 ; DESC="Query Array Nested"  ; EXPECTED="1234"                                    ; VALUE=RESULT ; GOSUB SHOW.RESULT
+TEST=66 ; DESC="Query Array Nested"  ; EXPECTED="1234"                                    ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
 *
 CALL JSON.GET.QUERY(JSON.STRING, 'name', RESULT, ERR)
-TEST=67 ; DESC="Missing root ."      ; EXPECTED="Error: Invalid query, must start with ." ; VALUE=ERR    ; GOSUB SHOW.RESULT
+TEST=67 ; DESC="Missing root ."      ; EXPECTED="Error: Invalid query, must start with ." ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
 *
 CALL JSON.GET.QUERY(JSON.STRING, '.', RESULT, ERR)
-TEST=68 ; DESC="Null query"          ; EXPECTED=JSON.STRING                               ; VALUE=RESULT ; GOSUB SHOW.RESULT
+TEST=68 ; DESC="Null query"          ; EXPECTED=JSON.STRING                               ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
 *
 CALL JSON.GET.QUERY(JSON.STRING, '.missing', RESULT, ERR)
-TEST=69 ; DESC="Missing attribute"   ; EXPECTED="Error: Attribute missing not found"      ; VALUE=ERR    ; GOSUB SHOW.RESULT
+TEST=69 ; DESC="Missing attribute"   ; EXPECTED="Error: Attribute missing not found"      ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
 *
 CALL JSON.GET.QUERY(JSON.STRING, '.[1]', RESULT, ERR)
-TEST=70 ; DESC="Array expected"      ; EXPECTED="Error: mismatched query type"            ; VALUE=ERR    ; GOSUB SHOW.RESULT
+TEST=70 ; DESC="Array expected"      ; EXPECTED="Error: mismatched query type"            ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
+*
+CALL JSON.GET.QUERY(JSON.STRING, '.phones.[4]', RESULT, ERR)
+TEST=71 ; DESC="Array out of bounds" ; EXPECTED="Error: invalid array index > 3"          ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
+*
+CALL JSON.GET.QUERY(JSON.STRING, '.phones.[a]', RESULT, ERR)
+TEST=72 ; DESC="Invalid array index" ; EXPECTED="Error: invalid array index:a"            ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
+*
+CALL JSON.GET.QUERY(JSON.STRING, '.phones.[0]', RESULT, ERR)
+TEST=73 ; DESC="Invalid array index" ; EXPECTED="Error: invalid array index < 1"          ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
+*
+* Additional tests for JSON.GET.QUERY
+* Test for nested arrays
+JSON.STRING = '{"nestedArrays":[[1,2,3],[4,5,6],[7,8,9]]}'
+CALL JSON.GET.QUERY(JSON.STRING, '.nestedArrays.[2].[3]', RESULT, ERR)
+TEST=74 ; DESC="Query nested array"   ; EXPECTED="6"                                     ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
+*
+* Test for property names with special characters
+JSON.STRING = '{"special names":{"with space":"value","with-dash":"dash-value"}}'
+CALL JSON.GET.QUERY(JSON.STRING, '.special names.with space', RESULT, ERR)
+TEST=75 ; DESC="Query prop with space"; EXPECTED="value"                                 ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
+CALL JSON.GET.QUERY(JSON.STRING, '.special names.with-dash', RESULT, ERR)
+TEST=76 ; DESC="Query prop with dash" ; EXPECTED="dash-value"                            ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
+*
+* Test for empty objects and arrays
+JSON.STRING = '{"emptyObject":{},"emptyArray":[]}'
+CALL JSON.GET.QUERY(JSON.STRING, '.emptyObject', RESULT, ERR)
+TEST=77 ; DESC="Query empty object"   ; EXPECTED="{}"                                    ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
+CALL JSON.GET.QUERY(JSON.STRING, '.emptyArray', RESULT, ERR)
+TEST=78 ; DESC="Query empty array"    ; EXPECTED="[]"                                    ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
+*
+* Test for deep nesting (4+ levels)
+JSON.STRING = '{"level1":{"level2":{"level3":{"level4":"deep value"}}}}'
+CALL JSON.GET.QUERY(JSON.STRING, '.level1.level2.level3.level4', RESULT, ERR)
+TEST=79 ; DESC="Query deep nesting"   ; EXPECTED="deep value"                            ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
+*
+* Test for various data types
+JSON.STRING = '{"boolean":true,"nullValue":null,"numeric":12345.67}'
+CALL JSON.GET.QUERY(JSON.STRING, '.boolean', RESULT, ERR)
+TEST=80 ; DESC="Query boolean"        ; EXPECTED="true"                                  ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
+CALL JSON.GET.QUERY(JSON.STRING, '.nullValue', RESULT, ERR)
+TEST=81 ; DESC="Query null"           ; EXPECTED="null"                                  ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
+CALL JSON.GET.QUERY(JSON.STRING, '.numeric', RESULT, ERR)
+TEST=82 ; DESC="Query numeric"        ; EXPECTED="12345.67"                              ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
+*
+* Test for array with mixed content types
+JSON.STRING = '{"mixedArray":[42,"text",true,null,{"key":"value"},[1,2]]}'
+CALL JSON.GET.QUERY(JSON.STRING, '.mixedArray.[1]', RESULT, ERR)
+TEST=83 ; DESC="Query mixed array num"; EXPECTED="42"                                    ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
+CALL JSON.GET.QUERY(JSON.STRING, '.mixedArray.[2]', RESULT, ERR)
+TEST=84 ; DESC="Query mixed arr text" ; EXPECTED="text"                                  ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
+CALL JSON.GET.QUERY(JSON.STRING, '.mixedArray.[5]', RESULT, ERR)
+TEST=85 ; DESC="Query mixed arr obj"  ; EXPECTED='{"key":"value"}'                       ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
+CALL JSON.GET.QUERY(JSON.STRING, '.mixedArray.[5].key', RESULT, ERR)
+TEST=86 ; DESC="Query mixed arr chain"; EXPECTED="value"                                 ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
+*
+* Test for escaped characters in property names
+JSON.STRING = '{"escaped\"quote":{"value":"quoted property"}}'
+CALL JSON.GET.QUERY(JSON.STRING, '.escaped\"quote.value', RESULT, ERR) ;* TODO: Not sure if this should remain escaped
+TEST=87 ; DESC="Query escaped prop"   ; EXPECTED="quoted property"                       ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
 *
 CRT 'Tests:':PASS+FAIL
 CRT 'Pass :':PASS

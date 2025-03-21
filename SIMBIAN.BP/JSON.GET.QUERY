@@ -13,7 +13,7 @@ SUBROUTINE JSON.GET.QUERY(JSON.STRING, QUERY, RESULT, ERR)
   RESULT=''
   ERR=''
   QUERY.LIST=TRIM(QUERY)
-  IF QUERY.LIST[1,1] # '.' THEN ERR="Error: Invalid query, must start with ."
+  IF QUERY.LIST[1,1] # '.' THEN ERR="Error: Invalid query, must start with ." ; RETURN
   IF QUERY.LIST # '.' THEN CONVERT '.' TO @VM IN QUERY.LIST
   CURRENT.JSON=JSON.STRING
   FOR Q=2 TO DCOUNT(QUERY.LIST<1>,@VM)
@@ -32,7 +32,7 @@ SUBROUTINE JSON.GET.QUERY(JSON.STRING, QUERY, RESULT, ERR)
         END
       CASE FIRST.CHAR = '[' AND QUERY.TYPE = 'ARRAY'
         INDX=SUB.QUERY[2,LEN(SUB.QUERY)-2] ;* Could do more complex indexes like 1,3,5 or 1-3,5-9 etc.
-        IF NOT(NUM(INDX)) THEN ERR='Error: invalid array index' ; RETURN
+        IF NOT(NUM(INDX)) THEN ERR='Error: invalid array index:':INDX ; RETURN
         IF INDX < 1 THEN ERR='Error: invalid array index < 1'   ; RETURN
         CALL JSON.GET.ARRAY(CURRENT.JSON, ARRAY, ERR)
         IF ERR # '' THEN RETURN
