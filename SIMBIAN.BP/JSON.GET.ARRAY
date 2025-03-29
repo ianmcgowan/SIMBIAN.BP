@@ -1,7 +1,8 @@
 SUBROUTINE JSON.GET.ARRAY(JSON.STRING, RESULT, ERR)
   * Parse a JSON array into a dynamic array
-  * Input: JSON.STRING - A JSON string starting with '['
-  * Output: RESULT - A dynamic array with array elements parsed into rows
+  * Input : JSON.STRING - A JSON string starting with '['
+  * Output: RESULT      - A dynamic array with array elements parsed into rows
+  *         ERR         - Any error messages, with a position
   *
   CONVERT @AM TO " " IN JSON.STRING ;* Don't have to deal with line delimiters
   CONVERT CHAR(10) TO " " IN JSON.STRING
@@ -11,12 +12,19 @@ SUBROUTINE JSON.GET.ARRAY(JSON.STRING, RESULT, ERR)
   RESULT = ""
   ERR=""
   *
+  IF TRIM(JSON.STRING) = "" THEN
+    ERR = "Error: Empty string"
+    RETURN
+  END
+  *
   POS=1
   GOSUB SKIP.WHITESPACE
   IF JSON.STRING[POS,1] <> "[" THEN
-    RETURN  ;* Not a JSON array
+    ERR="Error: Not a JSON array at position:":POS
+    RETURN
   END
   POS+=1
+  CLOSING.BRACKET=0
 *
 * States for our FSM
   STATE.EXPECT_VALUE = 1
@@ -28,7 +36,11 @@ SUBROUTINE JSON.GET.ARRAY(JSON.STRING, RESULT, ERR)
   LOOP WHILE POS <= JSON.LEN
     GOSUB SKIP.WHITESPACE
     *
-    IF POS > JSON.LEN THEN EXIT
+    IF POS > JSON.LEN THEN 
+      ERR="Error: Unterminated array"
+      RETURN
+    END
+    
     C = JSON.STRING[POS,1]
     *
     BEGIN CASE
@@ -36,6 +48,7 @@ SUBROUTINE JSON.GET.ARRAY(JSON.STRING, RESULT, ERR)
         IF C = "]" THEN
         * Empty array or end of array
           POS = POS + 1
+          CLOSING.BRACKET=1
           EXIT
         END
         *
@@ -54,9 +67,14 @@ SUBROUTINE JSON.GET.ARRAY(JSON.STRING, RESULT, ERR)
                   NESTING = NESTING - 1
                 CASE JSON.STRING[POS,1] = CHAR(34)
                   GOSUB SKIP.STRING
+                  IF ERR <> '' THEN RETURN
               END CASE
               POS = POS + 1
             REPEAT
+            IF NESTING > 0 THEN
+              ERR="Error: Unterminated object in array at position:":POS
+              RETURN
+            END
             ELEMENT = JSON.STRING[ELEMENT.START, POS-ELEMENT.START]
             RESULT<ELEMENT.COUNT> = ELEMENT
           CASE C = "["  ;* Array
@@ -70,13 +88,19 @@ SUBROUTINE JSON.GET.ARRAY(JSON.STRING, RESULT, ERR)
                   NESTING = NESTING - 1
                 CASE JSON.STRING[POS,1] = CHAR(34)
                   GOSUB SKIP.STRING
+                  IF ERR <> '' THEN RETURN
               END CASE
               POS = POS + 1
             REPEAT
+            IF NESTING > 0 THEN
+              ERR="Error: Unterminated nested array at position:":POS
+              RETURN
+            END
             ELEMENT = JSON.STRING[ELEMENT.START, POS-ELEMENT.START]
             RESULT<ELEMENT.COUNT> = ELEMENT
           CASE C = CHAR(34)  ;* String
             GOSUB SKIP.STRING
+            IF ERR <> '' THEN RETURN
             POS = POS + 1
             ELEMENT = JSON.STRING[ELEMENT.START, POS-ELEMENT.START]
             ELEMENT = ELEMENT[2,LEN(ELEMENT)-2] ;* Remove quotes
@@ -99,7 +123,7 @@ SUBROUTINE JSON.GET.ARRAY(JSON.STRING, RESULT, ERR)
             ELEMENT = JSON.STRING[ELEMENT.START, POS-ELEMENT.START]
             RESULT<ELEMENT.COUNT> = ELEMENT
           CASE 1
-            ERR="Error: Invalid value type"
+            ERR="Error: Invalid value type at position:":POS
             RETURN
         END CASE
         CURRENT.STATE = STATE.EXPECT_COMMA_OR_END
@@ -107,16 +131,26 @@ SUBROUTINE JSON.GET.ARRAY(JSON.STRING, RESULT, ERR)
         IF C = "]" THEN
         * End of array
           POS = POS + 1
+          CLOSING.BRACKET=1
           EXIT
         END ELSE IF C = "," THEN
           POS = POS + 1
           CURRENT.STATE = STATE.EXPECT_VALUE
         END ELSE
-          ERR="Error: Expected comma or closing bracket"
+          ERR="Error: Expected comma or closing bracket at position:":POS
           RETURN
         END
     END CASE
   REPEAT
+  
+  IF NOT(CLOSING.BRACKET) THEN
+    ERR="Error: Missing closing bracket"
+  END ELSE
+    GOSUB SKIP.WHITESPACE
+    IF POS < JSON.LEN THEN
+      ERR="Error: Characters after closing bracket at position:":POS
+    END
+  END
 RETURN
 *
 SKIP.WHITESPACE:
@@ -130,7 +164,41 @@ RETURN
 SKIP.STRING:
   POS = POS + 1
   LOOP WHILE POS <= JSON.LEN
-    IF JSON.STRING[POS,1] = CHAR(34) AND JSON.STRING[POS-1,1] <> "\" THEN EXIT
+    C = JSON.STRING[POS,1]
+    C.PREV=JSON.STRING[POS-1,1]
+    IF C = CHAR(34) AND C.PREV <> "\" THEN EXIT
+    IF C="\" THEN
+      * Check for allowed escape characters
+      POS = POS + 1
+      IF POS > JSON.LEN THEN
+        ERR = "Error: Unterminated escape sequence at position:":POS
+        RETURN
+      END
+      C.NEXT = JSON.STRING[POS,1]
+      BEGIN CASE
+        CASE C.NEXT='"' OR C.NEXT="\" OR C.NEXT="/" OR C.NEXT="b" OR C.NEXT="f" OR C.NEXT="n" OR C.NEXT="r" OR C.NEXT="t"
+          POS = POS + 1
+        CASE C.NEXT="u"
+          IF POS + 4 > JSON.LEN THEN
+            ERR = "Error: Unterminated Unicode escape sequence at position:":POS
+            RETURN
+          END
+          UNICODE.PART = JSON.STRING[POS+1,4]
+          IF NOT(UNICODE.PART MATCHES "4X") THEN
+            ERR = "Error: Invalid Unicode escape sequence at position:":POS
+            RETURN
+          END
+          POS = POS + 4
+        CASE 1
+          ERR="Error: Invalid escape in string at position:":POS
+          RETURN
+      END CASE
+    END
     POS = POS + 1
   REPEAT
+  IF POS > JSON.LEN THEN
+    ERR = "Error: Unterminated string at position:":POS
+    RETURN
+  END
 RETURN
+*
