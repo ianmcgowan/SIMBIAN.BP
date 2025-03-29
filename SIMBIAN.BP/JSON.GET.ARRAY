@@ -36,17 +36,22 @@ SUBROUTINE JSON.GET.ARRAY(JSON.STRING, RESULT, ERR)
   LOOP WHILE POS <= JSON.LEN
     GOSUB SKIP.WHITESPACE
     *
-    IF POS > JSON.LEN THEN 
+    IF POS > JSON.LEN THEN
       ERR="Error: Unterminated array"
       RETURN
     END
-    
+    *
     C = JSON.STRING[POS,1]
     *
     BEGIN CASE
       CASE CURRENT.STATE = STATE.EXPECT_VALUE
         IF C = "]" THEN
-        * Empty array or end of array
+          * Empty array or end of array
+          IF ELEMENT.COUNT > 0 THEN
+            * Expecting a value, but got end of array, there's a trailing comma
+            ERR="Error: Trailing comma in array at position:":POS
+            RETURN
+          END
           POS = POS + 1
           CLOSING.BRACKET=1
           EXIT
@@ -121,6 +126,10 @@ SUBROUTINE JSON.GET.ARRAY(JSON.STRING, RESULT, ERR)
               POS = POS + 1
             REPEAT
             ELEMENT = JSON.STRING[ELEMENT.START, POS-ELEMENT.START]
+            IF NOT(NUM(ELEMENT)) THEN
+              ERR="Error: Invalid number at position:":POS
+              RETURN
+            END
             RESULT<ELEMENT.COUNT> = ELEMENT
           CASE 1
             ERR="Error: Invalid value type at position:":POS
@@ -142,7 +151,7 @@ SUBROUTINE JSON.GET.ARRAY(JSON.STRING, RESULT, ERR)
         END
     END CASE
   REPEAT
-  
+  *
   IF NOT(CLOSING.BRACKET) THEN
     ERR="Error: Missing closing bracket"
   END ELSE
@@ -184,7 +193,18 @@ SKIP.STRING:
             RETURN
           END
           UNICODE.PART = JSON.STRING[POS+1,4]
-          IF NOT(UNICODE.PART MATCHES "4X") THEN
+          * Check each character is a valid hex digit (0-9, A-F)
+          IS.VALID = 1
+          FOR I = 1 TO 4
+            CHAR = UNICODE.PART[I,1]
+            CHAR.CODE = UPCASE(SEQ(CHAR))
+            IF NOT(CHAR MATCHES "1N") AND NOT((CHAR.CODE >= 65 AND CHAR.CODE <= 70)) THEN
+              * NOT 0-9 OR A-F
+              IS.VALID = 0
+              EXIT
+            END
+          NEXT I
+          IF NOT(IS.VALID) THEN
             ERR = "Error: Invalid Unicode escape sequence at position:":POS
             RETURN
           END

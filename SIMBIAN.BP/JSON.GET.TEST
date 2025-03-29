@@ -45,7 +45,7 @@ TEST=28 ; DESC="PHONE2 Type1" ; EXPECTED=\STRING\   ; VALUE=PHONE<2,1> ; GOSUB S
 TEST=29 ; DESC="PHONE2 Val1"  ; EXPECTED=\555-1212\ ; VALUE=PHONE<3,1> ; GOSUB SHOW.RESULT
 TEST=30 ; DESC="PHONE2 Name2" ; EXPECTED=\Ext\      ; VALUE=PHONE<1,2> ; GOSUB SHOW.RESULT
 TEST=31 ; DESC="PHONE2 Type2" ; EXPECTED=\NUMBER\   ; VALUE=PHONE<2,2> ; GOSUB SHOW.RESULT
-TEST=32 ; DESC="PHONE2 Val2"  ; EXPECTED=1234       ; VALUE=PHONE<3,2> ; GOSUB SHOW.RESULT 
+TEST=32 ; DESC="PHONE2 Val2"  ; EXPECTED=1234       ; VALUE=PHONE<3,2> ; GOSUB SHOW.RESULT
 *
 * Test for null/empty key, and null/empty value in object
 JSON.STRING = '{"": "", "null": "val2"}'
@@ -83,7 +83,7 @@ TEST=54 ; DESC="Missing Closing Bracket" ; EXPECTED=\Error: Missing closing brac
 *
 JSON.STRING = \{ "name": "John Doe" "age": 30 }\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
-TEST=55 ; DESC="Missing Comma Between Elements" ; EXPECTED=\Error: Expected comma or closing brace at position 22\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
+TEST=55 ; DESC="Missing Comma Between Elements" ; EXPECTED=\Error: Expected comma or closing brace at position:22\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
 JSON.STRING = \{ "name": "John Doe", "age": 30, }\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
@@ -91,43 +91,43 @@ TEST=56 ; DESC="Trailing Comma" ; EXPECTED=\Error: Missing closing bracket\ ; VA
 *
 JSON.STRING = \{ name: "John Doe", age: 30 }\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
-TEST=57 ; DESC="Unquoted Keys" ; EXPECTED=\Error: Expected key string at position 3\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
+TEST=57 ; DESC="Unquoted Keys" ; EXPECTED=\Error: Expected key string at position:3\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
 JSON.STRING = \{ 'name': 'John Doe', 'age': 30 }\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
-TEST=58 ; DESC="Single Quotes Instead of Double Quotes" ; EXPECTED=\Error: Expected key string at position 3\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
+TEST=58 ; DESC="Single Quotes Instead of Double Quotes" ; EXPECTED=\Error: Expected key string at position:3\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
 JSON.STRING = \{ "name": "John Doe", // This is the person's name "age": 30 /* This is their age */ }\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
-TEST=59 ; DESC="Comments (Not Allowed in JSON)" ; EXPECTED=\Error: Expected key string at position 23\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
+TEST=59 ; DESC="Comments (Not Allowed in JSON)" ; EXPECTED=\Error: Expected key string at position:23\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
 JSON.STRING = \{ "name": undefined, "age": 30 }\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
-TEST=60 ; DESC="Undefined Value" ; EXPECTED=\Error: Invalid value type at position 11\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
+TEST=60 ; DESC="Undefined Value" ; EXPECTED=\Error: Invalid value type at position:11\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
 JSON.STRING = \{ "name": "John Doe", "value": NaN, "limit": Infinity }\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
-TEST=61 ; DESC="NaN" ; EXPECTED=\Error: Invalid value type at position 32\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
+TEST=61 ; DESC="NaN" ; EXPECTED=\Error: Invalid value type at position:32\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
 JSON.STRING = \{ "name": "John Doe", "limit": Infinity }\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
-TEST=62 ; DESC="Infinity" ; EXPECTED=\Error: Invalid value type at position 32\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
+TEST=62 ; DESC="Infinity" ; EXPECTED=\Error: Invalid value type at position:32\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
 JSON.STRING = '{ "message": "This is a new\line" }'
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
-TEST=63 ; DESC="Incorrectly Escaped Characters" ; EXPECTED=\Error: Invalid escape in string at position 29\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
+TEST=63 ; DESC="Incorrectly Escaped Characters" ; EXPECTED=\Error: Invalid escape in string at position:29\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
 JSON.STRING = \{ "name": "John Doe" }   extra text\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
-TEST=64 ; DESC="Extra Characters" ; EXPECTED=\Error: Characters after closing bracket at position 26\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
+TEST=64 ; DESC="Extra Characters" ; EXPECTED=\Error: Characters after closing bracket at position:26\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
 JSON.STRING = \{ "name": "John Doe", "name": "Jane Doe" }\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
-TEST=65 ; DESC="Duplicate Key" ; EXPECTED=\Error: Duplicate key "name" detected at position 31\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
+TEST=65 ; DESC="Duplicate Key" ; EXPECTED=\Error: Duplicate key "name" detected at position:31\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
 JSON.STRING = \{ ["name": "John Doe", "name2": "Jane Doe"] }\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
-TEST=66 ; DESC="Anonymous Array" ; EXPECTED=\Error: Expected key string at position 3\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
+TEST=66 ; DESC="Anonymous Array" ; EXPECTED=\Error: Expected key string at position:3\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
 JSON.STRING = ' {"name":"John Doe","age":30,"address":{"street":"123 Main St","city":"Anytown"},'
 JSON.STRING:= ' "phones":["555-1234","555-5678",{"Phone": "555-1212", "Ext": 1234}] }'
@@ -223,22 +223,22 @@ TEST=93 ; DESC="Extra Whitespace Ignored" ; EXPECTED=\John Doe\ ; VALUE=JSON.ARR
 * Test for trailing comma in array
 JSON.STRING = '[1, 2, 3, ]'
 CALL JSON.GET.ARRAY(JSON.STRING, COMMA.TEST, ERR)
-TEST=94 ; DESC="TRAILING COMMA" ; EXPECTED="Error: Expected value at position:" ; VALUE=ERR[1,25] ; GOSUB SHOW.RESULT
+TEST=94 ; DESC="TRAILING COMMA" ; EXPECTED="Error: Trailing comma in array at position:11" ; VALUE=ERR ; GOSUB SHOW.RESULT
 *
 * Test for leading comma in array
 JSON.STRING = '[, 1, 2, 3]'
 CALL JSON.GET.ARRAY(JSON.STRING, COMMA.TEST, ERR)
-TEST=95 ; DESC="LEADING COMMA" ; EXPECTED="Error: Invalid value type at position:" ; VALUE=ERR[1,30] ; GOSUB SHOW.RESULT
+TEST=95 ; DESC="LEADING COMMA" ; EXPECTED="Error: Invalid value type at position:2" ; VALUE=ERR ; GOSUB SHOW.RESULT
 *
 * Test for invalid literal
 JSON.STRING = '[tru, false, null]'
 CALL JSON.GET.ARRAY(JSON.STRING, LITERAL.TEST, ERR)
-TEST=96 ; DESC="INVALID LITERAL" ; EXPECTED="Error: Invalid value type at position:" ; VALUE=ERR[1,30] ; GOSUB SHOW.RESULT
+TEST=96 ; DESC="INVALID LITERAL" ; EXPECTED="Error: Invalid value type at position:2" ; VALUE=ERR ; GOSUB SHOW.RESULT
 *
 * Test for malformed number
 JSON.STRING = '[123, 45.67.89, 42]'
 CALL JSON.GET.ARRAY(JSON.STRING, NUMBER.TEST, ERR)
-TEST=97 ; DESC="MALFORMED NUMBER" ; EXPECTED="Error:" ; VALUE=ERR[1,5] ; GOSUB SHOW.RESULT
+TEST=97 ; DESC="MALFORMED NUMBER" ; EXPECTED="Error: Invalid number at position:15" ; VALUE=ERR ; GOSUB SHOW.RESULT
 *
 * Test for empty input string
 JSON.STRING = ''
@@ -253,7 +253,7 @@ TEST=99 ; DESC="Not starting with [" ; EXPECTED="Error: Not a JSON array at posi
 * Test for unterminated object in array
 JSON.STRING = '[1, {"key": "value"]'
 CALL JSON.GET.ARRAY(JSON.STRING, RESULT, ERR)
-TEST=100 ; DESC="Unterminated object" ; EXPECTED="Error: Unterminated object in array at position:" ; VALUE=ERR ; GOSUB SHOW.RESULT
+TEST=100 ; DESC="Unterminated object" ; EXPECTED="Error: Unterminated object in array at position:21" ; VALUE=ERR ; GOSUB SHOW.RESULT
 *
 * Test for unterminated nested array
 JSON.STRING = '[1, [2, 3]'
@@ -263,22 +263,22 @@ TEST=101 ; DESC="Unterminated nested array" ; EXPECTED="Error: Missing closing b
 * Test for characters after closing bracket
 JSON.STRING = '[1, 2, 3] extra'
 CALL JSON.GET.ARRAY(JSON.STRING, RESULT, ERR)
-TEST=102 ; DESC="Chars after closing bracket" ; EXPECTED="Error: Characters after closing bracket at position:10" ; VALUE=ERR ; GOSUB SHOW.RESULT
+TEST=102 ; DESC="Chars after closing bracket" ; EXPECTED="Error: Characters after closing bracket at position:11" ; VALUE=ERR ; GOSUB SHOW.RESULT
 *
 * Test for unterminated string in array
 JSON.STRING = '[1, "unterminated]'
 CALL JSON.GET.ARRAY(JSON.STRING, RESULT, ERR)
-TEST=103 ; DESC="Unterminated string" ; EXPECTED="Error: Unterminated string at position:" ; VALUE=ERR ; GOSUB SHOW.RESULT
+TEST=103 ; DESC="Unterminated string" ; EXPECTED="Error: Unterminated string at position:19" ; VALUE=ERR ; GOSUB SHOW.RESULT
 *
 * Test for invalid escape sequence
-JSON.STRING = '[1, "invalid escape \\z"]'
+JSON.STRING = '[1, "invalid escape \z"]'
 CALL JSON.GET.ARRAY(JSON.STRING, RESULT, ERR)
-TEST=104 ; DESC="Invalid escape sequence" ; EXPECTED="Error: Invalid escape in string at position:" ; VALUE=ERR ; GOSUB SHOW.RESULT
+TEST=104 ; DESC="Invalid escape sequence" ; EXPECTED="Error: Invalid escape in string at position:22" ; VALUE=ERR ; GOSUB SHOW.RESULT
 *
 * Test for invalid Unicode escape sequence
-JSON.STRING = '[1, "valid unicode \\u00E9", "invalid unicode \\u00ZZ"]'
+JSON.STRING = '[1, "valid unicode \u00E9", "invalid unicode \u00ZZ"]'
 CALL JSON.GET.ARRAY(JSON.STRING, RESULT, ERR)
-TEST=105 ; DESC="Invalid Unicode escape" ; EXPECTED="Error: Invalid Unicode escape sequence at position:" ; VALUE=ERR ; GOSUB SHOW.RESULT
+TEST=105 ; DESC="Invalid Unicode escape" ; EXPECTED="Error: Invalid Unicode escape sequence at position:47" ; VALUE=ERR ; GOSUB SHOW.RESULT
 *
 CRT 'Tests:':PASS+FAIL
 CRT 'Pass :':PASS

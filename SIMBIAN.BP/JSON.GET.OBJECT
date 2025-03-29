@@ -139,6 +139,11 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
         END CASE
         *
         VALUE = JSON.STRING[VALUE.START, POS-VALUE.START]
+        IF VALUE.TYPE="NUMBER" AND NOT(NUM(VALUE)) THEN
+          ERR="Error: Invalid number at position:":POS
+          RESULT=""
+          RETURN
+        END
         IF VALUE.TYPE="STRING" THEN
           SWAP '\"' WITH '"' IN VALUE
           VALUE=VALUE[2,LEN(VALUE)-2] ;* Remove quotes
@@ -186,7 +191,7 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
   LOCATE "*NULL*NULL*NULL*" IN RESULT<1> SETTING NULL.POS THEN RESULT<1,NULL.POS>=""
 RETURN
 *
-SKIP.WHITESPACE: 
+SKIP.WHITESPACE:
   LOOP WHILE POS <= JSON.LEN
     C = JSON.STRING[POS,1]
     IF C <> " " AND C <> CHAR(9) THEN EXIT
@@ -218,7 +223,17 @@ SKIP.STRING:
             RETURN
           END
           UNICODE.PART = JSON.STRING[POS+1,4]
-          IF NOT(UNICODE.PART MATCHES "4X") THEN
+          * Check each character is a valid hex digit (0-9, A-F)
+          IS.VALID = 1
+          FOR I = 1 TO 4
+            CHAR = UNICODE.PART[I,1]
+            CHAR.CODE = UPCASE(SEQ(CHAR))
+            IF NOT(CHAR MATCHES "1N") AND NOT((CHAR.CODE >= 65 AND CHAR.CODE <= 70)) THEN
+              IS.VALID = 0
+              EXIT
+            END
+          NEXT I
+          IF NOT(IS.VALID) THEN
             ERR = "Error: Invalid Unicode escape sequence at position:":POS
             RETURN
           END
