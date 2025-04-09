@@ -149,7 +149,23 @@ CALL JSON.GET.QUERY(JSON.STRING, 'name', RESULT, ERR)
 TEST=72 ; DESC="Missing root ."      ; EXPECTED="Error: Invalid query, must start with ." ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
 *
 CALL JSON.GET.QUERY(JSON.STRING, '.', RESULT, ERR)
-TEST=73 ; DESC="Null query"          ; EXPECTED=JSON.STRING                               ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
+EXPECTED.PRETTY = "{"
+EXPECTED.PRETTY<-1>='  "name": "John Doe",'
+EXPECTED.PRETTY<-1>='  "age": 30,'
+EXPECTED.PRETTY<-1>='  "address": {'
+EXPECTED.PRETTY<-1>='    "street": "123 Main St",'
+EXPECTED.PRETTY<-1>='    "city": "Anytown"'
+EXPECTED.PRETTY<-1>='  },'
+EXPECTED.PRETTY<-1>='  "phones": ['
+EXPECTED.PRETTY<-1>='    "555-1234",'
+EXPECTED.PRETTY<-1>='    "555-5678",'
+EXPECTED.PRETTY<-1>='    {'
+EXPECTED.PRETTY<-1>='      "Phone": "555-1212",'
+EXPECTED.PRETTY<-1>='      "Ext": 1234'
+EXPECTED.PRETTY<-1>='    }'
+EXPECTED.PRETTY<-1>='  ]'
+EXPECTED.PRETTY<-1>='}'
+TEST=73 ; DESC="Null query pretty"    ; EXPECTED=EXPECTED.PRETTY                         ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
 *
 CALL JSON.GET.QUERY(JSON.STRING, '.missing', RESULT, ERR)
 TEST=74 ; DESC="Missing attribute"   ; EXPECTED="Error: Attribute missing not found"      ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
@@ -184,7 +200,7 @@ JSON.STRING = '{"emptyObject":{},"emptyArray":[]}'
 CALL JSON.GET.QUERY(JSON.STRING, '.emptyObject', RESULT, ERR)
 TEST=82 ; DESC="Query empty object"   ; EXPECTED="{}"                                    ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
 CALL JSON.GET.QUERY(JSON.STRING, '.emptyArray', RESULT, ERR)
-TEST=83 ; DESC="Query empty array"    ; EXPECTED="[]"                                    ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
+TEST=83 ; DESC="Query empty array"    ; EXPECTED='[':@AM:']'                             ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
 *
 * Test for deep nesting (4+ levels)
 JSON.STRING = '{"level1":{"level2":{"level3":{"level4":"deep value"}}}}'
@@ -207,7 +223,7 @@ TEST=88 ; DESC="Query mixed array num"; EXPECTED="42"                           
 CALL JSON.GET.QUERY(JSON.STRING, '.mixedArray.[2]', RESULT, ERR)
 TEST=89 ; DESC="Query mixed arr text" ; EXPECTED="text"                                  ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
 CALL JSON.GET.QUERY(JSON.STRING, '.mixedArray.[5]', RESULT, ERR)
-TEST=90 ; DESC="Query mixed arr obj"  ; EXPECTED='{"key":"value"}'                       ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
+TEST=90 ; DESC="Query mixed arr obj"  ; EXPECTED='{':@AM:'  "key": "value"':@AM:'}'      ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
 CALL JSON.GET.QUERY(JSON.STRING, '.mixedArray.[5].key', RESULT, ERR)
 TEST=91 ; DESC="Query mixed arr chain"; EXPECTED="value"                                 ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
 *
@@ -279,6 +295,36 @@ TEST=104 ; DESC="Invalid escape sequence" ; EXPECTED="Error: Invalid escape in s
 JSON.STRING = '[1, "valid unicode \u00E9", "invalid unicode \u00ZZ"]'
 CALL JSON.GET.ARRAY(JSON.STRING, RESULT, ERR)
 TEST=105 ; DESC="Invalid Unicode escape" ; EXPECTED="Error: Invalid Unicode escape sequence at position:47" ; VALUE=ERR ; GOSUB SHOW.RESULT
+*
+* Tests for JSON.PRETTY.PRINT
+JSON.STRING = '{"a":1,"b":[true,null,{"c":"d"}]}'
+EXPECTED.PRETTY = "{"
+EXPECTED.PRETTY<-1>='  "a": 1,'
+EXPECTED.PRETTY<-1>='  "b": ['
+EXPECTED.PRETTY<-1>='    true,'
+EXPECTED.PRETTY<-1>='    null,'
+EXPECTED.PRETTY<-1>='    {'
+EXPECTED.PRETTY<-1>='      "c": "d"'
+EXPECTED.PRETTY<-1>='    }'
+EXPECTED.PRETTY<-1>='  ]'
+EXPECTED.PRETTY<-1>='}'
+CALL JSON.PRETTY.PRINT(JSON.STRING, 0, RESULT, ERR)
+TEST=106 ; DESC="Pretty Print Object" ; EXPECTED=EXPECTED.PRETTY ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
+*
+JSON.STRING = '[1,{"a":"b"},[2,3],false]'
+EXPECTED.PRETTY = "["
+EXPECTED.PRETTY<-1>='  1,'
+EXPECTED.PRETTY<-1>='  {'
+EXPECTED.PRETTY<-1>='    "a": "b"'
+EXPECTED.PRETTY<-1>='  },'
+EXPECTED.PRETTY<-1>='  ['
+EXPECTED.PRETTY<-1>='    2,'
+EXPECTED.PRETTY<-1>='    3'
+EXPECTED.PRETTY<-1>='  ],'
+EXPECTED.PRETTY<-1>='  false'
+EXPECTED.PRETTY<-1>=']'
+CALL JSON.PRETTY.PRINT(JSON.STRING, 0, RESULT, ERR)
+TEST=107 ; DESC="Pretty Print Array" ; EXPECTED=EXPECTED.PRETTY ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
 *
 CRT 'Tests:':PASS+FAIL
 CRT 'Pass :':PASS

@@ -1,0 +1,83 @@
+SUBROUTINE JSON.PRETTY.PRINT(JSON.STRING, INDENT.LEVEL, RESULT, ERR)
+* Pretty print a JSON object or array string
+* Input : JSON.STRING  - A JSON object or array string
+*         INDENT.LEVEL - The current indentation level (integer)
+* Output: RESULT       - The pretty-printed string with @AM delimiters
+*         ERR          - Any error messages encountered during parsing
+  INDENT.SPACES = 2 ;* Number of spaces per indent level
+  INDENT.STR = SPACE(INDENT.LEVEL * INDENT.SPACES)
+  NEXT.INDENT.STR = SPACE((INDENT.LEVEL + 1) * INDENT.SPACES)
+  RESULT = ""
+  ERR = ""
+  *
+  FIRST.CHAR = TRIM(JSON.STRING)[1,1]
+  *
+  BEGIN CASE
+    CASE FIRST.CHAR = '{' ;* Object
+      CALL JSON.GET.OBJECT(JSON.STRING, OBJECT.ARRAY, ERR)
+      IF ERR # '' THEN RETURN
+      RESULT = "{" : @AM
+      MAX.ITEMS = DCOUNT(OBJECT.ARRAY<1>, @VM)
+      FOR I = 1 TO MAX.ITEMS
+        KEY = OBJECT.ARRAY<1, I>
+        VALUE.STR = OBJECT.ARRAY<3, I>
+        VALUE.TYPE = OBJECT.ARRAY<2, I>
+        *
+        RESULT := NEXT.INDENT.STR : '"' : KEY : '": '
+        *
+        IF VALUE.TYPE = "OBJECT" OR VALUE.TYPE = "ARRAY" THEN
+          CALL JSON.PRETTY.PRINT(VALUE.STR, INDENT.LEVEL + 1, PRETTY.VALUE, ERR)
+          IF ERR # '' THEN RETURN
+          RESULT := PRETTY.VALUE
+        END ELSE
+          IF VALUE.TYPE = "STRING" THEN
+             RESULT := '"':VALUE.STR:'"'
+          END ELSE
+             RESULT := VALUE.STR
+          END
+        END
+        *
+        IF I < MAX.ITEMS THEN RESULT := ","
+        RESULT := @AM
+      NEXT I
+      RESULT := INDENT.STR : "}"
+
+    CASE FIRST.CHAR = '[' ;* Array
+      CALL JSON.GET.ARRAY(JSON.STRING, ARRAY.LIST, ERR)
+      IF ERR # '' THEN RETURN
+      RESULT = "[" : @AM
+      MAX.ITEMS = DCOUNT(ARRAY.LIST, @AM)
+      FOR I = 1 TO MAX.ITEMS
+        VALUE.STR = ARRAY.LIST<I>
+        RESULT := NEXT.INDENT.STR
+        * Determine if the value itself is an object or array
+        FIRST.VAL.CHAR = TRIM(VALUE.STR)[1,1]
+        IF FIRST.VAL.CHAR = '{' OR FIRST.VAL.CHAR = '[' THEN
+          CALL JSON.PRETTY.PRINT(VALUE.STR, INDENT.LEVEL + 1, PRETTY.VALUE, ERR)
+          IF ERR # '' THEN RETURN
+          RESULT := PRETTY.VALUE
+        END ELSE
+          * Check if it's a string that needs quotes
+          IS.STRING = 0
+          IF VALUE.STR[1,1] # '{' AND VALUE.STR[1,1] # '[' THEN
+             IF NOT(NUM(VALUE.STR)) AND VALUE.STR # 'true' AND VALUE.STR # 'false' AND VALUE.STR # 'null' THEN
+                IS.STRING = 1
+             END
+          END
+          IF IS.STRING THEN
+             RESULT := '"':VALUE.STR:'"'
+          END ELSE
+             RESULT := VALUE.STR
+          END
+        END
+        *
+        IF I < MAX.ITEMS THEN RESULT := ","
+        RESULT := @AM
+      NEXT I
+      RESULT := INDENT.STR : "]"
+
+    CASE 1 ;* Simple value (should not happen if called from JSON.GET.QUERY correctly, but handle anyway)
+      RESULT = JSON.STRING
+  END CASE
+
+RETURN

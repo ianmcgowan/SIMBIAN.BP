@@ -43,5 +43,17 @@ SUBROUTINE JSON.GET.QUERY(JSON.STRING, QUERY, RESULT, ERR)
         RETURN
     END CASE
   NEXT Q
-  RESULT=CURRENT.JSON
+  * Check if the result is an object or array and pretty print it
+  FIRST.CHAR.RESULT = TRIM(CURRENT.JSON)[1,1]
+  IF FIRST.CHAR.RESULT = '{' OR FIRST.CHAR.RESULT = '[' THEN
+    CALL JSON.PRETTY.PRINT(CURRENT.JSON, 0, PRETTY.RESULT, ERR)
+    IF ERR = '' THEN
+      RESULT = PRETTY.RESULT
+    END ELSE
+      * If pretty print fails, return the raw JSON but keep the error
+      RESULT = CURRENT.JSON
+    END
+  END ELSE
+    RESULT = CURRENT.JSON
+  END
 RETURN
