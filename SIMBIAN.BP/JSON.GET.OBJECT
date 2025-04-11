@@ -16,6 +16,7 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
     ERR = "Error: Empty string"
     RETURN
   END
+  IF CONVERT(' ','',JSON.STRING) = "{}" THEN RETURN ;* Not an error, but RESULT is empty
   POS=1
   GOSUB SKIP.WHITESPACE
   IF JSON.STRING[POS,1] <> "{" THEN

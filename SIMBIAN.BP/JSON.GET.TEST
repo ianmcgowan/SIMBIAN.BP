@@ -120,7 +120,7 @@ TEST=63 ; DESC="Incorrectly Escaped Characters" ; EXPECTED=\Error: Invalid escap
 JSON.STRING = \{ "name": "John Doe" }   extra text\
 JSON.STRING = \{ "name": "John Doe" }   extra text\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
-TEST=59 ; DESC="Extra Characters" ; EXPECTED=\Error: Characters after closing bracket at position 26\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
+TEST=59 ; DESC="Extra Characters" ; EXPECTED=\Error: Characters after closing bracket at position:26\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
 JSON.STRING = \{ "name": "John Doe", "name": "Jane Doe" }\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
@@ -199,7 +199,7 @@ TEST=81 ; DESC="Query prop with dash" ; EXPECTED="dash-value"                   
 * Test for empty objects and arrays
 JSON.STRING = '{"emptyObject":{},"emptyArray":[]}'
 CALL JSON.GET.QUERY(JSON.STRING, '.emptyObject', RESULT, ERR)
-TEST=82 ; DESC="Query empty object"   ; EXPECTED="{}"                                    ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
+TEST=82 ; DESC="Query empty object"   ; EXPECTED="{":@AM:"}"                             ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
 CALL JSON.GET.QUERY(JSON.STRING, '.emptyArray', RESULT, ERR)
 TEST=83 ; DESC="Query empty array"    ; EXPECTED='[':@AM:']'                             ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
 *
@@ -326,6 +326,14 @@ EXPECTED.PRETTY<-1>='  false'
 EXPECTED.PRETTY<-1>=']'
 CALL JSON.PRETTY.PRINT(JSON.STRING, 0, RESULT, ERR)
 TEST=107 ; DESC="Pretty Print Array" ; EXPECTED=EXPECTED.PRETTY ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
+*
+JSON.STRING = ' {  }  '
+CALL JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
+TEST=108 ; DESC='NULL Object' ; EXPECTED='' ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
+*
+JSON.STRING = ' [  ]  '
+CALL JSON.GET.ARRAY(JSON.STRING, RESULT, ERR)
+TEST=109 ; DESC='NULL Array' ; EXPECTED='' ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
 *
 CRT 'Tests:':PASS+FAIL
 CRT 'Pass :':PASS
