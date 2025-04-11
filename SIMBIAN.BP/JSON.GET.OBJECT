@@ -5,15 +5,14 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
   *         Values may contain complex objects or arrays - call JSON.GET.OBJECT or JSON.GET.ARRAY to parse those
   *         ERR - Any error messages, with a position.  PRINT JSON.STRING ; PRINT SPACE(ERR.POS-1):"^" to view from caller
   * Note  : We expect the json to be well-formed, so don't check for all possible errors. If in doubt, use https://jsonlint.com
-  CONVERT @AM TO " " IN JSON.STRING ;* Don't have to deal with line delimiters
+  CONVERT @AM TO " " IN JSON.STRING ;* Flatten the JSON, don't deal with multiple lines
   CONVERT CHAR(10) TO " " IN JSON.STRING
   CONVERT CHAR(13) TO "" IN JSON.STRING
-  JSON.STRING = TRIM(JSON.STRING," ","B")
   JSON.LEN = LEN(JSON.STRING)
   RESULT = ""
   ERR=""
   *
-  IF JSON.STRING = "" THEN
+  IF TRIM(JSON.STRING) = "" THEN
     ERR = "Error: Empty string"
     RETURN
   END
@@ -23,7 +22,7 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
     ERR="Error: Not a JSON object at position ":POS
     RETURN
   END
-  POS+=1
+  POS = POS + 1
   CLOSING.BRACKET=0
   *
   * States for our FSM
@@ -176,7 +175,8 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
     ERR="Error: Missing closing bracket"
     RESULT=""
   END ELSE
-    IF JSON.STRING[POS,LEN(POS)] <> "" THEN
+    GOSUB SKIP.WHITESPACE
+    IF POS < JSON.LEN THEN
       ERR="Error: Characters after closing bracket at position ":POS
       RESULT=""
     END

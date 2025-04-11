@@ -108,9 +108,9 @@ JSON.STRING = '{ "message": "This is a new\line" }'
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
 TEST=58 ; DESC="Incorrectly Escaped Characters" ; EXPECTED=\Error: Invalid escape in string at position 29\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
-JSON.STRING = \{ "name": "John Doe" } extra text\
+JSON.STRING = \{ "name": "John Doe" }   extra text\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
-TEST=59 ; DESC="Extra Characters" ; EXPECTED=\Error: Characters after closing bracket at position 23\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
+TEST=59 ; DESC="Extra Characters" ; EXPECTED=\Error: Characters after closing bracket at position 26\ ; VALUE=JSON.ARRAY:ERR ; GOSUB SHOW.RESULT
 *
 JSON.STRING = \{ "name": "John Doe", "name": "Jane Doe" }\
 CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
@@ -206,6 +206,10 @@ TEST=86 ; DESC="Query mixed arr chain"; EXPECTED="value"                        
 JSON.STRING = '{"escaped\"quote":{"value":"quoted property"}}'
 CALL JSON.GET.QUERY(JSON.STRING, '.escaped\"quote.value', RESULT, ERR) ;* TODO: Not sure if this should remain escaped
 TEST=87 ; DESC="Query escaped prop"   ; EXPECTED="quoted property"                       ; VALUE=RESULT:ERR ; GOSUB SHOW.RESULT
+*
+JSON.STRING = \{ "name": "John Doe" }    \:CHAR(9):\  \
+CALL JSON.GET.OBJECT(JSON.STRING, JSON.ARRAY, ERR)
+TEST=88 ; DESC="Extra Whitespace Ignored" ; EXPECTED=\John Doe\ ; VALUE=JSON.ARRAY<3,1>:ERR ; GOSUB SHOW.RESULT
 *
 CRT 'Tests:':PASS+FAIL
 CRT 'Pass :':PASS
