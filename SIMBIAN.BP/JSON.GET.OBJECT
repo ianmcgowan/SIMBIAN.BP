@@ -19,7 +19,7 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
   POS=1
   GOSUB SKIP.WHITESPACE
   IF JSON.STRING[POS,1] <> "{" THEN
-    ERR="Error: Not a JSON object at position ":POS
+    ERR="Error: Not a JSON object at position:":POS
     RETURN
   END
   POS = POS + 1
@@ -49,21 +49,21 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
         END
         *
         IF C <> CHAR(34) THEN
-          ERR="Error: Expected key string at position ":POS
+          ERR="Error: Expected key string at position:":POS
           RESULT=""
           RETURN
         END
         *
         KEY.START = POS + 1
-        POS = POS + 1
         GOSUB SKIP.STRING
         IF ERR <> "" THEN RETURN
         CURRENT.KEY = JSON.STRING[KEY.START, POS-KEY.START]
+        IF CURRENT.KEY="" THEN CURRENT.KEY="*NULL*NULL*NULL*" ;* Actual null's don't work well with dynamic array LOCATE
         POS = POS + 1
         CURRENT.STATE = STATE.EXPECT_COLON
       CASE CURRENT.STATE = STATE.EXPECT_COLON
         IF C <> ":" THEN
-          ERR="Error: Expected : at position ":POS
+          ERR="Error: Expected : at position:":POS
           RESULT=""
           RETURN
         END
@@ -133,12 +133,17 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
               POS = POS + 1
             REPEAT
           CASE 1
-            ERR="Error: Invalid value type at position ":POS
+            ERR="Error: Invalid value type at position:":POS
             RESULT=""
             RETURN
         END CASE
         *
         VALUE = JSON.STRING[VALUE.START, POS-VALUE.START]
+        IF VALUE.TYPE="NUMBER" AND NOT(NUM(VALUE)) THEN
+          ERR="Error: Invalid number at position:":POS
+          RESULT=""
+          RETURN
+        END
         IF VALUE.TYPE="STRING" THEN
           SWAP '\"' WITH '"' IN VALUE
           VALUE=VALUE[2,LEN(VALUE)-2] ;* Remove quotes
@@ -146,13 +151,14 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
         *
         * Add the key-value pair to our result
         LOCATE CURRENT.KEY IN RESULT<1> SETTING DUMMY THEN
-          ERR=\Error: Duplicate key "\:CURRENT.KEY:\" detected at position \:VALUE.START
+          ERR=\Error: Duplicate key "\:CURRENT.KEY:\" detected at position:\:VALUE.START
           RESULT=""
           RETURN
         END
-        RESULT<1,-1> = CURRENT.KEY
-        RESULT<2,-1> = VALUE.TYPE
-        RESULT<3,-1> = VALUE
+        ARRAY.POS=DCOUNT(RESULT<1>,@VM)+1
+        RESULT<1,ARRAY.POS> = CURRENT.KEY
+        RESULT<2,ARRAY.POS> = VALUE.TYPE
+        RESULT<3,ARRAY.POS> = VALUE
         CURRENT.STATE = STATE.EXPECT_COMMA_OR_END
       CASE CURRENT.STATE = STATE.EXPECT_COMMA_OR_END
         BEGIN CASE
@@ -165,7 +171,7 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
             POS = POS + 1
             CURRENT.STATE = STATE.EXPECT_KEY
           CASE 1
-            ERR="Error: Expected comma or closing brace at position ":POS
+            ERR="Error: Expected comma or closing brace at position:":POS
             RESULT=""
             RETURN
         END CASE
@@ -177,13 +183,15 @@ SUBROUTINE JSON.GET.OBJECT(JSON.STRING, RESULT, ERR)
   END ELSE
     GOSUB SKIP.WHITESPACE
     IF POS < JSON.LEN THEN
-      ERR="Error: Characters after closing bracket at position ":POS
+      ERR="Error: Characters after closing bracket at position:":POS
       RESULT=""
     END
   END
+  * Convert NULL key back to ""
+  LOCATE "*NULL*NULL*NULL*" IN RESULT<1> SETTING NULL.POS THEN RESULT<1,NULL.POS>=""
 RETURN
 *
-SKIP.WHITESPACE: 
+SKIP.WHITESPACE:
   LOOP WHILE POS <= JSON.LEN
     C = JSON.STRING[POS,1]
     IF C <> " " AND C <> CHAR(9) THEN EXIT
@@ -202,7 +210,7 @@ SKIP.STRING:
       * Check for allowed escape characters
       POS = POS + 1
       IF POS > JSON.LEN THEN
-        ERR = "Error: Unterminated escape sequence at position ":POS
+        ERR = "Error: Unterminated escape sequence at position:":POS
         RETURN
       END
       C.NEXT = JSON.STRING[POS,1]
@@ -211,24 +219,34 @@ SKIP.STRING:
           POS = POS + 1
         CASE C.NEXT="u"
           IF POS + 4 > JSON.LEN THEN
-            ERR = "Error: Unterminated Unicode escape sequence at position ":POS
+            ERR = "Error: Unterminated Unicode escape sequence at position:":POS
             RETURN
           END
           UNICODE.PART = JSON.STRING[POS+1,4]
-          IF NOT(UNICODE.PART MATCHES "4X") THEN
-            ERR = "Error: Invalid Unicode escape sequence at position ":POS
+          * Check each character is a valid hex digit (0-9, A-F)
+          IS.VALID = 1
+          FOR I = 1 TO 4
+            CHAR = UNICODE.PART[I,1]
+            CHAR.CODE = UPCASE(SEQ(CHAR))
+            IF NOT(CHAR MATCHES "1N") AND NOT((CHAR.CODE >= 65 AND CHAR.CODE <= 70)) THEN
+              IS.VALID = 0
+              EXIT
+            END
+          NEXT I
+          IF NOT(IS.VALID) THEN
+            ERR = "Error: Invalid Unicode escape sequence at position:":POS
             RETURN
           END
           POS = POS + 4
         CASE 1
-          ERR="Error: Invalid escape in string at position ":POS
+          ERR="Error: Invalid escape in string at position:":POS
           RETURN
       END CASE
     END
     POS = POS + 1
   REPEAT
   IF POS > JSON.LEN THEN
-    ERR = "Error: Unterminated string at position ":POS
+    ERR = "Error: Unterminated string at position:":POS
     RETURN
   END
 RETURN
