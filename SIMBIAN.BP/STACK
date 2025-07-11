@@ -2,10 +2,10 @@
 * Program: STACK
 * Author : Ian McGowan
 * Created: 1989-06-13
-* Updated: 2025-03-03
+* Updated: 2025-05-04
 * Comment: Stacks TCL commands, utilities for programmers
 ***************************************************************************
-PRINT \Version 2025-03-03 BPI Improvement\
+PRINT \Version 2025-05-04 Param Counts\
 *
 * STACK is a command line editor, command stack, program stack and useful utilites for TCL
 * It is designed to make life easier and more productive for programmers
@@ -56,6 +56,7 @@ STACK.HELP<-1>='BPI         List table definitions                          BPI 
 STACK.HELP<-1>='CHECK.FILE  Show strings in a compiled program /P|/S      CHECK.FILE DISP.00 /P'
 STACK.HELP<-1>='CT          View data records, with labels         CT LS.MASTER 123-1234567-000'
 STACK.HELP<-1>='DDD         Search dictionary definitions                   DDD LS.MASTER EQUIP'
+STACK.HELP<-1>='DEPS        Show the dependency tree for a program       DEPS PROG or DEPS FILE'
 STACK.HELP<-1>='DESC        Describe columns in a table               DESC LS_OI_CTD_INVOICE_NF'
 STACK.HELP<-1>='DIFF        Compare two files, show differences                            DIFF'
 STACK.HELP<-1>='FIELD       Show IL10 attribute/field metadata              FIELD LS.NET.INVEST'
@@ -67,7 +68,7 @@ STACK.HELP<-1>='LISTA       Show users logged in, as well as locks              
 STACK.HELP<-1>='MODULES     Show available/active modules                               MODULES'
 STACK.HELP<-1>='NED         Edit an IL10 record                   NED LS.MASTER 123-1234567-000'
 STACK.HELP<-1>='NSEL        Run a simple UD command   NSEL LS.INV.NUM N.CONTRACT.KEY N.DATE.DUE'
-STACK.HELP<-1>='PARAM       Show parameter file mapping                               PARAM INV'
+STACK.HELP<-1>='PARAM       Show/count parameter file mapping          PARAM INV or PARAM COUNT'
 STACK.HELP<-1>='PICKLE      Store data records in prog                  PICKLE DICT LS.MASTER *'
 STACK.HELP<-1>='PIVOT       Summary data                  PIVOT LS.MASTER LESSOR GROSS.CONTRACT'
 STACK.HELP<-1>='PROF        Profile data       PROF LS.MASTER BRANCH NUM.OF.ASSETS BOOKING.DATE'
@@ -83,7 +84,6 @@ STACK.HELP<-1>='TRAIN       Teach STACK your key bindings interactively         
 STACK.HELP<-1>='XREF        Show IL10 file/table metadata                        XREF LS.MASTER'
 STACK.HELP<-1>='                                                                               '
 STACK.HELP<-1>='---------------------------- CUSTOM UTILITIES ---------------------------------'
-STACK.HELP<-1>='DEPS        Show the dependency tree for a program       DEPS PROG or DEPS FILE'
 STACK.HELP<-1>='JOBS        Search scheduler for a program/jobname         JOBS <search string>'
 *
 PROMPT ''
@@ -303,11 +303,28 @@ ANS=NUL
 LOOP
   GOSUB GET.TERM.WIDTH ;* In case terminal font or window size changes
   GOSUB EXPAND.PROMPT
-  PRINT BON:PROMPT.DISP:BOFF:
   X = LEN(PROMPT.DISP) + X.DISP
-  ENTRY = NUL;LEN = LONG.LINE;DISP.LEN=TERM.WIDTH-1-X;LINE.NUM=0
-  GOSUB GET.LINE
-  ANS=ENTRY
+  ANS=NUL;LEN=LONG.LINE;DISP.LEN=TERM.WIDTH-1-X;LINE.NUM=0
+  LOOP
+    PRINT BON:PROMPT.DISP:BOFF:
+    ENTRY=NUL
+    GOSUB GET.LINE
+    IF INDEX(ENTRY,'\',1) THEN
+      * Continue prompting if the entry has continuation markers, the effect is subtly different typing vs pasting...
+      * Unidata TCL continuation also adds a space, so mimic that, though I don't agree :-)
+      POS=1
+      LOOP
+        E=FIELD(ENTRY,'\',POS)
+      WHILE E # '' DO
+        ANS:=E:' '
+        POS+=1
+        PROMPT.DISP="(CONT)"
+      REPEAT
+    END ELSE
+      ANS:=ENTRY
+      EXIT
+    END
+  REPEAT
   * Reread the program and command stack, since they may be modified in another session
   READ PROGRAMS FROM HOME.F, PROGRAM.ITEM ELSE PROGRAMS = NUL
   READ STACK FROM HOME.F, STACK.ITEM ELSE STACK = NUL
@@ -354,6 +371,12 @@ RETURN
 *
 DO.COMMAND:
   * Process a single command
+  POS=1
+  LOOP WHILE ANS[POS,1] = ' ' DO
+    POS+=1 ;* Trim leading spaces, without trimming anything else. TRIM(ANS,' ','L') depends on basictype
+  REPEAT 
+  IF POS>1 THEN ANS=ANS[POS,LEN(ANS)]
+  *
   IF NOT(UNIX.COMMAND) THEN
     * Only uppercase, expand aliases, expand prog chars for non-unix commands
     IF UPPER.FLAG THEN ANS = TRIM(UPCASE(ANS))
@@ -1339,9 +1362,10 @@ RULER:
   NEXT F
   PRINT
   SUP.NEXT=0
+  * Print a + at every 5, and the decile every 10
   FOR F=1 TO TERM.WIDTH
     BEGIN CASE
-      CASE MOD(F+1,10)=0 AND (F+1)/10 > 9
+      CASE MOD(F+1,10)=0 AND (F+1)/10 > 9 AND F <> TERM.WIDTH ;* Don't spill onto next line
         PRINT (F+1)/10:
         SUP.NEXT=1
       CASE MOD(F,10)=0 AND F/10 <= 9
@@ -1362,19 +1386,22 @@ GET.TERM.WIDTH:
   * In unix we can detect changes to the terminal width dynamically, but in windows user has to set TERM 132 manually
   IF OS.PATH.DELIM = "\" THEN
     TERM.WIDTH=@CRTWIDE
+    TERM.HEIGHT=@CRTHIGH
   END ELSE
     OLD.TERM.WIDTH=TERM.WIDTH
     T='/tmp/':@LOGNAME:'.term'
-    EXEC.LINE=\!tput cols > \:T ;* Always returns 80 if you capture, so use tmp file
+    EXEC.LINE='!printf "lines\ncols\n"|tput -S > ':T ;* Always returns 80 if you capture, so use tmp file
     GOSUB EXEC.SUB
     EXEC.LINE=\!cat \:T
     CAP.ACTIVE=TRUE
     GOSUB EXEC.SUB
-    TERM.WIDTH=EXEC.CAP<1>
+    TERM.HEIGHT=EXEC.CAP<1>-2
+    TERM.WIDTH=EXEC.CAP<2>
     EXEC.LINE=\!rm \:T
     GOSUB EXEC.SUB
     IF OLD.TERM.WIDTH # TERM.WIDTH THEN
-      EXEC.LINE=\TERM \:TERM.WIDTH
+      EXEC.LINE=\TERM \:TERM.WIDTH:\,\:TERM.HEIGHT
+      CRT EXEC.LINE
       GOSUB EXEC.SUB
     END
   END
@@ -1477,14 +1504,14 @@ RETURN
 *
 SEARCH.FILE.PROMPT:
   * Actions available when using SEARCH.FILE
-  PRINT ; PRINT 'B)ack, E)dit #, V)iew #, W)P#, /:':
+  PRINT ; PRINT '# - Edit, B)ack, V)iew #, W)P#, /:':
   INPUT OPTION
   BEGIN CASE
     CASE OPTION='B'
       CTR-=40
       IF CTR<1 THEN CTR=1
-    CASE OPTION[1,1]='E'
-      EXEC.LINE=ED.VERB:\ \:FILE:\ \:FOUND.RECS<1,OPTION[2,99]>
+    CASE NUM(OPTION)
+      EXEC.LINE=ED.VERB:\ \:FILE:\ \:FOUND.RECS<1,OPTION>
       GOSUB EXEC.SUB
       CTR-=20
       IF CTR<1 THEN CTR=1
@@ -1495,18 +1522,17 @@ SEARCH.FILE.PROMPT:
       CTR-=20
       IF CTR<1 THEN CTR=1
     CASE OPTION[1,1]='V'
-      PRINT CS:
-      EXEC.LINE=\CT \:FILE:\ \:FOUND.RECS<1,OPTION[2,99]>
-      GOSUB EXEC.SUB
+      PRINT
+      ANS=\CT \:FILE:\ \:FOUND.RECS<1,OPTION[2,99]>
+      GOSUB VIEW.RECORD
       CTR-=20
       IF CTR<1 THEN CTR=1
-      PRINT 'Press ENTER:':
-      INPUT AAA
+      QUIT=1
     CASE OPTION # ''
       * ENTER to keep moving forward
       QUIT=1
   END CASE
-  PRINT HDR
+  IF QUIT=0 THEN PRINT HDR
 RETURN
 *
 BFORMAT:
@@ -1732,133 +1758,138 @@ RETURN
 *
 ASCII:
   A=\0|00|NUL|Null character\
-  A<-1>=\1|01|SOH|Start of Heading\
-  A<-1>=\2|02|STX|Start of Text\
-  A<-1>=\3|03|ETX|End of Text\
-  A<-1>=\4|04|EOT|End of Transmission\
-  A<-1>=\5|05|ENQ|Enquiry\
-  A<-1>=\6|06|ACK|Acknowledge\
-  A<-1>=\7|07|BEL|Bell, Alert\
-  A<-1>=\8|08|BS|Backspace\
-  A<-1>=\9|09|HT|Horizontal Tab\
-  A<-1>=\10|0A|LF|Line Feed\
-  A<-1>=\11|0B|VT|Vertical Tabulation\
-  A<-1>=\12|0C|FF|Form Feed\
-  A<-1>=\13|0D|CR|Carriage Return\
-  A<-1>=\14|0E|SO|Shift Out\
-  A<-1>=\15|0F|SI|Shift In\
-  A<-1>=\16|10|DLE|Data Link Escape\
-  A<-1>=\17|11|DC1|Device Control One (XON)\
-  A<-1>=\18|12|DC2|Device Control Two\
-  A<-1>=\19|13|DC3|Device Control Three (XOFF)\
-  A<-1>=\20|14|DC4|Device Control Four\
-  A<-1>=\21|15|NAK|Negative Acknowledge\
-  A<-1>=\22|16|SYN|Synchronous Idle\
-  A<-1>=\23|17|ETB|End of Transmission Block\
-  A<-1>=\24|18|CAN|Cancel\
-  A<-1>=\25|19|EM|End of medium\
-  A<-1>=\26|1A|SUB|Substitute\
-  A<-1>=\27|1B|ESC|Escape\
-  A<-1>=\28|1C|FS|File Separator\
-  A<-1>=\29|1D|GS|Group Separator\
-  A<-1>=\30|1E|RS|Record Separator\
-  A<-1>=\31|1F|US|Unit Separator\
-  A<-1>=\32|20|SP|Space\
-  A<-1>=\33|21|!|Exclamation mark|&excl;\
-  A<-1>=\34|22|"|Double quotes (or speech marks)|&quot;\
-  A<-1>=\35|23|#|Number sign|&num;\
-  A<-1>=\36|24|$|Dollar|&dollar;\
-  A<-1>=\37|25|%|Per cent sign|&percnt;\
-  A<-1>=\38|26|&|Ampersand|&amp;\
-  A<-1>=\39|27|'|Single quote|&apos;\
-  A<-1>=\40|28|(|Open parenthesis (or open bracket)|&lparen;\
-  A<-1>=\41|29|)|Close parenthesis (or close bracket)|&rparen;\
-  A<-1>=\42|2A|*|Asterisk|&ast;\
-  A<-1>=\43|2B|+|Plus|&plus;\
-  A<-1>=\44|2C|,|Comma|&comma;\
-  A<-1>=\45|2D|-|Hyphen-minus\
-  A<-1>=\46|2E|.|Period, dot or full stop|&period;\
-  A<-1>=\47|2F|/|Slash or divide|&sol;\
-  A<-1>=\48|30|0|Zero\
-  A<-1>=\49|31|1|One\
-  A<-1>=\50|32|2|Two\
-  A<-1>=\51|33|3|Three\
-  A<-1>=\52|34|4|Four\
-  A<-1>=\53|35|5|Five\
-  A<-1>=\54|36|6|Six\
-  A<-1>=\55|37|7|Seven\
-  A<-1>=\56|38|8|Eight\
-  A<-1>=\57|39|9|Nine\
-  A<-1>=\58|3A|:|Colon|&colon;\
-  A<-1>=\59|3B|;|Semicolon|&semi;\
-  A<-1>=\60|3C|<|Less than (or open angled bracket)|&lt;\
-  A<-1>=\61|3D|=|Equals|&equals;\
-  A<-1>=\62|3E|>|Greater than (or close angled bracket)|&gt;\
-  A<-1>=\63|3F|?|Question mark|&quest;\
-  A<-1>=\64|40|@|At sign|&commat;\
-  A<-1>=\65|41|A|Uppercase A\
-  A<-1>=\66|42|B|Uppercase B\
-  A<-1>=\67|43|C|Uppercase C\
-  A<-1>=\68|44|D|Uppercase D\
-  A<-1>=\69|45|E|Uppercase E\
-  A<-1>=\70|46|F|Uppercase F\
-  A<-1>=\71|47|G|Uppercase G\
-  A<-1>=\72|48|H|Uppercase H\
-  A<-1>=\73|49|I|Uppercase I\
-  A<-1>=\74|4A|J|Uppercase J\
-  A<-1>=\75|4B|K|Uppercase K\
-  A<-1>=\76|4C|L|Uppercase L\
-  A<-1>=\77|4D|M|Uppercase M\
-  A<-1>=\78|4E|N|Uppercase N\
-  A<-1>=\79|4F|O|Uppercase O\
-  A<-1>=\80|50|P|Uppercase P\
-  A<-1>=\81|51|Q|Uppercase Q\
-  A<-1>=\82|52|R|Uppercase R\
-  A<-1>=\83|53|S|Uppercase S\
-  A<-1>=\84|54|T|Uppercase T\
-  A<-1>=\85|55|U|Uppercase U\
-  A<-1>=\86|56|V|Uppercase V\
-  A<-1>=\87|57|W|Uppercase W\
-  A<-1>=\88|58|X|Uppercase X\
-  A<-1>=\89|59|Y|Uppercase Y\
-  A<-1>=\90|5A|Z|Uppercase Z\
-  A<-1>=\91|5B|[|Opening bracket|&lsqb;\
-  A<-1>='92|5C|\|Backslash|&bsol;'
-  A<-1>=\93|5D|]|Closing bracket|&rsqb;\
-  A<-1>=\94|5E|^|Caret - circumflex|&Hat;\
-  A<-1>=\95|5F|_|Underscore|&lowbar;\
-  A<-1>=\96|60|`|Grave accent|&grave;\
-  A<-1>=\97|61|a|Lowercase a\
-  A<-1>=\98|62|b|Lowercase b\
-  A<-1>=\99|63|c|Lowercase c\
-  A<-1>=\100|64|d|Lowercase d\
-  A<-1>=\101|65|e|Lowercase e\
-  A<-1>=\102|66|f|Lowercase f\
-  A<-1>=\103|67|g|Lowercase g\
-  A<-1>=\104|68|h|Lowercase h\
-  A<-1>=\105|69|i|Lowercase i\
-  A<-1>=\106|6A|j|Lowercase j\
-  A<-1>=\107|6B|k|Lowercase k\
-  A<-1>=\108|6C|l|Lowercase l\
-  A<-1>=\109|6D|m|Lowercase m\
-  A<-1>=\110|6E|n|Lowercase n\
-  A<-1>=\111|6F|o|Lowercase o\
-  A<-1>=\112|70|p|Lowercase p\
-  A<-1>=\113|71|q|Lowercase q\
-  A<-1>=\114|72|r|Lowercase r\
-  A<-1>=\115|73|s|Lowercase s\
-  A<-1>=\116|74|t|Lowercase t\
-  A<-1>=\117|75|u|Lowercase u\
-  A<-1>=\118|76|v|Lowercase v\
-  A<-1>=\119|77|w|Lowercase w\
-  A<-1>=\120|78|x|Lowercase x\
-  A<-1>=\121|79|y|Lowercase y\
-  A<-1>=\122|7A|z|Lowercase z\
-  A<-1>=\123|7B|{|Opening brace|&lcub;\
-  A<-1>=\124|7C|BAR|Vertical bar|&verbar;\
-  A<-1>=\125|7D|}|Closing brace|&rcub;\
-  A<-1>=\126|7E|~|Equivalency sign - tilde|&tilde;\
-  A<-1>=\127|7F|DEL|Delete\
+  A<-1>=\1|SOH|Start of Heading\
+  A<-1>=\2|STX|Start of Text\
+  A<-1>=\3|ETX|End of Text\
+  A<-1>=\4|EOT|End of Transmission\
+  A<-1>=\5|ENQ|Enquiry\
+  A<-1>=\6|ACK|Acknowledge\
+  A<-1>=\7|BEL|Bell, Alert\
+  A<-1>=\8|BS|Backspace\
+  A<-1>=\9|HT|Horizontal Tab\
+  A<-1>=\10|LF|Line Feed\
+  A<-1>=\11|VT|Vertical Tabulation\
+  A<-1>=\12|FF|Form Feed\
+  A<-1>=\13|CR|Carriage Return\
+  A<-1>=\14|SO|Shift Out\
+  A<-1>=\15|SI|Shift In\
+  A<-1>=\16|DLE|Data Link Escape\
+  A<-1>=\17|DC1|Device Control One (XON)\
+  A<-1>=\18|DC2|Device Control Two\
+  A<-1>=\19|DC3|Device Control Three (XOFF)\
+  A<-1>=\20|DC4|Device Control Four\
+  A<-1>=\21|NAK|Negative Acknowledge\
+  A<-1>=\22|SYN|Synchronous Idle\
+  A<-1>=\23|ETB|End of Transmission Block\
+  A<-1>=\24|CAN|Cancel\
+  A<-1>=\25|EM|End of medium\
+  A<-1>=\26|SUB|Substitute\
+  A<-1>=\27|ESC|Escape\
+  A<-1>=\28|FS|File Separator\
+  A<-1>=\29|GS|Group Separator\
+  A<-1>=\30|RS|Record Separator\
+  A<-1>=\31|US|Unit Separator\
+  A<-1>=\32|SP|Space\
+  A<-1>=\33|!|Exclamation mark|&excl;\
+  A<-1>=\34|"|Double quotes (or speech marks)|&quot;\
+  A<-1>=\35|#|Number sign|&num;\
+  A<-1>=\36|$|Dollar|&dollar;\
+  A<-1>=\37|%|Per cent sign|&percnt;\
+  A<-1>=\38|&|Ampersand|&amp;\
+  A<-1>=\39|'|Single quote|&apos;\
+  A<-1>=\40|(|Open parenthesis (or open bracket)|&lparen;\
+  A<-1>=\41|)|Close parenthesis (or close bracket)|&rparen;\
+  A<-1>=\42|*|Asterisk|&ast;\
+  A<-1>=\43|+|Plus|&plus;\
+  A<-1>=\44|,|Comma|&comma;\
+  A<-1>=\45|-|Hyphen-minus\
+  A<-1>=\46|.|Period, dot or full stop|&period;\
+  A<-1>=\47|/|Slash or divide|&sol;\
+  A<-1>=\48|0|Zero\
+  A<-1>=\49|1|One\
+  A<-1>=\50|2|Two\
+  A<-1>=\51|3|Three\
+  A<-1>=\52|4|Four\
+  A<-1>=\53|5|Five\
+  A<-1>=\54|6|Six\
+  A<-1>=\55|7|Seven\
+  A<-1>=\56|8|Eight\
+  A<-1>=\57|9|Nine\
+  A<-1>=\58|:|Colon|&colon;\
+  A<-1>=\59|;|Semicolon|&semi;\
+  A<-1>=\60|<|Less than (or open angled bracket)|&lt;\
+  A<-1>=\61|=|Equals|&equals;\
+  A<-1>=\62|>|Greater than (or close angled bracket)|&gt;\
+  A<-1>=\63|?|Question mark|&quest;\
+  A<-1>=\64|@|At sign|&commat;\
+  A<-1>=\65|A|Uppercase A\
+  A<-1>=\66|B|Uppercase B\
+  A<-1>=\67|C|Uppercase C\
+  A<-1>=\68|D|Uppercase D\
+  A<-1>=\69|E|Uppercase E\
+  A<-1>=\70|F|Uppercase F\
+  A<-1>=\71|G|Uppercase G\
+  A<-1>=\72|H|Uppercase H\
+  A<-1>=\73|I|Uppercase I\
+  A<-1>=\74|J|Uppercase J\
+  A<-1>=\75|K|Uppercase K\
+  A<-1>=\76|L|Uppercase L\
+  A<-1>=\77|M|Uppercase M\
+  A<-1>=\78|N|Uppercase N\
+  A<-1>=\79|O|Uppercase O\
+  A<-1>=\80|P|Uppercase P\
+  A<-1>=\81|Q|Uppercase Q\
+  A<-1>=\82|R|Uppercase R\
+  A<-1>=\83|S|Uppercase S\
+  A<-1>=\84|T|Uppercase T\
+  A<-1>=\85|U|Uppercase U\
+  A<-1>=\86|V|Uppercase V\
+  A<-1>=\87|W|Uppercase W\
+  A<-1>=\88|X|Uppercase X\
+  A<-1>=\89|Y|Uppercase Y\
+  A<-1>=\90|Z|Uppercase Z\
+  A<-1>=\91|[|Opening bracket|&lsqb;\
+  A<-1>='92|\|Backslash|&bsol;'
+  A<-1>=\93|]|Closing bracket|&rsqb;\
+  A<-1>=\94|^|Caret - circumflex|&Hat;\
+  A<-1>=\95|_|Underscore|&lowbar;\
+  A<-1>=\96|`|Grave accent|&grave;\
+  A<-1>=\97|a|Lowercase a\
+  A<-1>=\98|b|Lowercase b\
+  A<-1>=\99|c|Lowercase c\
+  A<-1>=\100|d|Lowercase d\
+  A<-1>=\101|e|Lowercase e\
+  A<-1>=\102|f|Lowercase f\
+  A<-1>=\103|g|Lowercase g\
+  A<-1>=\104|h|Lowercase h\
+  A<-1>=\105|i|Lowercase i\
+  A<-1>=\106|j|Lowercase j\
+  A<-1>=\107|k|Lowercase k\
+  A<-1>=\108|l|Lowercase l\
+  A<-1>=\109|m|Lowercase m\
+  A<-1>=\110|n|Lowercase n\
+  A<-1>=\111|o|Lowercase o\
+  A<-1>=\112|p|Lowercase p\
+  A<-1>=\113|q|Lowercase q\
+  A<-1>=\114|r|Lowercase r\
+  A<-1>=\115|s|Lowercase s\
+  A<-1>=\116|t|Lowercase t\
+  A<-1>=\117|u|Lowercase u\
+  A<-1>=\118|v|Lowercase v\
+  A<-1>=\119|w|Lowercase w\
+  A<-1>=\120|x|Lowercase x\
+  A<-1>=\121|y|Lowercase y\
+  A<-1>=\122|z|Lowercase z\
+  A<-1>=\123|{|Opening brace|&lcub;\
+  A<-1>=\124|BAR|Vertical bar|&verbar;\
+  A<-1>=\125|}|Closing brace|&rcub;\
+  A<-1>=\126|~|Equivalency sign - tilde|&tilde;\
+  A<-1>=\127|DEL|Delete\
+  A<-1>=SEQ(@TM) :\|@TM |Text Mark\
+  A<-1>=SEQ(@SVM):\|@SVM|Sub Value Mark\
+  A<-1>=SEQ(@VM) :\|@VM |Value Mark\
+  A<-1>=SEQ(@AM) :\|@AM |Attribute Mark\
+  A<-1>=SEQ(@RM) :\|@RM |Record Mark\
   CONVERT '|' TO @VM IN A
   SWAP 'BAR' WITH '|' IN A
   *
@@ -1868,7 +1899,7 @@ ASCII:
   START=1 ; FINISH=DCOUNT(A,@AM)
   IF ONE.CHAR # '' THEN START=SEQ(ONE.CHAR)+1 ; FINISH=START
   FOR C=START TO FINISH
-    PRINT A<C,1>'R#3':'/':A<C,2>'R#3':' ':A<C,3>'L#4':' ':A<C,4>'L#35':' ':A<C,5>
+    PRINT A<C,1>'R#3':'/':OCONV(CHAR(A<C,1>),"MX")'R#3':' ':A<C,2>'L#4':' ':A<C,3>'L#35':' ':A<C,4>
   NEXT C
 RETURN
 *
@@ -2899,9 +2930,9 @@ ATB.FIND:
   IF BCI.ERROR THEN CHNG_REC=""
   IF IL.MAJOR.VER=9 THEN
     BCI.ERROR=''
-    READ HELP.TEXT FROM HELP.TEXT.USA, ATB ELSE BCI.ERROR='ERROR HELP.TEXT.USA ':ATB
+    READ HELP.TEXT FROM HELP.TEXT.USA, AREC<19> ELSE BCI.ERROR='ERROR HELP.TEXT.USA ':ATB
   END ELSE
-    CALL IDS.READ(HELP.TEXT, HELP.TEXT.USA, ATB, 0, 0, BCI.ERROR)
+    CALL IDS.READ(HELP.TEXT, HELP.TEXT.USA, AREC<19>, 0, 0, BCI.ERROR)
   END
   IF BCI.ERROR THEN HELP.TEXT=""
   CONVERT "~" TO "" IN HELP.TEXT
@@ -3699,11 +3730,30 @@ LIST.PARAM:
   *
   IF ANS='/NOLIST' THEN RETURN ;* This is passed by GET.PARAMETER.BPI - we need to populate P, but don't want to display anything
   PARAM.SEARCH = UPCASE(FIELD(ANS, ' ', 2))
+  COUNT.FLAG=0
+  IF PARAM.SEARCH='COUNT' THEN COUNT.FLAG=1 ; PARAM.SEARCH=''
   MAX.P = DCOUNT(P<1>, @VM)
   FOR F = 1 TO MAX.P
     SEARCH.STRING = UPCASE(P<1,F>:' ':P<2,F>:' ':P<3,F>:' ':P<4,F>)
     PRINT.LINE = (PARAM.SEARCH = '') OR INDEX(SEARCH.STRING, PARAM.SEARCH, 1) > 0 OR F < 4 OR F = MAX.P
-    IF PRINT.LINE THEN PRINT '|':P<1,F>'L#18':'|':P<2,F>'L#33':'|':P<3,F>'L#30':'|':P<4,F>'L#30':'|'
+    IF PRINT.LINE THEN
+      PRINT '|':P<1,F>'L#18':'|':P<2,F>'L#33':'|':P<3,F>'L#30':'|':P<4,F>'L#30':'|':
+      IF COUNT.FLAG AND F > 3 AND F # MAX.P THEN
+        BEGIN CASE
+          CASE P<1,F>[1,1]='*'
+            LIKE='[':P<1,F>
+          CASE P<1,F>'R#1'='*'
+            LIKE=P<1,F>:']'
+          CASE 1
+            LIKE=P<1,F>
+        END CASE
+        E=\COUNT PARAMETER WITH @ID = "\:LIKE:\"\
+        EXECUTE E CAPTURING CNT
+        PRINT " ":FIELD(CNT<3>,' ',1)'R#6'
+      END ELSE
+        PRINT ""
+      END
+    END
   NEXT F
 RETURN
 *
@@ -3732,9 +3782,31 @@ SYSINFO:
     EXECUTE \!uname -a\ CAPTURING OSVER
   END
   PRINT OSVER[1,30]
+  EXECUTE \VERSION\ CAPTURING UDVER
+  UDVER=UDVER<DCOUNT(UDVER,@AM)-1>
+  PRINT 'UD Version  :':UDVER
+  EXECUTE \LIST.LANGGRP\ CAPTURING LANGGRP
+  LANGGRP=TRIM(FIELD(LANGGRP<1>,':',2))
+  PRINT 'UD Lang Grp :':
+  BEGIN CASE
+    CASE LANGGRP='255/192/129'
+      LG=1
+      LG.DESC='English (US, UK)'
+    CASE LANGGRP='159/130/129'
+      LG=2
+      LG.DESC='Japanese,French,English_G2'
+    CASE LANGGRP='20/31/30'
+      LG=3
+      LG.DESC='Simplified Chinese English_G3'
+    CASE 1
+      LG=1
+      LG.DESC='English (US, UK)'
+  END CASE
+  PRINT LG:'-':LANGGRP:' ':LG.DESC
   PRINT 'IL Version  :':IL.VER
-  PRINT 'IL DB       :':IL.DB:
-  IF IL.DB # IL.ACC THEN PRINT ' # ':IL.ACC ELSE PRINT ''
+  PRINT 'IL DB       :':IL.DB
+  PRINT 'IL Account  :':IL.ACC:
+  IF ACC # IL.ACC THEN PRINT ' CHANGE-INFO-ACCOUNT' ELSE PRINT ''
   PRINT 'System Num  :':IL.SYS.NUM
   PRINT 'IL Owner    :':'DB=':IL.OWNER:' FILE=':IL.OWNER.UFD
   PRINT 'IL Group    :':'DB=':IL.GROUP:' FILE=':IL.GROUP.UFD
@@ -3772,64 +3844,101 @@ SYSINFO:
   END CASE
   PRINT ')'
   * PRINT CURRENT.MONTH AND LAST.ME.DATE
-  PRINT 'Aged Thru   :':OCONV(PARAM<13>,'D-YMD')
-  PRINT 'Invd Thru   :':OCONV(PARAM<10>,'D-YMD')
+  PRINT 'Aged R.C.   :':PARAM<11>
+  PRINT 'Aged From   :':PARAM<12> 'D4-YMD'
+  PRINT 'Aged Thru   :':PARAM<13> 'D-YMD'
+  PRINT 'Invd R.C.   :':PARAM<8>
+  PRINT 'Invd From   :':PARAM<9> 'D4-YMD'
+  PRINT 'Invd Thru   :':PARAM<10> 'D-YMD'
 RETURN
 *******************************************************************************
 * CUSTOM UTILITIES
 *******************************************************************************
 DEPS:
   PARAM=UPCASE(FIELD(ANS,' ',2))
-  OPTION=UPCASE(FIELD(ANS,' ',3))
-  BUILD.OK=1 ; REBUILD=0 ; TYPE=''
-  OPEN 'FCB.DEPS' TO F.FCB.DEPS ELSE REBUILD=1
-  OPEN 'CUSTOM.BP' TO F.CUSTOM.BP ELSE REBUILD=1
-  IF REBUILD THEN GOSUB DEPS.BUILD
-  IF NOT(BUILD.OK) THEN RETURN
-  READV R FROM VOC, PARAM, 1 ELSE R=''
-  IF R='C' THEN TYPE='PROGRAM'
-  IF INDEX(R,'F',1) THEN TYPE='FILE'
+  IF PARAM='HELP' OR PARAM='' THEN
+    PRINT 'DEPS <BP.FILE>   - Rebuild dependencies for BP.FILE'
+    PRINT 'DEPS <PROGRAM>   - Show dependencies for PROGRAM'
+    PRINT 'DEPS <FILE.NAME> - Show programs that use FILE.NAME'
+    RETURN
+  END
+  * Check for BP.FILE first, so that we can build STACK.DEPS before anything that uses it
+  OPEN PARAM TO F.BP THEN
+    READV F1 FROM VOC, PARAM, 1 ELSE F1=''
+    IF F1='DIR' THEN TYPE='BP' ELSE TYPE='FILE'
+  END ELSE
+    OPEN 'STACK.DEPS' TO F.STACK.DEPS ELSE PRINT 'Run DEPS <BP.FILE> first' ; RETURN
+    READ R FROM F.STACK.DEPS, PARAM THEN
+      TYPE='PROGRAM'
+    END ELSE
+      PRINT PARAM:' not a file or program, Run DEPS <BP.FILE> first'
+      RETURN
+    END
+  END
+  *
   BEGIN CASE
-    CASE PARAM='REFRESH'
+    CASE TYPE='BP'
+      BP.FILE=PARAM
       GOSUB DEPS.BUILD
     CASE TYPE='FILE'
+      OPEN 'STACK.DEPS' TO F.STACK.DEPS ELSE PRINT 'Run DEPS <BP.FILE> first' ; RETURN
       FILE.NAME=PARAM
-      PRINT 'FILE DEPS OF ':FILE.NAME
-      READV R FROM F.FCB.DEPS, FILE.NAME, 3 ELSE R=''
-      FOR F=1 TO DCOUNT(R<1>,@VM)
-        PRINT F'R#3':') ':R<1,F>
-      NEXT F
+      GOSUB FILE.DEPS
     CASE TYPE='PROGRAM'
       PROG.NAME=PARAM
-      LOOP
-        PRINT 'PROGRAM DEPS OF ':PROG.NAME
-        READ R FROM F.FCB.DEPS, PROG.NAME ELSE R=''
-        PROG.LIST=''
-        R1=DCOUNT(R<1>,@VM)
-        FOR F=1 TO R1
-          PROG.LIST<1,-1>=R<1,F>
-        NEXT F
-        PROG.LIST<2>=PROG.NAME
-        R2=DCOUNT(R<4>,@VM)
-        FOR F=1 TO R2
-          PROG.LIST<3,-1>=R<4,F>
-        NEXT F
-        IF R2 > R1 THEN MAX=R2 ELSE MAX=R1
-        PRINT SPACE(4):'CALLED/EXECUTED FROM' 'L#35':' ':'PROGRAM' 'L#35':' ':'CALLS/EXECUTES' 'L#35'
-        FOR F=1 TO MAX
-          PRINT F'R#3':' ':PROG.LIST<1,F>'L#35':' ':PROG.LIST<2,F>'L#35':' ':PROG.LIST<3,F>'L#35'
-        NEXT F
-        PRINT 'Enter Ln for left side # or Rn for right side, ENTER to exit:':
-        INPUT O
-        IF O[1,1]='L' THEN PROG.NAME=PROG.LIST<1,O[2,9]>
-        IF O[1,1]='R' THEN PROG.NAME=PROG.LIST<3,O[2,9]>
-        IF O='' THEN EXIT
-      REPEAT
+      GOSUB PROG.DEPS
   END CASE
 RETURN
 *
+FILE.DEPS:
+  READ R FROM F.STACK.DEPS, FILE.NAME THEN
+    FOR F=1 TO DCOUNT(R<1>,@VM)
+      CRT F'R#3':') ':R<1,F>
+    NEXT F
+  END
+  PRINT
+  PRINT 'Enter # to review, ENTER to exit:':
+  INPUT O
+  IF NUM(O) THEN PROG.NAME=R<1,O> ; GOSUB PROG.DEPS
+RETURN
+*
+PROG.DEPS:
+  LOOP
+    PRINT ""
+    PRINT 'PROGRAM DEPS OF ':PROG.NAME
+    READ R FROM F.STACK.DEPS, PROG.NAME ELSE R=''
+    PROG.LIST=''
+    * PROG.LIST<1>=LEFT (CALLED BY), PROG.LIST<2>=MIDDLE (CURRENT), PROG.LIST<3>=RIGHT (CALLS)
+    R1=DCOUNT(R<1>,@VM)
+    FOR F=1 TO R1
+      PROG.LIST<1,-1>=R<1,F>
+    NEXT F
+    PROG.LIST<2>=PROG.NAME
+    R2=DCOUNT(R<2>,@VM)
+    FOR F=1 TO R2
+      PROG.LIST<3,-1>=R<2,F>
+    NEXT F
+    IF R2 > R1 THEN MAX=R2 ELSE MAX=R1
+    PRINT SPACE(5):'CALLED/EXECUTED FROM' 'L#35':' ':'PROGRAM' 'L#40':' ':'CALLS/EXECUTES' 'L#35'
+    FOR F=1 TO MAX
+      PRINT F'R#3':') ':PROG.LIST<1,F>'L#35':' ':PROG.LIST<2,F>'L#35':' ':F'R#3':') ':PROG.LIST<3,F>'L#35'
+    NEXT F
+    PRINT ''
+    PRINT 'Enter F for files, Ln for left side # or Rn for right side, ENTER to exit:':
+    INPUT O
+    IF O[1,1]='L' THEN PROG.NAME=PROG.LIST<1,O[2,9]>
+    IF O[1,1]='R' THEN PROG.NAME=PROG.LIST<3,O[2,9]>
+    IF O='F' THEN
+      PRINT ''
+      FOR FILE=1 TO DCOUNT(R<3>,@VM)
+        PRINT 'File:':R<3,FILE>
+      NEXT F
+    END
+    IF O='' THEN EXIT
+  REPEAT
+RETURN
+*
 DEPS.BUILD:
-  BUILD.OK=0
   * DEP.REC<1>=CALLED BY
   * DEP.REC<2>=CALLS
   * DEP.REC<3>=OPENS
@@ -3839,38 +3948,29 @@ DEPS.BUILD:
   * DEP.REC<7>=INCLUDES
   * DEP.REC<8>=JOBS
   *
-  OPEN 'FCB.DEPS' TO F.FCB.DEPS ELSE
-    EXECUTE \CREATE.FILE FCB.DEPS 1113,1\
-    OPEN 'FCB.DEPS' TO F.FCB.DEPS ELSE PRINT 'Cannot open or create FCB.DEPS' ; BUILD.OK=0 ; RETURN
+  OPEN 'STACK.DEPS' TO F.STACK.DEPS ELSE
+    EXECUTE \CREATE.FILE STACK.DEPS 1113,1\
+    OPEN 'STACK.DEPS' TO F.STACK.DEPS ELSE PRINT 'Cannot open or create STACK.DEPS' ; BUILD.OK=0 ; RETURN
   END
-  CLEARFILE F.FCB.DEPS
-  *
-  OPEN 'CUSTOM.BP' TO F.CUSTOM.BP ELSE
-    D='DIR'
-    D<2>='/info/CUSTOM/BP'
-    D<3>='D_UFD'
-    WRITE D ON VOC, 'CUSTOM.BP'
-    OPEN 'CUSTOM.BP' TO F.CUSTOM.BP ELSE PRINT 'Cannot open or link to CUSTOM.BP' ; BUILD.OK=0 ; RETURN
-  END
+  CLEARFILE F.STACK.DEPS
   *
   KEYWORDS=CONVERT(",",@AM,"CALL,CHAIN,CLEARFILE,EXECUTE,INCLUDE,$INCLUDE,OPEN,READ,WRITE")
   *
-  EXECUTE \SSELECT CUSTOM.BP WITH @ID # "_]"\
+  EXECUTE \SSELECT \:BP.FILE:\ WITH @ID # "_]"\
   LOOP
     READNEXT ID ELSE EXIT
     CRT ID
-    READ PROGRAM FROM F.CUSTOM.BP, ID ELSE CONTINUE
+    READ PROGRAM FROM F.BP, ID ELSE CONTINUE
     FILE.HANDLES=''
     DEFERRED=''
-    READ DEP.REC FROM F.FCB.DEPS, ID ELSE DEP.REC=''
+    READ DEP.REC FROM F.STACK.DEPS, ID ELSE DEP.REC=''
     MAX.LINE=DCOUNT(PROGRAM,@AM)
     FOR LINE.CTR=1 TO MAX.LINE
       GOSUB PROCESS.LINE
     NEXT LINE.CTR
-    WRITE DEP.REC ON F.FCB.DEPS, ID
+    WRITE DEP.REC ON F.STACK.DEPS, ID
   REPEAT
   * Re-process any deferred lines
-  BUILD.OK=1
 RETURN
 *
 PROCESS.LINE:
@@ -3911,13 +4011,13 @@ PROCESS.LINE:
     CASE FIRST='CALL'                         ;* CALL SUBR(1,2,3) or CALL SUBR ( 1, 2, 3)
       LINE=CONVERT(' ','',LINE[6,999])
       SUBR=FIELD(LINE,'(',1)
-      READV T FROM VOC, SUBR, 1 ELSE RETURN ;* Make sure the thing we're calling is a cataloged program
-      IF T # 'C' THEN RETURN ;* Only care about cataloged programs
+      *READV T FROM VOC, SUBR, 1 ELSE RETURN ;* Make sure the thing we're calling is a cataloged program
+      *IF T # 'C' THEN RETURN ;* Only care about cataloged programs
       LOCATE SUBR IN DEP.REC<2> BY 'AL' SETTING POS ELSE INS SUBR BEFORE DEP.REC<2,POS>
-      READV CALLED.BY FROM F.FCB.DEPS, SUBR, 1 ELSE CALLED.BY=''
+      READV CALLED.BY FROM F.STACK.DEPS, SUBR, 1 ELSE CALLED.BY=''
       LOCATE ID IN CALLED.BY<1> BY 'AL' SETTING POS ELSE
         INS ID BEFORE CALLED.BY<1,POS>
-        WRITEV CALLED.BY ON F.FCB.DEPS, SUBR, 1
+        WRITEV CALLED.BY ON F.STACK.DEPS, SUBR, 1
       END
     CASE FIRST='CLEARFILE'                    ;* CLEARFILE FVAR
       LOCATE SECOND IN FILE.HANDLES<1> SETTING POS THEN
@@ -3930,13 +4030,13 @@ PROCESS.LINE:
       EXEC=S
       IF EXEC='' THEN RETURN
       IF LEN(EXEC) > 100 THEN RETURN ;* Not a valid ID to check, skip
-      READV T FROM VOC, EXEC, 1 ELSE RETURN ;* Make sure the thing we're executing is a VOC entry
-      IF T # 'C' THEN RETURN ;* Only care about cataloged programs
-      LOCATE EXEC IN DEP.REC<4> BY 'AL' SETTING POS ELSE INS EXEC BEFORE DEP.REC<4,POS>
-      READV CALLED.BY FROM F.FCB.DEPS, EXEC, 1 ELSE CALLED.BY=''
+      *READV T FROM VOC, EXEC, 1 ELSE RETURN ;* Make sure the thing we're executing is a VOC entry
+      *IF T # 'C' THEN RETURN ;* Only care about cataloged programs
+      LOCATE EXEC IN DEP.REC<2> BY 'AL' SETTING POS ELSE INS EXEC BEFORE DEP.REC<2,POS>
+      READV CALLED.BY FROM F.STACK.DEPS, EXEC, 1 ELSE CALLED.BY=''
       LOCATE ID IN CALLED.BY<1> BY 'AL' SETTING POS ELSE
         INS ID BEFORE CALLED.BY<1,POS>
-        WRITEV CALLED.BY ON F.FCB.DEPS, EXEC, 1
+        WRITEV CALLED.BY ON F.STACK.DEPS, EXEC, 1
       END
     CASE FIRST='INCLUDE' OR FIRST='$INCLUDE'  ;* INCLUDE CUSTOM,BPI ASSIGN.VARS or $INCLUDE RECORD.LOCKS.DIM FROM IL.BPI
       LINE.REC=CONVERT(' ',@AM,LINE)
@@ -3991,11 +4091,11 @@ CHECK.OPEN:
   *
   * Also create a reverse index from filename to program
   *
-  READ R FROM F.FCB.DEPS, FILE.NAME ELSE R=''
+  READ R FROM F.STACK.DEPS, FILE.NAME ELSE R=''
   LOCATE ID IN R<1> BY 'AL' SETTING POS ELSE
     INS ID BEFORE R<1,POS>
   END
-  WRITE R ON F.FCB.DEPS, FILE.NAME
+  WRITE R ON F.STACK.DEPS, FILE.NAME
 RETURN
 *
 GET.VAR.ASSIGNMENT:
@@ -4016,6 +4116,11 @@ REMOVE.QUOTES:
     * Not a quoted string, search backwards for assignment
     GOSUB GET.VAR.ASSIGNMENT
     S=VAR
+    S=CONVERT(\"'\,"\\",S) ;* Convert all quotes to one type
+    IF S[1,1]='\' THEN
+      * A quoted string, all good, remove quotes
+      S=S[2,LEN(S)-2]
+    END
   END
 RETURN
 *
@@ -4061,12 +4166,12 @@ JOBS:
     CASE 1
       MSK='L#50'
   END CASE
-  HDR='##':' ':'JOB' 'L#8':' ':'TASK#''L#5':' ':'TASK DESC' MSK:' ':'TASK CMD' MSK:' ':'DB' 'L#2':' ':'FQ' 'L#2':' '
+  HDR='###':' ':'JOB' 'L#8':' ':'TASK#''L#5':' ':'TASK DESC' MSK:' ':'TASK CMD' MSK:' ':'DB' 'L#2':' ':'FQ' 'L#2':' '
   HDR:='PH' 'L#2':' ':'LAST DATE' 'R#10':' ':'TIME' 'R#5':' ':'POS'
   LOOP
     PRINT @(-1):HDR
     FOR J=1 TO DCOUNT(OUTPUT.LIST,@AM)
-      PRINT J'R#2':' ':
+      PRINT J'R#3':' ':
       PRINT OUTPUT.LIST<J,1>'L#8':' ':
       PRINT OUTPUT.LIST<J,2>'L#5' :' ':
       PRINT OUTPUT.LIST<J,8>MSK:' ':
