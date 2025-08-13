@@ -2,10 +2,10 @@
 * Program: STACK
 * Author : Ian McGowan
 * Created: 1989-06-13
-* Updated: 2025-07-28
+* Updated: 2025-08-13
 * Comment: Stacks TCL commands, utilities for programmers
 ***************************************************************************
-PRINT \Version 2025-07-28 Find Myself\
+PRINT \Version 2025-08-13 Exports, Imports\
 *
 * STACK is a command line editor, command stack, program stack and useful utilites for TCL
 * It is designed to make life easier and more productive for programmers
@@ -59,7 +59,7 @@ STACK.HELP<-1>='DDD         Search dictionary definitions                   DDD 
 STACK.HELP<-1>='DEPS        Show the dependency tree for a program       DEPS PROG or DEPS FILE'
 STACK.HELP<-1>='DESC        Describe columns in a table               DESC LS_OI_CTD_INVOICE_NF'
 STACK.HELP<-1>='DIFF        Compare two files, show differences                            DIFF'
-STACK.HELP<-1>='EXPORT      Export data to a file                                        EXPORT'
+STACK.HELP<-1>='EXPORT      Export data to a file   SELECT VOC ; EXPORT VOC F1 F2 F3 TO VOC.TXT'
 STACK.HELP<-1>='FIELD       Show IL10 attribute/field metadata              FIELD LS.NET.INVEST'
 STACK.HELP<-1>='FIND.MENU   Search the menus                                     FIND.MENU VOID'
 STACK.HELP<-1>='ICONV/OCONV Test format masks/Convert Data                            FIND.MENU'
@@ -228,67 +228,8 @@ FOR C=1 TO DCOUNT(STACK,@VM)
 NEXT C
 PRINT SYSTEM(12)-T:' ms to index ':DCOUNT(WORD.LIST,@AM):' words'
 *
-* IL9/IL10 Check
-IL.DB=''
-IL.VER=''
-IL.MAJOR.VER=''
-REV.ATB.LOG=''
-OPEN 'ACCOUNT.PARAMS' TO ACCOUNT.PARAMS THEN
-  READ VERSION FROM ACCOUNT.PARAMS, 'VERSION' ELSE VERSION=''
-  IL.DB=PWD
-  IL.VER=VERSION<4>:'/':VERSION<8>:'.':VERSION<26>
-  IL.MAJOR.VER=9
-  OPEN 'REV.ATB.LOG' TO REV.ATB.LOG ELSE STOP 201,'REV.ATB.LOG'
-  DB='UD'
-END ELSE
-  OSREAD JDBC FROM 'DBConfig.xml' THEN
-    CONVERT CHAR(13) TO '' IN JDBC
-    CONVERT CHAR(10) TO @AM IN JDBC
-    JDBC=JDBC<2> ;* <DataSource>InfoLease</DataSource>
-    JDBC=FIELD(JDBC,'>', 2)
-    JDBC=FIELD(JDBC,'<', 1)
-    IF JDBC # '' THEN
-      OSREAD JDBC.P FROM '../../jdbc-bridge/bin/jdbc.properties' THEN
-        CONVERT CHAR(13) TO '' IN JDBC.P
-        CONVERT CHAR(10) TO @AM IN JDBC.P
-        FOR F=1 TO DCOUNT(JDBC.P,@AM)
-          L=JDBC.P<F>
-          IF JDBC=FIELD(L,'.',1) AND INDEX(L,'url',1) THEN IL.DB=L ; EXIT
-        NEXT F
-      END
-    END
-    IF INDEX(UPCASE(IL.DB),'ORACLE',1) THEN DB='ORA' ELSE DB='MSSQL'
-    OSREAD VER FROM 'version.properties' ELSE VER='il.version=10'
-    CONVERT CHAR(13) TO '' IN VER
-    CONVERT CHAR(10) TO @AM IN VER
-    FOR F=1 TO DCOUNT(VER,@AM)
-      IF FIELD(VER<F>,'=',2) # '' THEN IL.VER=FIELD(VER<F>,'=',2) ; EXIT
-    NEXT F
-    CALL FILE.OPEN('STACK','ACCOUNT.PARAMS',ACCOUNT.PARAMS,'STOP')
-    CALL IDS.READ(VERSION, ACCOUNT.PARAMS, 'VERSION', '', '', BCI.ERROR)
-    IF BCI.ERROR THEN VERSION=''
-    IL.MAJOR.VER=10
-  END
-END
-IF IL.MAJOR.VER # '' THEN
-  IL.SYS.NUM=VERSION<11>
-  IL.OWNER=VERSION<23>:'(':VERSION<24>:')'
-  IL.GROUP=VERSION<25>
-  IL.ACC=VERSION<2>
-  IL.REV=VERSION<3>
-  IL.PARAMS=VERSION<20,1>
-  IL.SYS=VERSION<20,2>
-  IL.VERTEX=VERSION<20,3>
-  IL.OWNER.UFD=''
-  IL.GROUP.UFD=''
-  OPEN 'UFD' TO UFD THEN
-    READV IL.OWNER.UFD FROM UFD, 'infoleaseowner', 1 ELSE NULL
-    READV IL.GROUP.UFD FROM UFD, 'infoleasegroup', 1 ELSE NULL 
-  END
-  *
-  PRINT IL.VER:' ':IL.DB
-  PRINT ; PRINT 'INFO to return to Infolease'
-END
+GOSUB INFOLEASE.CHECK ;* IL9/IL10 Check
+*
 PRINT '? for Help'
 *
 * You can put commands in the startup file, e.g. .L ; LISTA ; DATE
@@ -1031,8 +972,30 @@ DO.EXPORT:
   OPEN 'DICT ':FILE.NAME TO DICT.FILE ELSE PRINT 'ERROR: Cannot open dictionary for file ':FILE.NAME ; RETURN
   *
   HEADER.STRING=''
+  EXPORT.FILE.NAME = 'EXPORT.TXT'
+  EXPORT.FILE.PATH = '_HOLD_/':EXPORT.FILE.NAME
+  TEMP.FILE.NAME   = 'EXPORT.TXT.tmp'
+  TEMP.EXPORT.PATH = '_HOLD_/':TEMP.FILE.NAME
+  *
   FOR I = 1 TO DCOUNT(FIELDS, @AM)
     FIELD.NAME = FIELDS<I>
+    IF FIELD.NAME = '' THEN CONTINUE
+    IF FIELD.NAME = 'TO' THEN
+      FILE = FIELDS<I+1>
+      IF FILE = '' THEN PRINT 'ERROR: No filename specified after TO' ; RETURN
+      IF INDEX(FILE,'/',1) THEN
+        N=DCOUNT(EXPORT.FILE.PATH,'/')+1
+        EXPORT.FILE.PATH=FIELD(FILE,'/',1,N-1)
+        EXPORT.FILE.NAME=FIELD(FILE,'/',N)
+      END ELSE
+        EXPORT.FILE.PATH='_HOLD_/':FILE
+        EXPORT.FILE.NAME=FILE
+      END
+      TEMP.FILE.NAME = EXPORT.FILE.NAME:'.tmp'
+      TEMP.EXPORT.PATH = EXPORT.FILE.PATH:'.tmp'
+      I+=1 ;* Skip the next field
+      CONTINUE
+    END
     READ DUMMY FROM DICT.FILE, FIELD.NAME ELSE
       PRINT 'ERROR: Field '':FIELD.NAME:'' not found in dict ':FILE.NAME
       CLOSE DICT.FILE
@@ -1045,15 +1008,11 @@ DO.EXPORT:
   HEADER.STRING:=CHAR(10)
   *
   CONVERT @AM TO ' ' IN FIELDS
-  EXPORT.FILE.NAME = 'EXPORT.TXT'
-  EXPORT.FILE.PATH = '_HOLD_/':EXPORT.FILE.NAME
-  TEMP.FILE.NAME   = 'EXPORT.TXT.tmp'
-  TEMP.EXPORT.PATH = '_HOLD_/':TEMP.FILE.NAME
   LIST.COMMAND = 'list ':FILE.NAME:' ':FIELDS:' TO DELIM 9 ':TEMP.EXPORT.PATH:' ID.SUP'
   *
-  EXECUTE 'UDT.OPTIONS 91 ON'
-  DATA 'Y'
-  EXECUTE LIST.COMMAND
+  EXEC.LINE = 'UDT.OPTIONS 91 ON' ; GOSUB EXEC.SUB
+  DELETE HOLD, TEMP.EXPORT.PATH
+  EXEC.LINE = LIST.COMMAND ; GOSUB EXEC.SUB
   HEADER.FILE.PATH = '_HOLD_/EXPORT.HDR'
   *
   * Use Unidata commands to combine the header with the data file, so it works on Windows as well as Unix
@@ -1455,7 +1414,7 @@ GET.TERM.WIDTH:
     GOSUB EXEC.SUB
     IF OLD.TERM.WIDTH # TERM.WIDTH THEN
       EXEC.LINE=\TERM \:TERM.WIDTH:\,\:TERM.HEIGHT
-      CRT EXEC.LINE
+      PRINT EXEC.LINE
       GOSUB EXEC.SUB
     END
   END
@@ -2598,7 +2557,7 @@ GET.BPI:
           EXIT
         END
       NEXT CTR
-      IF BPI.R = '' THEN CRT 'Cannot get BPI from ':CONVERT(@VM," ",IL.MSG) ; RETURN
+      IF BPI.R = '' THEN PRINT 'Cannot get BPI from ':CONVERT(@VM," ",IL.MSG) ; RETURN
     END ELSE
       PRINT 'Cannot read DATABASE.FILES,IL',BPI ; RETURN
     END
@@ -3812,11 +3771,13 @@ LIST.PARAM:
 RETURN
 *
 SYSINFO:
-  IF IL.MAJOR.VER = '' THEN PRINT 'Only works in IL' ; RETURN
   EXEC.LINE="!hostname" ; CAP.ACTIVE=TRUE ; GOSUB EXEC.SUB
   HOST.NAME=EXEC.CAP<1>
-  PRINT 'Hostname    :':HOST.NAME
-  PRINT 'Environment :':
+  PRINT STR('-',80)
+  PRINT 'OS INFO'
+  PRINT STR('-',80)
+  PRINT 'Hostname    : ':HOST.NAME
+  PRINT 'Environment : ':
   HOST.1=UPCASE(HOST.NAME[1,1])
   BEGIN CASE
     CASE HOST.1='D'
@@ -3826,22 +3787,25 @@ SYSINFO:
     CASE HOST.1='P'
       PRINT 'PRD'
     CASE 1
-      PRINT 'Unknown:':HOST.1
+      PRINT 'Unknown'
   END CASE
-  PRINT 'OS Version  :':
+  PRINT 'OS Version  : ':
   IF OS.PATH.DELIM = "\" THEN
     EXECUTE \!ver\ CAPTURING OSVER
     DEL OSVER<1> ; OSVER=OSVER<1>
   END ELSE
     EXECUTE \!uname -a\ CAPTURING OSVER
   END
-  PRINT OSVER[1,30]
+  PRINT OSVER
+  PRINT STR('-',80)
+  PRINT 'UDT INFO'
+  PRINT STR('-',80)
   EXECUTE \VERSION\ CAPTURING UDVER
   UDVER=UDVER<DCOUNT(UDVER,@AM)-1>
-  PRINT 'UD Version  :':UDVER
+  PRINT 'UD Version       : ':UDVER
   EXECUTE \LIST.LANGGRP\ CAPTURING LANGGRP
   LANGGRP=TRIM(FIELD(LANGGRP<1>,':',2))
-  PRINT 'UD Lang Grp :':
+  PRINT 'UD Lang Grp      : ':
   BEGIN CASE
     CASE LANGGRP='255/192/129'
       LG=1
@@ -3857,17 +3821,26 @@ SYSINFO:
       LG.DESC='English (US, UK)'
   END CASE
   PRINT LG:'-':LANGGRP:' ':LG.DESC
-  PRINT 'IL Version  :':IL.VER
-  PRINT 'IL DB       :':IL.DB
-  PRINT 'IL Account  :':IL.ACC:
+  EXEC.LINE='WHAT' ; CAP.ACTIVE=TRUE ; GOSUB EXEC.SUB
+  CONVERT CHAR(10) TO @AM IN EXEC.CAP
+  FOR F=1 TO DCOUNT(EXEC.CAP,@AM)
+    PRINT EXEC.CAP<F>
+  NEXT F
+  PRINT STR('-',80)
+  PRINT 'INFO INFO' ;* LOL
+  PRINT STR('-',80)
+  IF IL.MAJOR.VER = '' THEN PRINT 'NOT FOUND' ; RETURN
+  PRINT 'IL Version  : ':IL.VER
+  PRINT 'IL DB       : ':IL.DB
+  PRINT 'IL Account  : ':IL.ACC:
   IF ACC # IL.ACC THEN PRINT ' CHANGE-INFO-ACCOUNT' ELSE PRINT ''
-  PRINT 'System Num  :':IL.SYS.NUM
-  PRINT 'IL Owner    :':'DB=':IL.OWNER:' FILE=':IL.OWNER.UFD
-  PRINT 'IL Group    :':'DB=':IL.GROUP:' FILE=':IL.GROUP.UFD
-  PRINT 'Info-Rev    :':IL.REV
-  PRINT 'Info-Params :':IL.PARAMS
-  PRINT 'Sys         :':IL.SYS
-  PRINT 'Vertex      :':IL.VERTEX
+  PRINT 'System Num  : ':IL.SYS.NUM
+  PRINT 'IL Owner    : ': 'DB=':IL.OWNER: ' FILE=':IL.OWNER.UFD
+  PRINT 'IL Group    : ': 'DB=':IL.GROUP: ' FILE=':IL.GROUP.UFD
+  PRINT 'Info-Rev    : ':IL.REV
+  PRINT 'Info-Params : ':IL.PARAMS
+  PRINT 'Sys         : ':IL.SYS
+  PRINT 'Vertex      : ':IL.VERTEX
   * PRINT VERTEX.LAST.UPDATED?
   CALL FILE.OPEN('STACK','PARAMETER',PARAMETER,'STOP')
   IF IL.MAJOR.VER=9 THEN
@@ -3947,7 +3920,7 @@ RETURN
 FILE.DEPS:
   READ R FROM F.STACK.DEPS, FILE.NAME THEN
     FOR F=1 TO DCOUNT(R<1>,@VM)
-      CRT F'R#3':') ':R<1,F>
+      PRINT F'R#3':') ':R<1,F>
     NEXT F
   END
   PRINT
@@ -4013,7 +3986,7 @@ DEPS.BUILD:
   EXECUTE \SSELECT \:BP.FILE:\ WITH @ID # "_]"\
   LOOP
     READNEXT ID ELSE EXIT
-    CRT ID
+    PRINT ID
     READ PROGRAM FROM F.BP, ID ELSE CONTINUE
     FILE.HANDLES=''
     DEFERRED=''
@@ -4248,3 +4221,65 @@ JOBS:
   REPEAT
 RETURN
 *
+INFOLEASE.CHECK:
+  IL.DB=''
+  IL.VER=''
+  IL.MAJOR.VER=''
+  REV.ATB.LOG=''
+  OPEN 'ACCOUNT.PARAMS' TO ACCOUNT.PARAMS THEN
+    READ VERSION FROM ACCOUNT.PARAMS, 'VERSION' ELSE VERSION=''
+    IL.DB=PWD
+    IL.VER=VERSION<4>:'/':VERSION<8>:'.':VERSION<26>
+    IL.MAJOR.VER=9
+    OPEN 'REV.ATB.LOG' TO REV.ATB.LOG ELSE STOP 201,'REV.ATB.LOG'
+    DB='UD'
+  END ELSE
+    OSREAD JDBC FROM 'DBConfig.xml' THEN
+      CONVERT CHAR(13) TO '' IN JDBC
+      CONVERT CHAR(10) TO @AM IN JDBC
+      JDBC=JDBC<2> ;* <DataSource>InfoLease</DataSource>
+      JDBC=FIELD(JDBC,'>', 2)
+      JDBC=FIELD(JDBC,'<', 1)
+      IF JDBC # '' THEN
+        OSREAD JDBC.P FROM '../../jdbc-bridge/bin/jdbc.properties' THEN
+          CONVERT CHAR(13) TO '' IN JDBC.P
+          CONVERT CHAR(10) TO @AM IN JDBC.P
+          FOR F=1 TO DCOUNT(JDBC.P,@AM)
+            L=JDBC.P<F>
+            IF JDBC=FIELD(L,'.',1) AND INDEX(L,'url',1) THEN IL.DB=L ; EXIT
+          NEXT F
+        END
+      END
+      IF INDEX(UPCASE(IL.DB),'ORACLE',1) THEN DB='ORA' ELSE DB='MSSQL'
+      OSREAD VER FROM 'version.properties' ELSE VER='il.version=10'
+      CONVERT CHAR(13) TO '' IN VER
+      CONVERT CHAR(10) TO @AM IN VER
+      FOR F=1 TO DCOUNT(VER,@AM)
+        IF FIELD(VER<F>,'=',2) # '' THEN IL.VER=FIELD(VER<F>,'=',2) ; EXIT
+      NEXT F
+      CALL FILE.OPEN('STACK','ACCOUNT.PARAMS',ACCOUNT.PARAMS,'STOP')
+      CALL IDS.READ(VERSION, ACCOUNT.PARAMS, 'VERSION', '', '', BCI.ERROR)
+      IF BCI.ERROR THEN VERSION=''
+      IL.MAJOR.VER=10
+    END
+  END
+  IF IL.MAJOR.VER # '' THEN
+    IL.SYS.NUM=VERSION<11>
+    IL.OWNER=VERSION<23>:'(':VERSION<24>:')'
+    IL.GROUP=VERSION<25>
+    IL.ACC=VERSION<2>
+    IL.REV=VERSION<3>
+    IL.PARAMS=VERSION<20,1>
+    IL.SYS=VERSION<20,2>
+    IL.VERTEX=VERSION<20,3>
+    IL.OWNER.UFD=''
+    IL.GROUP.UFD=''
+    OPEN 'UFD' TO UFD THEN
+      READV IL.OWNER.UFD FROM UFD, 'infoleaseowner', 1 ELSE NULL
+      READV IL.GROUP.UFD FROM UFD, 'infoleasegroup', 1 ELSE NULL 
+    END
+    *
+    PRINT IL.VER:' ':IL.DB
+    PRINT ; PRINT 'INFO to return to Infolease'
+  END
+RETURN
