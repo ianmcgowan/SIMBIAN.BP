@@ -997,7 +997,7 @@ DO.EXPORT:
       CONTINUE
     END
     READ DUMMY FROM DICT.FILE, FIELD.NAME ELSE
-      PRINT 'ERROR: Field '':FIELD.NAME:'' not found in dict ':FILE.NAME
+      PRINT 'ERROR: Field ':FIELD.NAME:' not found in dict ':FILE.NAME
       CLOSE DICT.FILE
       RETURN
     END
