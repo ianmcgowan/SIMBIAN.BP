@@ -1,3 +1,4 @@
+$BASICTYPE "P"
 ***************************************************************************
 * Program: STACK
 * Author : Ian McGowan
@@ -54,6 +55,7 @@ STACK.HELP<-1>='AF          ATB Finder, search definitions                      
 STACK.HELP<-1>='ASCII       Show ASCII table                                              ASCII'
 STACK.HELP<-1>='BPI         List table definitions                          BPI LS.CTD.PYMTHIST'
 STACK.HELP<-1>='CHECK.FILE  Show strings in a compiled program /P|/S      CHECK.FILE DISP.00 /P'
+STACK.HELP<-1>='CALC        Simple calculator, no precedence                     CALC 10.5 * 20'
 STACK.HELP<-1>='CT          View data records, with labels         CT LS.MASTER 123-1234567-000'
 STACK.HELP<-1>='DDD         Search dictionary definitions                   DDD LS.MASTER EQUIP'
 STACK.HELP<-1>='DEPS        Show the dependency tree for a program       DEPS PROG or DEPS FILE'
@@ -331,7 +333,7 @@ DO.COMMAND:
   CAP.ACTIVE=FALSE
   FIRST.WORD=FIELD(ANS,' ',1)
   COMMANDS='AF,ALIAS,ASCII,BPI,CCI,CCM,CHECK.FILE,CI,CM,CT,DDD,DESC,DIFF,EXPORT,FIELD,FIND.MENU,ICONV,KEYS,LIST.KEYS,SQL-LIST,LISTA,'
-  COMMANDS:='MODULES,NED,NSEL,OCONV,OFF,PARAM,PICKLE,PIVOT,PROF,KEY.DEFAULTS,Q,RS,RULER,SE,SETTINGS,SF,SQL,SQLF,TM,TRAIN,XREF'
+  COMMANDS:='MODULES,NED,NSEL,OCONV,OFF,PARAM,PICKLE,PIVOT,PROF,KEY.DEFAULTS,Q,RS,RULER,SE,SETTINGS,SF,SQL,SQLF,TM,TRAIN,XREF,CALC'
   COMMANDS:=',DEPS,JOBS,SYSINFO'
   CONVERT ',' TO @VM IN COMMANDS
   LOCATE FIRST.WORD IN COMMANDS<1> SETTING INTERNAL.COMMAND ELSE INTERNAL.COMMAND=''
@@ -340,10 +342,10 @@ DO.COMMAND:
     CASE INTERNAL.COMMAND
       GOSUB UPDATE.STACK
       ON INTERNAL.COMMAND GOSUB ATB.FIND, DO.ALIAS, ASCII, BPI, CCI, CCM, CHECK.FILE, CI, CM, VIEW.RECORD, DDD, IL10.DESC, DIFF,
-                                DO.EXPORT, IL10.FIELD, FIND.MENU, CONV, KEYS, LIST.KEYS, SQL.SEL.LIST, LISTA, LIST.MODULES,
-                                IL10.NED, IL10.NSEL, CONV, LOGOFF, LIST.PARAM, PICKLE, PIVOT, PROFILE, KEY.DEFAULTS, QUIT, RS,
-                                RULER, SEARCH.EXAMPLE, SETTINGS, SEARCH.FILE, SQL.SEL, SQL.FILE, TM, TRAIN, IL10.XREF, DEPS, JOBS,
-                                SYSINFO
+            DO.EXPORT, IL10.FIELD, FIND.MENU, CONV, KEYS, LIST.KEYS, SQL.SEL.LIST, LISTA, LIST.MODULES,
+            IL10.NED, IL10.NSEL, CONV, LOGOFF, LIST.PARAM, PICKLE, PIVOT, PROFILE, KEY.DEFAULTS, QUIT, RS,
+            RULER, SEARCH.EXAMPLE, SETTINGS, SEARCH.FILE, SQL.SEL, SQL.FILE, TM, TRAIN, IL10.XREF, DO.CALC, DEPS, JOBS,
+            SYSINFO
     CASE ANS[1,1] = STACK.CHAR
       * E.g. .L .X20 .D
       ANS = TRIM(UPCASE(ANS))
@@ -960,6 +962,39 @@ RETURN
 *******************************************************************************
 * INTERNAL UTILITY COMMANDS
 *******************************************************************************
+DO.CALC:
+  EXPR=TRIM(ANS[6,LEN(ANS)]) ; IF EXPR='' THEN PRINT 'Usage: CALC <expression>' ; RETURN
+  IF INDEX(EXPR,'(',1) OR INDEX(EXPR,')',1) THEN PRINT 'Parentheses not supported' ; RETURN
+  POS=1 ; L=LEN(EXPR)
+  SIGN=1 ; C=EXPR[POS,1] ; IF C='-' THEN SIGN=-1 ; POS+=1
+  START=POS
+  LOOP WHILE POS<=L AND (NUM(EXPR[POS,1]) OR EXPR[POS,1]='.') DO POS+=1 REPEAT
+  IF POS=START THEN PRINT 'Expected number at start' ; RETURN
+  ACC=SIGN*EXPR[START,POS-START]
+  LOOP
+    LOOP WHILE POS<=L AND EXPR[POS,1]=' ' DO POS+=1 REPEAT
+    IF POS> L THEN EXIT
+    OP=EXPR[POS,1]
+    IF INDEX('+-*/',OP,1)=0 THEN PRINT 'Expected operator at pos ':POS ; RETURN
+    POS+=1
+    LOOP WHILE POS<=L AND EXPR[POS,1]=' ' DO POS+=1 REPEAT
+    IF POS> L THEN PRINT 'Trailing operator' ; RETURN
+    SIGN=1 ; C=EXPR[POS,1]
+    IF C='-' THEN SIGN=-1 ; POS+=1 ; LOOP WHILE POS<=L AND EXPR[POS,1]=' ' DO POS+=1 REPEAT
+    START=POS
+    LOOP WHILE POS<=L AND (NUM(EXPR[POS,1]) OR EXPR[POS,1]='.') DO POS+=1 REPEAT
+    IF POS=START THEN PRINT 'Expected number after operator at pos ':POS ; RETURN
+    VAL=SIGN*EXPR[START,POS-START]
+    BEGIN CASE
+      CASE OP='+'; ACC=ACC+VAL
+      CASE OP='-'; ACC=ACC-VAL
+      CASE OP='*'; ACC=ACC*VAL
+      CASE OP='/'; IF VAL=0 THEN PRINT 'Divide by zero' ; RETURN ELSE ACC=ACC/VAL
+    END CASE
+  REPEAT
+  PRINT 'Result = ':ACC
+RETURN
+*
 DO.EXPORT:
   IF SYSTEM(11) = 0 THEN PRINT 'ERROR: A select list must be active to use the EXPORT command.' ; RETURN
   FILE.NAME = FIELD(ANS, ' ', 2)
