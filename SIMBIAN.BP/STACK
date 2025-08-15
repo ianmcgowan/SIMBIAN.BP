@@ -1,4 +1,3 @@
-$BASICTYPE "P"
 ***************************************************************************
 * Program: STACK
 * Author : Ian McGowan
@@ -6,6 +5,7 @@ $BASICTYPE "P"
 * Updated: 2025-08-15
 * Comment: Stacks TCL commands, utilities for programmers
 ***************************************************************************
+$BASICTYPE "P"
 PRINT \Version 2025-08-15 Exports, Imports\
 *
 * STACK is a command line editor, command stack, program stack and useful utilites for TCL
@@ -100,10 +100,10 @@ LONG.LINE = 9999;LIST.DET.FLAG=0;TIME.COMMAND.FLAG=0;MULTI.LINE.FLAG=1
 SL.ACTIVE = FALSE
 *
 PWD=@ACCOUNT
-I=LEN(PWD) ; ACC=NUL
+I=LEN(PWD) ; ACCOUNT=NUL
 FOR F=I TO 1 STEP -1
   IF PWD[F,1] = OS.PATH.DELIM THEN EXIT
-  ACC=PWD[F,1]:ACC
+  ACCOUNT=PWD[F,1]:ACCOUNT
 NEXT F
 *
 OPEN 'VOC'    TO VOC    ELSE STOP 201,'VOC'    ;* Big problems if this isn't there
@@ -372,7 +372,7 @@ RETURN
 UPDATE.STACK:
   * Update the STACK on disk before running a command. Don't log startup commands that run automatically
   IF STARTUP = NUL THEN
-    INS ACC:@VM:DATE():@VM:TIME():@VM:ANS BEFORE STACK<1>
+    INS ACCOUNT:@VM:DATE():@VM:TIME():@VM:ANS BEFORE STACK<1>
     WRITE STACK ON HOME.F, STACK.ITEM
   END
 RETURN
@@ -412,7 +412,7 @@ LOGOFF:
   GOSUB WRITE.INFO
   PORT=NAMED.LOGON.DEF(6)
   PRINT 'Clearing port ':PORT
-  OPEN 'ACC' TO ACC THEN DELETE ACC,PORT
+  OPEN 'ACC' TO F.ACC THEN DELETE F.ACC,PORT
   CHAIN 'BYE'
 RETURN
 *
@@ -545,7 +545,7 @@ EXPAND.PROMPT:
       CASE F = 'B'
         PROMPT.DISP = L:CHAR(7):R
       CASE F = 'A'
-        PROMPT.DISP = L:ACC:R
+        PROMPT.DISP = L:ACCOUNT:R
       CASE F = 'T'
         PROMPT.DISP = L:OCONV(TIME(),'MTS'):R
       CASE F = 'D'
@@ -970,7 +970,7 @@ DO.CALC:
   START=POS
   LOOP WHILE POS<=L AND (NUM(EXPR[POS,1]) OR EXPR[POS,1]='.') DO POS+=1 REPEAT
   IF POS=START THEN PRINT 'Expected number at start' ; RETURN
-  ACC=SIGN*EXPR[START,POS-START]
+  ACCUM=SIGN*EXPR[START,POS-START]
   LOOP
     LOOP WHILE POS<=L AND EXPR[POS,1]=' ' DO POS+=1 REPEAT
     IF POS> L THEN EXIT
@@ -986,13 +986,13 @@ DO.CALC:
     IF POS=START THEN PRINT 'Expected number after operator at pos ':POS ; RETURN
     VAL=SIGN*EXPR[START,POS-START]
     BEGIN CASE
-      CASE OP='+'; ACC=ACC+VAL
-      CASE OP='-'; ACC=ACC-VAL
-      CASE OP='*'; ACC=ACC*VAL
-      CASE OP='/'; IF VAL=0 THEN PRINT 'Divide by zero' ; RETURN ELSE ACC=ACC/VAL
+      CASE OP='+'; ACCUM=ACCUM+VAL
+      CASE OP='-'; ACCUM=ACCUM-VAL
+      CASE OP='*'; ACCUM=ACCUM*VAL
+      CASE OP='/'; IF VAL=0 THEN PRINT 'Divide by zero' ; RETURN ELSE ACCUM=ACCUM/VAL
     END CASE
   REPEAT
-  PRINT 'Result = ':ACC
+  PRINT 'Result = ':ACCUM
 RETURN
 *
 DO.EXPORT:
@@ -3032,14 +3032,14 @@ RETURN
 *
 LISTA.IL9:
   * List all users/locks in IL9
-  OPEN 'ACC' TO ACC.F ELSE STOP 201,'ACC'
-  OPEN 'INFO.STATUS' TO INFO.STATUS ELSE STOP 201,'INFO.STATUS'
-  SELECT ACC.F
+  OPEN 'ACC' TO F.ACC ELSE STOP 201,'ACC'
+  OPEN 'INFO.STATUS' TO F.INFO.STATUS ELSE STOP 201,'INFO.STATUS'
+  SELECT F.ACC
   USER.LIST=''
   LOOP
     READNEXT PORT ELSE EXIT
-    READ REC FROM ACC.F, PORT THEN
-      READ MENU FROM INFO.STATUS, PORT'R%3' ELSE MENU='TCL'
+    READ REC FROM F.ACC, PORT THEN
+      READ MENU FROM F.INFO.STATUS, PORT'R%3' ELSE MENU='TCL'
       MENU=MENU<DCOUNT(MENU,@AM)> ;* Show the last item
       USER=REC<5>
       DATE=REC<2>
@@ -3141,8 +3141,8 @@ LISTA.IL9:
     PRINT (LOCK.LIST<4,L>'D4/')[1,5]:' ':LOCK.LIST<5,L>'MT':' ':LOCK.LIST<6,L>'L#15'
   NEXT L
   *
-  CLOSE ACC.F
-  CLOSE INFO.STATUS
+  CLOSE F.ACC
+  CLOSE F.INFO.STATUS
   *
 RETURN
 *
@@ -3869,7 +3869,7 @@ SYSINFO:
   PRINT 'IL Version  : ':IL.VER
   PRINT 'IL DB       : ':IL.DB
   PRINT 'IL Account  : ':IL.ACC:
-  IF ACC # IL.ACC THEN PRINT ' CHANGE-INFO-ACCOUNT' ELSE PRINT ''
+  IF ACCOUNT # IL.ACC THEN PRINT ' CHANGE-INFO-ACCOUNT' ELSE PRINT ''
   PRINT 'System Num  : ':IL.SYS.NUM
   PRINT 'IL Owner    : ': 'DB=':IL.OWNER: ' FILE=':IL.OWNER.UFD
   PRINT 'IL Group    : ': 'DB=':IL.GROUP: ' FILE=':IL.GROUP.UFD
