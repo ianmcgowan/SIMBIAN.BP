@@ -2,10 +2,10 @@
 * Program: STACK
 * Author : Ian McGowan
 * Created: 1989-06-13
-* Updated: 2025-08-13
+* Updated: 2025-08-15
 * Comment: Stacks TCL commands, utilities for programmers
 ***************************************************************************
-PRINT \Version 2025-08-13 Exports, Imports\
+PRINT \Version 2025-08-15 Exports, Imports\
 *
 * STACK is a command line editor, command stack, program stack and useful utilites for TCL
 * It is designed to make life easier and more productive for programmers
@@ -985,8 +985,8 @@ DO.EXPORT:
       IF FILE = '' THEN PRINT 'ERROR: No filename specified after TO' ; RETURN
       IF INDEX(FILE,'/',1) THEN
         N=DCOUNT(EXPORT.FILE.PATH,'/')+1
-        EXPORT.FILE.PATH=FIELD(FILE,'/',1,N-1)
         EXPORT.FILE.NAME=FIELD(FILE,'/',N)
+        EXPORT.FILE.PATH=FIELD(FILE,'/',1,N-1):'/':EXPORT.FILE.NAME
       END ELSE
         EXPORT.FILE.PATH='_HOLD_/':FILE
         EXPORT.FILE.NAME=FILE
@@ -1001,9 +1001,9 @@ DO.EXPORT:
       CLOSE DICT.FILE
       RETURN
     END
-    HEADER.STRING := FIELDS<I>
-    IF I < DCOUNT(FIELDS, @AM) THEN HEADER.STRING := CHAR(9) ;* Tab delimiter
+    HEADER.STRING := FIELDS<I>:CHAR(9)
   NEXT I
+  HEADER.STRING=HEADER.STRING[1,LEN(HEADER.STRING)-1] ;* Remove the trailing tab
   CLOSE DICT.FILE
   HEADER.STRING:=CHAR(10)
   *
@@ -1013,20 +1013,21 @@ DO.EXPORT:
   EXEC.LINE = 'UDT.OPTIONS 91 ON' ; GOSUB EXEC.SUB
   DELETE HOLD, TEMP.EXPORT.PATH
   EXEC.LINE = LIST.COMMAND ; GOSUB EXEC.SUB
-  HEADER.FILE.PATH = '_HOLD_/EXPORT.HDR'
   *
   * Use Unidata commands to combine the header with the data file, so it works on Windows as well as Unix
   OSWRITE HEADER.STRING TO EXPORT.FILE.PATH
-  OPENSEQ EXPORT.FILE.PATH TO EXPORT.FILE ELSE PRINT 'ERROR: Cannot open export file ':EXPORT.FILE.PATH ; RETURN
-  OPENSEQ TEMP.EXPORT.PATH TO TEMP.FILE   ELSE PRINT 'ERROR: Cannot open temp file ':TEMP.EXPORT.PATH ; RETURN
+  OPENSEQ EXPORT.FILE.PATH TO F.EXPORT.FILE ELSE PRINT 'ERROR: Cannot open export file ':EXPORT.FILE.PATH ; RETURN
+  OPENSEQ TEMP.EXPORT.PATH TO F.TEMP.FILE   ELSE PRINT 'ERROR: Cannot open temp file ':TEMP.EXPORT.PATH ; RETURN
   * This is not as efficient as using O/S commands, but more portable, and we need to handle millions of rows
   LOOP
-    READSEQ ROW FROM TEMP.FILE ELSE EXIT
-    WRITESEQ ROW APPEND TO EXPORT.FILE ELSE PRINT 'ERROR: Error writing to ':EXPORT.FILE.PATH ; EXIT
+    READSEQ ROW FROM F.TEMP.FILE ELSE EXIT
+    CONVERT @VM  TO '^' IN ROW ;* Fix any MV chars
+    CONVERT @SVM TO '%' IN ROW ;* Not as likely, but swap them anyway
+    WRITESEQ ROW APPEND TO F.EXPORT.FILE ELSE PRINT 'ERROR: Error writing to ':EXPORT.FILE.PATH ; EXIT
   REPEAT
-  CLOSESEQ TEMP.FILE
-  CLOSESEQ EXPORT.FILE
-  DELETE HOLD, TEMP.FILE.NAME
+  CLOSESEQ F.TEMP.FILE
+  CLOSESEQ F.EXPORT.FILE
+  OSDELETE TEMP.EXPORT.PATH
   PRINT 'Data exported to ':EXPORT.FILE.PATH
 RETURN
 *******************************************************************************
