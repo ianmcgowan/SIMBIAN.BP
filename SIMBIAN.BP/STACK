@@ -2,11 +2,11 @@
 * Program: STACK
 * Author : Ian McGowan
 * Created: 1989-06-13
-* Updated: 2025-08-15
+* Updated: 2025-08-20
 * Comment: Stacks TCL commands, utilities for programmers
 ***************************************************************************
 $BASICTYPE "P"
-PRINT \Version 2025-08-15 Exports, Imports\
+PRINT \Version 2025-08-20 Micro, Macro\
 *
 * STACK is a command line editor, command stack, program stack and useful utilites for TCL
 * It is designed to make life easier and more productive for programmers
@@ -40,6 +40,7 @@ STACK.HELP<-1>='.Lm,n      List entry m thru n         Q/INFO           Quit/Inf
 STACK.HELP<-1>='.P         Change the prompt           .Rn/.Xn          Restore entry n, edit  '
 STACK.HELP<-1>='.TC        Toggle upper case           .TD              Toggle detail info     '
 STACK.HELP<-1>='.TT        Toggle timing               .TM              Toggle ; for multiline '
+STACK.HELP<-1>='#X=VAL     Set macro X to "VAL"        #?               List macros            '
 STACK.HELP<-1>='                                                                               '
 STACK.HELP<-1>='---------------------- PROGRAM STACK COMMANDS ---------------------------------'
 STACK.HELP<-1>='/           List the programs in the current project                           '
@@ -138,6 +139,7 @@ PROGRAM.ITEM= USERNAME:'.PROGRAM' ;* Stores the program stack for each user (may
 ALIAS.ITEM  = USERNAME:'.ALIAS'   ;* Stores aliases for each user
 SETTING.ITEM= USERNAME:'.SETTING' ;* Stores settings for each user
 KEYMAP.ITEM = USERNAME:'.KEY'     ;* Stores key bindings for each user
+MACRO.ITEM  = USERNAME:'.MACRO'   ;* Stores macros (@X=VALUE) for each user
 *
 SETTINGS      = ';'        ;* DEFAULT COMMAND SEPERATOR
 SETTINGS<2>   = '.'        ;* DEFAULT STACK CHAR
@@ -219,6 +221,7 @@ HOST.NAME=EXEC.CAP<1>
 READ STACK FROM HOME.F, STACK.ITEM ELSE STACK = NUL
 PRINT DCOUNT(STACK,@AM):' commands in stack ':HOME.DIR:OS.PATH.DELIM:STACK.ITEM
 READ ALIASES FROM HOME.F, ALIAS.ITEM ELSE ALIASES = NUL
+READ MACROS  FROM HOME.F, MACRO.ITEM ELSE MACROS  = NUL
 *
 * Build word completion list
 *
@@ -287,6 +290,10 @@ COMMAND:
   COMMAND.LIST = ANS
   COMMAND.COUNT = 1
   BEGIN CASE
+    CASE ANS='#?'
+      GOSUB LIST.MACROS
+    CASE ANS[1,1]='#' AND INDEX(ANS,'=',1)>0
+      GOSUB SET.MACRO.DIRECT
     CASE ANS[1,1] = SEARCH.NEXT.CHAR
       ANS=ANS[2,999]
       GOSUB SEARCH.NEXT
@@ -325,6 +332,7 @@ DO.COMMAND:
     * Only uppercase, expand aliases, expand prog chars for non-unix commands
     IF UPPER.FLAG THEN ANS = TRIM(UPCASE(ANS))
     IF ANS[1,5] # 'ALIAS' THEN GOSUB EXPAND.ALIASES
+    GOSUB EXPAND.MACROS
     GOSUB EXPAND.PROG.CHARS
   END
   IF ANS=UNIX THEN ANS=UNIX:DEF.SHELL ;* Entering ! is the same as !cmd or !bash -i
@@ -424,8 +432,9 @@ RETURN
 *
 WRITE.INFO:
   * Save everything when exiting
-  WRITE STACK ON HOME.F, STACK.ITEM
-  WRITE ALIASES ON HOME.F, ALIAS.ITEM
+  WRITE STACK    ON HOME.F, STACK.ITEM
+  WRITE ALIASES  ON HOME.F, ALIAS.ITEM
+  WRITE MACROS   ON HOME.F, MACRO.ITEM
   WRITE PROGRAMS ON HOME.F, PROGRAM.ITEM
   WRITE SETTINGS ON HOME.F, SETTING.ITEM
 RETURN
@@ -522,6 +531,56 @@ EXPAND.ALIASES:
     POS = POS + 1
   REPEAT
   SWAP @VM WITH SPC IN ANS
+RETURN
+
+EXPAND.MACROS:
+  * Expand #NAME occurrences (NAME = A-Z 0-9 _), single pass
+  POS=1
+  LOOP
+  I=INDEX(ANS,'#',POS)
+  UNTIL I=0 DO
+    * Skip standalone @ at start of recall or assignments (handled earlier)
+  IF I=1 AND (INDEX(ANS,'=',1)>0 OR ANS='#?') THEN RETURN
+    J=I+1 ; NAME=''
+    LOOP
+      CH=ANS[J,1]
+    UNTIL CH='' OR NOT((CH>='A' AND CH<='Z') OR (CH>='a' AND CH<='z') OR (CH>='0' AND CH<='9') OR CH='_') DO
+      NAME:=CH
+      J+=1
+    REPEAT
+    IF NAME='' THEN POS=I+1 ; CONTINUE
+    UNAME=UPCASE(NAME)
+    LOCATE UNAME IN MACROS<1> BY 'AL' SETTING P THEN
+      VALUE=MACROS<2,P>
+      ANS=ANS[1,I-1]:VALUE:ANS[J,LEN(ANS)]
+      POS=I+LEN(VALUE)
+    END ELSE
+      POS=J
+    END
+  REPEAT
+RETURN
+
+SET.MACRO.DIRECT:
+  * Define a macro via #NAME=VALUE syntax
+  EQPOS=INDEX(ANS,'=',1)
+  LEFT=ANS[1,EQPOS-1];RIGHT=ANS[EQPOS+1,LEN(ANS)]
+  NAME=TRIM(LEFT[2,LEN(LEFT)]) ; VALUE=RIGHT
+  IF NAME='' THEN PRINT 'Invalid macro name' ; RETURN
+  UNAME=UPCASE(NAME)
+  LOCATE UNAME IN MACROS<1> BY 'AL' SETTING P THEN
+    IF VALUE='' THEN DEL MACROS<1,P>;DEL MACROS<2,P> ELSE MACROS<2,P>=VALUE
+  END ELSE
+    IF VALUE # '' THEN INS UNAME BEFORE MACROS<1,P> ; INS VALUE BEFORE MACROS<2,P>
+  END
+  WRITE MACROS ON HOME.F, MACRO.ITEM
+  IF VALUE='' THEN PRINT '#':UNAME:' deleted' ELSE PRINT '#':UNAME:'=':VALUE
+RETURN
+
+LIST.MACROS:
+  IF MACROS='' THEN PRINT 'No macros defined' ; RETURN
+  FOR M=1 TO DCOUNT(MACROS<1>,@VM)
+  PRINT '#':MACROS<1,M>:'=':MACROS<2,M>
+  NEXT M
 RETURN
 *
 EXPAND.PROMPT:
