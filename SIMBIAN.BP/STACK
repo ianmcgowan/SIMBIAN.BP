@@ -2,11 +2,11 @@
 * Program: STACK
 * Author : Ian McGowan
 * Created: 1989-06-13
-* Updated: 2025-08-20
+* Updated: 2025-09-02
 * Comment: Stacks TCL commands, utilities for programmers
 ***************************************************************************
 $BASICTYPE "P"
-PRINT \Version 2025-08-20 Micro, Macro\
+PRINT \Version 2025-09-02 10KEY\
 *
 * STACK is a command line editor, command stack, program stack and useful utilites for TCL
 * It is designed to make life easier and more productive for programmers
@@ -57,6 +57,7 @@ STACK.HELP<-1>='ASCII       Show ASCII table                                    
 STACK.HELP<-1>='BPI         List table definitions                          BPI LS.CTD.PYMTHIST'
 STACK.HELP<-1>='CHECK.FILE  Show strings in a compiled program /P|/S      CHECK.FILE DISP.00 /P'
 STACK.HELP<-1>='CALC        Simple calculator, no precedence                     CALC 10.5 * 20'
+STACK.HELP<-1>='10KEY       Desk calculator with tape                          10KEY Calculator'
 STACK.HELP<-1>='CT          View data records, with labels         CT LS.MASTER 123-1234567-000'
 STACK.HELP<-1>='DDD         Search dictionary definitions                   DDD LS.MASTER EQUIP'
 STACK.HELP<-1>='DEPS        Show the dependency tree for a program       DEPS PROG or DEPS FILE'
@@ -342,7 +343,7 @@ DO.COMMAND:
   FIRST.WORD=FIELD(ANS,' ',1)
   COMMANDS='AF,ALIAS,ASCII,BPI,CCI,CCM,CHECK.FILE,CI,CM,CT,DDD,DESC,DIFF,EXPORT,FIELD,FIND.MENU,ICONV,KEYS,LIST.KEYS,SQL-LIST,LISTA,'
   COMMANDS:='MODULES,NED,NSEL,OCONV,OFF,PARAM,PICKLE,PIVOT,PROF,KEY.DEFAULTS,Q,RS,RULER,SE,SETTINGS,SF,SQL,SQLF,TM,TRAIN,XREF,CALC'
-  COMMANDS:=',DEPS,JOBS,SYSINFO'
+  COMMANDS:=',DEPS,JOBS,SYSINFO,10KEY'
   CONVERT ',' TO @VM IN COMMANDS
   LOCATE FIRST.WORD IN COMMANDS<1> SETTING INTERNAL.COMMAND ELSE INTERNAL.COMMAND=''
   *
@@ -353,7 +354,7 @@ DO.COMMAND:
             DO.EXPORT, IL10.FIELD, FIND.MENU, CONV, KEYS, LIST.KEYS, SQL.SEL.LIST, LISTA, LIST.MODULES,
             IL10.NED, IL10.NSEL, CONV, LOGOFF, LIST.PARAM, PICKLE, PIVOT, PROFILE, KEY.DEFAULTS, QUIT, RS,
             RULER, SEARCH.EXAMPLE, SETTINGS, SEARCH.FILE, SQL.SEL, SQL.FILE, TM, TRAIN, IL10.XREF, DO.CALC, DEPS, JOBS,
-            SYSINFO
+            SYSINFO, DO.TENKEY
     CASE ANS[1,1] = STACK.CHAR
       * E.g. .L .X20 .D
       ANS = TRIM(UPCASE(ANS))
@@ -1052,6 +1053,45 @@ DO.CALC:
     END CASE
   REPEAT
   PRINT 'Result = ':ACCUM
+RETURN
+*
+DO.TENKEY:
+  * Interactive desk calculator with running tape
+  OPS='+-*/'
+  PRINT '10KEY Desk Calculator'
+  PRINT 'Enter a number then operator, Q to quit, D2 to set 2 decimals default'
+  TOTAL=0 ; STEP.COUNT=0
+  PRINT ''
+  PRINT 'Step Running Total Number'
+  PRINT '---- ------------- ----------------'
+  LOOP
+    PRINT STEP.COUNT 'R#4':' ':TOTAL'MR2#13':' ':
+    X=21 ; ENTRY=NUL ; LEN=64 ; DISP.LEN=64
+    GOSUB GET.LINE
+  UNTIL UPCASE(ENTRY)='Q' OR ENTRY='/' DO
+    IF ENTRY='C' THEN
+      TOTAL=0 ; STEP.COUNT=0
+      PRINT '---- ------------- ----------------'
+      CONTINUE
+    END
+    INP=TRIM(ENTRY)
+    L=LEN(INP)
+    OP=INP[L,1]
+    IF INDEX(OPS,OP,1) THEN INP=INP[1,L-1] ELSE OP='+'
+    IF NOT(NUM(INP)) THEN PRINT 'Invalid entry. Enter number or Q to quit' ; CONTINUE
+    INP=ICONV(INP,'MR2')
+    BEGIN CASE
+      CASE OP='+'
+        TOTAL+=INP
+      CASE OP='-'
+        TOTAL-=INP
+      CASE OP='*'
+        TOTAL*=INP/100
+      CASE OP='/'
+        TOTAL/=INP/100
+    END CASE
+    STEP.COUNT+=1
+  REPEAT
 RETURN
 *
 DO.EXPORT:
