@@ -1023,7 +1023,7 @@ DO.TENKEY:
   * Interactive desk calculator with running tape
   OPS='+-*/'
   PRINT '10KEY Desk Calculator'
-  PRINT 'Enter a number then operator, C to clear, L to load tape, S to save tape, Q to quit'
+  PRINT 'Enter a number then operator, C to clear, D to delete tape, L to load tape, S to save tape, Q to quit'
   TOTAL=0 ; STEP.COUNT=0
   READ TAPE FROM HOME.F, TAPE.ITEM ELSE TAPE=NUL
   GOSUB TAPE.DISPLAY
@@ -1034,11 +1034,18 @@ DO.TENKEY:
   UNTIL UPCASE(ENTRY)='Q' OR ENTRY='/' DO
     BEGIN CASE
       CASE ENTRY='C'
-        TOTAL=0 ; STEP.COUNT=0
+        TOTAL=0
+        PRINT '---- ------------- ----------------'
+      CASE ENTRY='D'
+        TOTAL=0 ; TAPE=''
         PRINT '---- ------------- ----------------'
       CASE ENTRY='LIST'
-        EXEC.LINE=\sort STACK.HOME WITH @ID LIKE "IANMC.TAPE..." EVAL "@ID" FMT "20L" ID.SUP\
+        EXEC.LINE=\sselect STACK.HOME WITH @ID LIKE "IANMC.TAPE..."\
         GOSUB EXEC.SUB
+        LOOP
+          READNEXT ID ELSE EXIT
+          PRINT ID
+        REPEAT
         PRINT 'Press ENTER:': ; INPUT AAA
         GOSUB TAPE.DISPLAY
       CASE ENTRY[1,1]='L'
@@ -1052,7 +1059,7 @@ DO.TENKEY:
         INP=TRIM(ENTRY)
         L=LEN(INP)
         OP=INP[L,1]
-        IF INDEX(OPS,OP,1) THEN INP=INP[1,L-1] ELSE OP='+'
+        IF INDEX(OPS,OP,1) THEN INP=TRIM(INP[1,L-1]) ELSE OP='+'
         IF NOT(NUM(INP)) THEN PRINT 'Invalid entry. Enter number or Q to quit' ; CONTINUE
         BEGIN CASE
           CASE OP='+'
