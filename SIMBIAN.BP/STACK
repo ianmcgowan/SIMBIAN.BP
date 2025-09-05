@@ -2,11 +2,11 @@
 * Program: STACK
 * Author : Ian McGowan
 * Created: 1989-06-13
-* Updated: 2025-09-02
+* Updated: 2025-09-05
 * Comment: Stacks TCL commands, utilities for programmers
 ***************************************************************************
 $BASICTYPE "P"
-PRINT \Version 2025-09-02 10KEY\
+PRINT \Version 2025-09-05 10KEY\
 *
 * STACK is a command line editor, command stack, program stack and useful utilites for TCL
 * It is designed to make life easier and more productive for programmers
@@ -19,7 +19,6 @@ PRINT \Version 2025-09-02 10KEY\
 * 3) Program stack commands    - Manipulating the program stack, saves typing ED BP PROGRAM.NAME, just do /E3
 * 4) Internal utility commands - Utilities that are built into STACK that are useful for programmers in general
 * 5) InfoLease utilities       - Utilities that are useful for InfoLease programmers
-* 6) Custom utilities          - Functions that are specific to a customer
 *
 STACK.HELP=''
 STACK.HELP<-1>='--------------------- TCL STACK COMMANDS (vt100)-------------------------------'
@@ -87,9 +86,6 @@ STACK.HELP<-1>='SQLF        Run a SQL command from a file          SQLF /tmp/que
 STACK.HELP<-1>='SYSINFO     Information about the current environment                   SYSINFO'
 STACK.HELP<-1>='TRAIN       Teach STACK your key bindings interactively                   TRAIN'
 STACK.HELP<-1>='XREF        Show IL10 file/table metadata                        XREF LS.MASTER'
-STACK.HELP<-1>='                                                                               '
-STACK.HELP<-1>='---------------------------- CUSTOM UTILITIES ---------------------------------'
-STACK.HELP<-1>='JOBS        Search scheduler for a program/jobname         JOBS <search string>'
 *
 PROMPT ''
 EQUATE RET TO 13, ESC TO 27, NUL TO '',SPC TO ' ',TRUE TO 1, FALSE TO 0
@@ -141,6 +137,7 @@ ALIAS.ITEM  = USERNAME:'.ALIAS'   ;* Stores aliases for each user
 SETTING.ITEM= USERNAME:'.SETTING' ;* Stores settings for each user
 KEYMAP.ITEM = USERNAME:'.KEY'     ;* Stores key bindings for each user
 MACRO.ITEM  = USERNAME:'.MACRO'   ;* Stores macros (@X=VALUE) for each user
+TAPE.ITEM   = USERNAME:'.TAPE'    ;* Stores 10KEY tape for each user
 *
 SETTINGS      = ';'        ;* DEFAULT COMMAND SEPERATOR
 SETTINGS<2>   = '.'        ;* DEFAULT STACK CHAR
@@ -342,8 +339,8 @@ DO.COMMAND:
   CAP.ACTIVE=FALSE
   FIRST.WORD=FIELD(ANS,' ',1)
   COMMANDS='AF,ALIAS,ASCII,BPI,CCI,CCM,CHECK.FILE,CI,CM,CT,DDD,DESC,DIFF,EXPORT,FIELD,FIND.MENU,ICONV,KEYS,LIST.KEYS,SQL-LIST,LISTA,'
-  COMMANDS:='MODULES,NED,NSEL,OCONV,OFF,PARAM,PICKLE,PIVOT,PROF,KEY.DEFAULTS,Q,RS,RULER,SE,SETTINGS,SF,SQL,SQLF,TM,TRAIN,XREF,CALC'
-  COMMANDS:=',DEPS,JOBS,SYSINFO,10KEY'
+  COMMANDS:='MODULES,NED,NSEL,OCONV,OFF,PARAM,PICKLE,PIVOT,PROF,KEY.DEFAULTS,Q,RS,RULER,SE,SETTINGS,SF,SQL,SQLF,TM,TRAIN,XREF'
+  COMMANDS:=',DEPS,SYSINFO,10KEY'
   CONVERT ',' TO @VM IN COMMANDS
   LOCATE FIRST.WORD IN COMMANDS<1> SETTING INTERNAL.COMMAND ELSE INTERNAL.COMMAND=''
   *
@@ -353,7 +350,7 @@ DO.COMMAND:
       ON INTERNAL.COMMAND GOSUB ATB.FIND, DO.ALIAS, ASCII, BPI, CCI, CCM, CHECK.FILE, CI, CM, VIEW.RECORD, DDD, IL10.DESC, DIFF,
             DO.EXPORT, IL10.FIELD, FIND.MENU, CONV, KEYS, LIST.KEYS, SQL.SEL.LIST, LISTA, LIST.MODULES,
             IL10.NED, IL10.NSEL, CONV, LOGOFF, LIST.PARAM, PICKLE, PIVOT, PROFILE, KEY.DEFAULTS, QUIT, RS,
-            RULER, SEARCH.EXAMPLE, SETTINGS, SEARCH.FILE, SQL.SEL, SQL.FILE, TM, TRAIN, IL10.XREF, DO.CALC, DEPS, JOBS,
+            RULER, SEARCH.EXAMPLE, SETTINGS, SEARCH.FILE, SQL.SEL, SQL.FILE, TM, TRAIN, IL10.XREF, DEPS,
             SYSINFO, DO.TENKEY
     CASE ANS[1,1] = STACK.CHAR
       * E.g. .L .X20 .D
@@ -1022,76 +1019,74 @@ RETURN
 *******************************************************************************
 * INTERNAL UTILITY COMMANDS
 *******************************************************************************
-DO.CALC:
-  EXPR=TRIM(ANS[6,LEN(ANS)]) ; IF EXPR='' THEN PRINT 'Usage: CALC <expression>' ; RETURN
-  IF INDEX(EXPR,'(',1) OR INDEX(EXPR,')',1) THEN PRINT 'Parentheses not supported' ; RETURN
-  POS=1 ; L=LEN(EXPR)
-  SIGN=1 ; C=EXPR[POS,1] ; IF C='-' THEN SIGN=-1 ; POS+=1
-  START=POS
-  LOOP WHILE POS<=L AND (NUM(EXPR[POS,1]) OR EXPR[POS,1]='.') DO POS+=1 REPEAT
-  IF POS=START THEN PRINT 'Expected number at start' ; RETURN
-  ACCUM=SIGN*EXPR[START,POS-START]
-  LOOP
-    LOOP WHILE POS<=L AND EXPR[POS,1]=' ' DO POS+=1 REPEAT
-    IF POS> L THEN EXIT
-    OP=EXPR[POS,1]
-    IF INDEX('+-*/',OP,1)=0 THEN PRINT 'Expected operator at pos ':POS ; RETURN
-    POS+=1
-    LOOP WHILE POS<=L AND EXPR[POS,1]=' ' DO POS+=1 REPEAT
-    IF POS> L THEN PRINT 'Trailing operator' ; RETURN
-    SIGN=1 ; C=EXPR[POS,1]
-    IF C='-' THEN SIGN=-1 ; POS+=1 ; LOOP WHILE POS<=L AND EXPR[POS,1]=' ' DO POS+=1 REPEAT
-    START=POS
-    LOOP WHILE POS<=L AND (NUM(EXPR[POS,1]) OR EXPR[POS,1]='.') DO POS+=1 REPEAT
-    IF POS=START THEN PRINT 'Expected number after operator at pos ':POS ; RETURN
-    VAL=SIGN*EXPR[START,POS-START]
-    BEGIN CASE
-      CASE OP='+'; ACCUM=ACCUM+VAL
-      CASE OP='-'; ACCUM=ACCUM-VAL
-      CASE OP='*'; ACCUM=ACCUM*VAL
-      CASE OP='/'; IF VAL=0 THEN PRINT 'Divide by zero' ; RETURN ELSE ACCUM=ACCUM/VAL
-    END CASE
-  REPEAT
-  PRINT 'Result = ':ACCUM
-RETURN
-*
 DO.TENKEY:
   * Interactive desk calculator with running tape
   OPS='+-*/'
   PRINT '10KEY Desk Calculator'
-  PRINT 'Enter a number then operator, Q to quit, D2 to set 2 decimals default'
+  PRINT 'Enter a number then operator, C to clear, L to load tape, S to save tape, Q to quit'
   TOTAL=0 ; STEP.COUNT=0
+  READ TAPE FROM HOME.F, TAPE.ITEM ELSE TAPE=NUL
+  GOSUB TAPE.DISPLAY
+  LOOP
+    PRINT STEP.COUNT 'R#4':' ':TOTAL'MR2#13':' ':
+    X=19 ; ENTRY=NUL ; LEN=64 ; DISP.LEN=64
+    GOSUB GET.LINE
+  UNTIL UPCASE(ENTRY)='Q' OR ENTRY='/' DO
+    BEGIN CASE
+      CASE ENTRY='C'
+        TOTAL=0 ; STEP.COUNT=0
+        PRINT '---- ------------- ----------------'
+      CASE ENTRY='LIST'
+        EXEC.LINE=\sort STACK.HOME WITH @ID LIKE "IANMC.TAPE..." EVAL "@ID" FMT "20L" ID.SUP\
+        GOSUB EXEC.SUB
+        PRINT 'Press ENTER:': ; INPUT AAA
+        GOSUB TAPE.DISPLAY
+      CASE ENTRY[1,1]='L'
+        IF ENTRY='L' THEN TAPE.ITEM=USERNAME:'.TAPE.DEFAULT' ELSE TAPE.ITEM=USERNAME:'.TAPE.':FIELD(ENTRY,' ',2)
+        READ TAPE FROM HOME.F, TAPE.ITEM ELSE TAPE.ITEM=''
+        GOSUB TAPE.DISPLAY
+      CASE ENTRY[1,1]='S'
+        IF ENTRY='S' THEN TAPE.ITEM=USERNAME:'.TAPE.DEFAULT' ELSE TAPE.ITEM=USERNAME:'.TAPE.':FIELD(ENTRY,' ',2)
+        WRITE TAPE ON HOME.F, TAPE.ITEM
+      CASE 1
+        INP=TRIM(ENTRY)
+        L=LEN(INP)
+        OP=INP[L,1]
+        IF INDEX(OPS,OP,1) THEN INP=INP[1,L-1] ELSE OP='+'
+        IF NOT(NUM(INP)) THEN PRINT 'Invalid entry. Enter number or Q to quit' ; CONTINUE
+        BEGIN CASE
+          CASE OP='+'
+            INP=ICONV(INP,'MR2')
+            TOTAL+=INP
+          CASE OP='-'
+            INP=ICONV(INP,'MR2')
+            TOTAL-=INP
+          CASE OP='*'
+            TOTAL*=INP
+          CASE OP='/'
+            TOTAL/=INP
+        END CASE
+        STEP.COUNT+=1
+    END CASE
+    TAPE<1,-1>=DATE()
+    TAPE<2,-1>=TIME()
+    TAPE<3,-1>=ENTRY
+    TAPE<4,-1>=TOTAL
+    WRITE TAPE ON HOME.F, TAPE.ITEM
+  REPEAT
+RETURN
+*
+TAPE.DISPLAY:
+  PRINT ''
+  PRINT 'Tape:':TAPE.ITEM
   PRINT ''
   PRINT 'Step Running Total Number'
   PRINT '---- ------------- ----------------'
-  LOOP
-    PRINT STEP.COUNT 'R#4':' ':TOTAL'MR2#13':' ':
-    X=21 ; ENTRY=NUL ; LEN=64 ; DISP.LEN=64
-    GOSUB GET.LINE
-  UNTIL UPCASE(ENTRY)='Q' OR ENTRY='/' DO
-    IF ENTRY='C' THEN
-      TOTAL=0 ; STEP.COUNT=0
-      PRINT '---- ------------- ----------------'
-      CONTINUE
-    END
-    INP=TRIM(ENTRY)
-    L=LEN(INP)
-    OP=INP[L,1]
-    IF INDEX(OPS,OP,1) THEN INP=INP[1,L-1] ELSE OP='+'
-    IF NOT(NUM(INP)) THEN PRINT 'Invalid entry. Enter number or Q to quit' ; CONTINUE
-    INP=ICONV(INP,'MR2')
-    BEGIN CASE
-      CASE OP='+'
-        TOTAL+=INP
-      CASE OP='-'
-        TOTAL-=INP
-      CASE OP='*'
-        TOTAL*=INP/100
-      CASE OP='/'
-        TOTAL/=INP/100
-    END CASE
-    STEP.COUNT+=1
-  REPEAT
+  FOR STEP.COUNT=1 TO DCOUNT(TAPE<1>,@VM)
+    PRINT STEP.COUNT'R#4':' ':TAPE<4,STEP.COUNT>'MR2#13':' ':TAPE<3,STEP.COUNT>
+    IF TAPE<3,STEP.COUNT>='C' THEN PRINT '---- ------------- ----------------'
+    TOTAL=TAPE<4,STEP.COUNT>
+  NEXT STEP.COUNT
 RETURN
 *
 DO.EXPORT:
@@ -4284,76 +4279,6 @@ REMOVE.QUOTES:
       S=S[2,LEN(S)-2]
     END
   END
-RETURN
-*
-JOBS:
-  IF IL.MAJOR.VER#9 THEN PRINT 'Only works in IL9' ; RETURN
-  OPEN 'JOB.SCHEDULER' TO F.JOB.SCHEDULER ELSE PRINT 'JOB.SCHEDULER is not a file in this account' ; RETURN
-  OPEN 'JOB.SCHEDULER.TABLE' TO F.JOB.SCHEDULER.TABLE ELSE PRINT 'JOB.SCHEDULER.TABLE is not a file in this account' ; RETURN
-  SRCH=UPCASE(FIELD(ANS,' ',2))
-  OUTPUT.LIST=''
-  * Now figure out which job each task is part of (could be more than one!), and also if the job name matches, include all tasks
-  EXECUTE \SSELECT JOB.SCHEDULER\ CAPTURING DUMMY
-  LOOP
-    READNEXT ID ELSE EXIT
-    IF INDEX(UPCASE(ID),SRCH,1) THEN JOB.MATCHED=1 ELSE JOB.MATCHED=0
-    READ REC FROM F.JOB.SCHEDULER, ID ELSE CONTINUE
-    FOR J=1 TO DCOUNT(REC<1>,@VM)
-      TASK=REC<1,J>
-      DB=REC<2,J>
-      FQ=REC<3,J>
-      PH=REC<4,J>
-      LAST.RUN.DATE=REC<9>
-      LAST.RUN.TIME=REC<10>
-      READ TASK.REC FROM F.JOB.SCHEDULER.TABLE, TASK THEN
-        TASK.DESC=CONVERT(@VM,'|',TASK.REC<1>)
-        TASK.CMD=CONVERT(@VM,'|',TASK.REC<2>)
-      END ELSE
-        TASK.DESC='Unknown'
-        TASK.CMD='N/A'
-      END
-      IF INDEX(UPCASE(TASK.REC),SRCH,1) THEN TASK.MATCHED=1 ELSE TASK.MATCHED=0
-      IF JOB.MATCHED OR TASK.MATCHED THEN
-        OUTPUT.LIST<-1>=ID:@VM:TASK:@VM:DB:@VM:FQ:@VM:PH:@VM:LAST.RUN.DATE:@VM:LAST.RUN.TIME:@VM:TASK.DESC:@VM:TASK.CMD:@VM:J
-      END
-    NEXT J
-  REPEAT
-  *
-  GOSUB GET.TERM.WIDTH
-  BEGIN CASE
-    CASE TERM.WIDTH <= 80
-      MSK='L#15'
-    CASE TERM.WIDTH <= 132
-      MSK='L#41'
-    CASE 1
-      MSK='L#50'
-  END CASE
-  HDR='###':' ':'JOB' 'L#8':' ':'TASK#''L#5':' ':'TASK DESC' MSK:' ':'TASK CMD' MSK:' ':'DB' 'L#2':' ':'FQ' 'L#2':' '
-  HDR:='PH' 'L#2':' ':'LAST DATE' 'R#10':' ':'TIME' 'R#5':' ':'POS'
-  LOOP
-    PRINT @(-1):HDR
-    FOR J=1 TO DCOUNT(OUTPUT.LIST,@AM)
-      PRINT J'R#3':' ':
-      PRINT OUTPUT.LIST<J,1>'L#8':' ':
-      PRINT OUTPUT.LIST<J,2>'L#5' :' ':
-      PRINT OUTPUT.LIST<J,8>MSK:' ':
-      PRINT OUTPUT.LIST<J,9>MSK:' ':
-      PRINT OUTPUT.LIST<J,3>'L#2' :' ':
-      PRINT OUTPUT.LIST<J,4>'L#2' :' ':
-      PRINT OUTPUT.LIST<J,5>'L#2' :' ':
-      PRINT FMT(OUTPUT.LIST<J,6>'D4/','R#10'):' ':
-      PRINT FMT(OUTPUT.LIST<J,7>'MT','R#5'):' ':
-      PRINT OUTPUT.LIST<J,10>'R#3'
-    NEXT J
-    PRINT
-    PRINT 'DB=C-Current,P-Post Batch,M-Monthend'
-    PRINT 'FQ=B-Both,D=Daily,M-Monthly,O-One Time'
-    PRINT 'Enter # to view, / to exit:':
-    INPUT N
-    IF N='' OR N='/' THEN EXIT
-    DATA OUTPUT.LIST<N,1>
-    EXECUTE \JOB.SCHEDULER.MAINT\
-  REPEAT
 RETURN
 *
 INFOLEASE.CHECK:
