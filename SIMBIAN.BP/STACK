@@ -1003,7 +1003,7 @@ DO.TENKEY:
             TOTAL-=INP
           CASE OP='*'
             TOTAL*=INP
-          CASE OP='/'
+          CASE OP='/' AND INP+0 # 0
             TOTAL/=INP
         END CASE
         STEP.COUNT+=1
