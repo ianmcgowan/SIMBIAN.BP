@@ -55,7 +55,6 @@ STACK.HELP<-1>='AF          ATB Finder, search definitions                      
 STACK.HELP<-1>='ASCII       Show ASCII table                                              ASCII'
 STACK.HELP<-1>='BPI         List table definitions                          BPI LS.CTD.PYMTHIST'
 STACK.HELP<-1>='CHECK.FILE  Show strings in a compiled program /P|/S      CHECK.FILE DISP.00 /P'
-STACK.HELP<-1>='CALC        Simple calculator, no precedence                     CALC 10.5 * 20'
 STACK.HELP<-1>='10KEY       Desk calculator with tape                          10KEY Calculator'
 STACK.HELP<-1>='CT          View data records, with labels         CT LS.MASTER 123-1234567-000'
 STACK.HELP<-1>='DDD         Search dictionary definitions                   DDD LS.MASTER EQUIP'
