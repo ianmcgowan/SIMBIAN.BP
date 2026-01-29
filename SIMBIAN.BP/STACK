@@ -2,11 +2,11 @@
 * Program: STACK
 * Author : Ian McGowan
 * Created: 1989-06-13
-* Updated: 2025-09-19
+* Updated: 2026-01-29
 * Comment: Stacks TCL commands, utilities for programmers
 ***************************************************************************
 $BASICTYPE "P"
-PRINT \Version 2025-09-19 EX-ALIAS\
+PRINT \Version 2026-01-29 View to a Kill\
 *
 * STACK is a command line editor, command stack, program stack and useful utilites for TCL
 * It is designed to make life easier and more productive for programmers
@@ -2743,22 +2743,30 @@ RETURN
 *
 VIEW.RECORD:
   * View a record in a file, showing field names and values
-  IF IL.MAJOR.VER='' THEN PRINT 'Only works in IL' ; RETURN
+  * If the file is an InfoLease file, this will show field names, otherwise just field positions
   FILE.NAME=FIELD(ANS,' ',2)
-  CALL FILE.OPEN.OK(FILE.NAME, F.FILE, FILE.OPEN.OK)
-  IF NOT(FILE.OPEN.OK) THEN PRINT 'Error opening ':FILE.NAME ; RETURN
+  IF IL.MAJOR.VER#'' THEN
+    CALL FILE.OPEN.OK(FILE.NAME, F.FILE, FILE.OPEN.OK)
+    IF NOT(FILE.OPEN.OK) THEN PRINT 'Error opening ':FILE.NAME ; RETURN
+  END ELSE
+    OPEN FILE.NAME TO F.FILE ELSE PRINT 'Error opening ':FILE.NAME ; RETURN
+  END
   R.ID=FIELD(ANS,' ',3)
-  GOSUB GET.FILE.METADATA
+  IF IL.MAJOR.VER#'' THEN
+    GOSUB GET.FILE.METADATA
+  END ELSE
+    FILE.META='' ; BPI='' ; TABLE.NAME=''
+  END
   MAT RECORD.DATA='' ; RECORDS='' ; FLD=3 ; REC.NO=1 ; MAX.REC.COUNT=0
   LOOP
     R.ID=FIELD(ANS,' ',FLD)
   UNTIL R.ID='' DO
     RECORDS<-1>=R.ID
-    IF IL.MAJOR.VER=9 THEN
-      READ R1 FROM F.FILE, R.ID ELSE PRINT 'Cannot read ':FILE.NAME:' ':R.ID ; RETURN
-    END ELSE
+    IF IL.MAJOR.VER=10 THEN
       CALL IDS.READ(R1, F.FILE, R.ID, 0, 0, BCI.ERROR)
       IF BCI.ERROR # '' THEN PRINT BCI.ERROR:' ':R.ID ; RETURN
+    END ELSE
+      READ R1 FROM F.FILE, R.ID ELSE PRINT 'Cannot read ':FILE.NAME:' ':R.ID ; RETURN
     END
     RECORD.DATA(REC.NO)=R1
     MAX.REC.NO=REC.NO
@@ -2779,10 +2787,20 @@ VIEW.RECORD:
     FOR REC.NO=1 TO MAX.REC.NO
       VALUE=RECORD.DATA(REC.NO)<I>
       GOSUB VIEW.RECORD.ATB
+      IF VALUE#OCONV(VALUE,'MCP') THEN GOSUB SHOW.CONTROL.CHARS
       PRINT '|':VALUE[1,COL.WID]:SPACE(COL.WID-LEN(VALUE)):
     NEXT REC.NO
     PRINT ''
   NEXT I
+RETURN
+*
+SHOW.CONTROL.CHARS:
+  NEW.VALUE=''
+  FOR C=1 TO LEN(VALUE)
+    CH=VALUE[C,1]
+    IF SEQ(CH)<32 OR SEQ(CH)>126 THEN NEW.VALUE:='^':SEQ(CH)'R%3' ELSE NEW.VALUE:=CH
+  NEXT C
+  VALUE=NEW.VALUE
 RETURN
 *
 VIEW.RECORD.ATB:
