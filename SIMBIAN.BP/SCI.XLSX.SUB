@@ -1,0 +1,365 @@
+SUBROUTINE SCI.XLSX.SUB(INPUT.FILE.NAME, STYLES, FORMATS, FILE.NAME)
+***************************************************************************
+* Program: SCI.XLSX.SUB
+* Author : MCGOWJ01 / GCLI
+* Date   : 2020-06-17
+* Edited : 2026-06-15
+* Comment: Convert an array of delimited files into a multi-sheet workbook.
+***************************************************************************
+* 2020-07-07:JIM:Style tweaks
+* 2020-06-12:JIM:Read from a file
+* 2026-06-15:GCLI:Added multi-sheet support from an array of files.
+* SEE: https://blogs.msdn.microsoft.com/brian_jones/2006/11/02/simple-spreadsheetml-file-part-1-of-3/
+*      http://polymathprogrammer.com/2010/01/11/custom-column-widths-in-excel-open-xml/
+*
+OUTPUT.DIR='_XML_/':FILE.NAME
+EXCEL.NAME=FILE.NAME:'.xlsx'
+* Create the empty dir structure in _XML_ - adjust based on system
+EXECUTE '!rm -rf ':OUTPUT.DIR
+EXECUTE '!mkdir ':OUTPUT.DIR
+EXECUTE '!mkdir ':OUTPUT.DIR:'/_rels'
+EXECUTE '!mkdir ':OUTPUT.DIR:'/xl'
+EXECUTE '!mkdir ':OUTPUT.DIR:'/xl/_rels'
+EXECUTE '!mkdir ':OUTPUT.DIR:'/xl/worksheets'
+*
+CONTROL.CHARS=''
+FOR CHARACTER = 127 TO 249
+  CONTROL.CHARS:=CHAR(CHARACTER)
+NEXT CHARACTER
+*
+NUM.FILES = DCOUNT(INPUT.FILE.NAME, @AM)
+SHEET.NAMES = ""
+USED.NAMES = ""
+*
+* Process each file as a separate worksheet
+FOR FILE.IDX = 1 TO NUM.FILES
+  CURR.INPUT.FILE = INPUT.FILE.NAME<FILE.IDX>
+  GOSUB GET.SHEET.NAME
+  SHEET.NAMES<FILE.IDX> = SHEET.NAME
+  *
+  OUTPUT.FILE.NAME = OUTPUT.DIR:'/xl/worksheets/sheet':FILE.IDX:'.xml'
+  GOSUB OPEN.FILE
+  GOSUB WRITE.WORKSHEET.HEADER
+  *
+  ROW.COUNT = 1
+  OPENSEQ CURR.INPUT.FILE TO INPUT.F ELSE STOP 'CANNOT OPEN INPUT FILE ':CURR.INPUT.FILE
+  LOOP
+    READSEQ ROW FROM INPUT.F ELSE EXIT
+    GOSUB XLS.BODY
+    ROW.COUNT += 1
+  REPEAT
+  CLOSESEQ INPUT.F
+  *
+  GOSUB WRITE.WORKSHEET.FOOTER
+  CLOSE OUTPUT.F
+NEXT FILE.IDX
+*
+* Generate central workbook metadata
+GOSUB WRITE.CONTENT.TYPES
+GOSUB WRITE.RELS
+GOSUB WRITE.WORKBOOK.RELS
+GOSUB WRITE.STYLES
+GOSUB WRITE.WORKBOOK
+*
+EXECUTE '!cd ':OUTPUT.DIR:' ; zip -r ':EXCEL.NAME:' *' CAPTURING DUMMY
+RETURN
+*
+XLS.BODY:
+  LINE=\<x:row ht="20" customHeight="1">\
+  GOSUB WRITE.LINE
+  FOR C=1 TO DCOUNT(ROW<1>,@VM)
+    CELL=ROW<1,C>
+    IF NUM.FILES > 1 THEN
+      STYLE = STYLES<FILE.IDX, ROW.COUNT, C>
+      FORMAT = FORMATS<FILE.IDX, ROW.COUNT, C>
+    END ELSE
+      STYLE = STYLES<ROW.COUNT, C>
+      FORMAT = FORMATS<ROW.COUNT, C>
+    END
+    GOSUB URL.ENCODE.CELL
+    
+    * Check if it's a valid date using STATUS()
+    IS.DATE = 0
+    IF FORMAT[1,1] = 'D' AND CELL # '' THEN
+      TEMP.DATE = ICONV(CELL, 'D')
+      IF STATUS() = 0 THEN
+        IS.DATE = 1
+        CELL = TEMP.DATE + 24837 ;* 12/31/1967-12/31/1899=24837
+      END
+    END
+    
+    BEGIN CASE
+      CASE IS.DATE
+        IF STYLE # "" THEN STYLE=\s="\:STYLE:\" \ ELSE STYLE=\s="4" \
+        LINE='<x:c ':STYLE:'><x:v>':CELL:'</x:v></x:c>'
+      CASE FORMAT[1,2]='MD' OR FORMAT[1,2]='MR'     ;* Number
+        CONVERT ',' TO '' IN CELL
+        * Normalize trailing minus sign if any
+        IF CELL[LEN(CELL), 1] = '-' THEN
+          CELL = '-' : CELL[1, LEN(CELL)-1]
+        END
+        * Normalize parentheses if any
+        IF CELL[1,1] = '(' AND CELL[LEN(CELL),1] = ')' THEN
+          CELL = '-' : CELL[2, LEN(CELL)-2]
+        END
+        IF STYLE # "" THEN
+          STYLE = \s="\:STYLE:\" \
+        END ELSE
+          IF FORMAT[3,1] = '4' THEN STYLE = \s="1" \ ELSE STYLE = \s="2" \
+        END
+        IF CELL = "" THEN
+          LINE = '<x:c ':STYLE:'/>'
+        END ELSE
+          LINE = '<x:c ':STYLE:'><x:v>':CELL:'</x:v></x:c>'
+        END
+      CASE 1 ;* String is default type
+        IF CELL[1,1]='+' THEN CELL=CELL[2,LEN(CELL)] ;* Excel thinks this is a formula
+        IF STYLE # "" THEN STYLE=\s="\:STYLE:\" \
+        LINE='<x:c ':STYLE:'t="str"><x:v>':CELL:'</x:v></x:c>'
+    END CASE
+    GOSUB WRITE.LINE
+  NEXT C
+  LINE='</x:row>'
+  GOSUB WRITE.LINE
+RETURN
+*
+URL.ENCODE.CELL:
+  * Certain characters not allowed in XML - escape them
+  CONVERT CONTROL.CHARS TO '' IN CELL ;* Zap unicode/other code pages
+  SWAP '&' WITH '&amp;' IN CELL
+  SWAP '<' WITH '&lt;'  IN CELL
+  SWAP '>' WITH '&gt;'  IN CELL
+  CELL=TRIM(CELL);* No benefit to leading or trailing spaces
+RETURN
+*
+GET.SHEET.NAME:
+  * Extract base file name from path
+  SHEET.NAME = FIELD(CURR.INPUT.FILE, '/', DCOUNT(CURR.INPUT.FILE, '/'))
+  SHEET.NAME = FIELD(SHEET.NAME, '.', 1)
+  * Remove illegal Excel sheet characters
+  CONVERT '\/?*[]:' TO '' IN SHEET.NAME
+  IF LEN(SHEET.NAME) > 31 THEN SHEET.NAME = SHEET.NAME[1,31]
+  SHEET.NAME = TRIM(SHEET.NAME)
+  IF SHEET.NAME = '' THEN SHEET.NAME = 'Sheet':FILE.IDX
+  *
+  * Ensure uniqueness within the workbook
+  ORIG.SHEET.NAME = SHEET.NAME
+  SUFFIX.IDX = 1
+  FOUND = 1
+  LOOP WHILE FOUND
+    LOCATE SHEET.NAME IN USED.NAMES<1, 1> SETTING POS THEN
+      SUFFIX = SUFFIX.IDX
+      LEN.SUFFIX = LEN(SUFFIX)
+      IF LEN(ORIG.SHEET.NAME) + LEN.SUFFIX > 31 THEN
+        SHEET.NAME = ORIG.SHEET.NAME[1, 31 - LEN.SUFFIX] : SUFFIX
+      END ELSE
+        SHEET.NAME = ORIG.SHEET.NAME : SUFFIX
+      END
+      SUFFIX.IDX += 1
+    END ELSE
+      FOUND = 0
+    END
+  REPEAT
+  USED.NAMES<1,-1> = SHEET.NAME
+RETURN
+*
+WRITE.WORKSHEET.HEADER:
+  L='<?xml version="1.0"?>'
+  L<-1>='<x:worksheet xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+  L<-1>='  <x:sheetData>'
+  GOSUB WRITE.LINES
+RETURN
+*
+WRITE.WORKSHEET.FOOTER:
+  L='  </x:sheetData>'
+  L<-1>='  <x:pageMargins left="0.50" right="0.50" top="0.25" bottom="1.0" header="0" footer="0"/>'
+  L<-1>='  <x:pageSetup paperSize="9" orientation="portrait"/>'
+  L<-1>='  <x:headerFooter>'
+  L<-1>='    <x:oddFooter>&amp;RPage &amp;P</x:oddFooter>'
+  L<-1>='  </x:headerFooter>'
+  L<-1>='</x:worksheet>'
+  GOSUB WRITE.LINES
+RETURN
+*
+WRITE.CONTENT.TYPES:
+  OUTPUT.FILE.NAME=OUTPUT.DIR:'/[Content_Types].xml'
+  GOSUB OPEN.FILE
+  L='<?xml version="1.0" encoding="utf-8"?>'
+  L<-1>='<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+  L<-1>='  <Default ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml" Extension="xml"/>'
+  L<-1>='  <Default ContentType="application/vnd.openxmlformats-package.relationships+xml" Extension="rels"/>'
+  FOR FILE.IDX = 1 TO NUM.FILES
+    L<-1>='  <Override ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml" PartName="/xl/worksheets/sheet':FILE.IDX:'.xml"/>'
+  NEXT FILE.IDX
+  L<-1>='  <Override ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml" PartName="/xl/styles.xml"/>'
+  L<-1>='</Types>'
+  GOSUB WRITE.LINES
+  CLOSE OUTPUT.F
+RETURN
+*
+WRITE.RELS:
+  OUTPUT.FILE.NAME=OUTPUT.DIR:'/_rels/.rels'
+  GOSUB OPEN.FILE
+  L='<?xml version="1.0" encoding="utf-8"?>'
+  L<-1>='<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+  L<-1>='  <Relationship Id="Rb5834f0a9fe74ac0" Target="/xl/workbook.xml" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument"/>'
+  L<-1>='</Relationships>'
+  GOSUB WRITE.LINES
+  CLOSE OUTPUT.F
+RETURN
+*
+WRITE.WORKBOOK.RELS:
+  OUTPUT.FILE.NAME=OUTPUT.DIR:'/xl/_rels/workbook.xml.rels'
+  GOSUB OPEN.FILE
+  L='<?xml version="1.0" encoding="utf-8"?>'
+  L<-1>='<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+  FOR FILE.IDX = 1 TO NUM.FILES
+    L<-1>='  <Relationship Id="rId':FILE.IDX:'" Target="/xl/worksheets/sheet':FILE.IDX:'.xml" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet"/>'
+  NEXT FILE.IDX
+  L<-1>='  <Relationship Id="rIdStyle" Target="/xl/styles.xml" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles"/>'
+  L<-1>='</Relationships>'
+  GOSUB WRITE.LINES
+  CLOSE OUTPUT.F
+RETURN
+*
+WRITE.STYLES:
+  OUTPUT.FILE.NAME=OUTPUT.DIR:'/xl/styles.xml'
+  GOSUB OPEN.FILE
+  L='<?xml version="1.0" encoding="utf-8"?>'
+  L<-1>='<x:styleSheet xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+  L<-1>='    <x:numFmts count="5">'
+  L<-1>='        <x:numFmt formatCode="dd/mm/yyyy" numFmtId="164"/>'
+  L<-1>='        <x:numFmt formatCode="#,##0.0000" numFmtId="165"/>'
+  L<-1>='        <x:numFmt formatCode="#,##0.00" numFmtId="166"/>'
+  L<-1>='        <x:numFmt formatCode="@" numFmtId="167"/>'
+  L<-1>='        <x:numFmt formatCode="mm/dd/yyyy" numFmtId="168"/>'
+  L<-1>='    </x:numFmts>'
+  L<-1>='    <x:fonts count="6">'
+  L<-1>='        <x:font>'
+  L<-1>='            <x:sz val="11"/>'
+  L<-1>='            <x:name val="Calibri"/>'
+  L<-1>='        </x:font>'
+  L<-1>='        <x:font>'
+  L<-1>='            <x:b/>'
+  L<-1>='            <x:sz val="11"/>'
+  L<-1>='            <x:name val="Calibri"/>'
+  L<-1>='        </x:font>'
+  L<-1>='        <x:font>'
+  L<-1>='            <x:b/>'
+  L<-1>='            <x:sz val="8"/>'
+  L<-1>='            <x:color rgb="000000"/>'
+  L<-1>='            <x:name val="Calibri"/>'
+  L<-1>='        </x:font>'
+  L<-1>='        <x:font>'
+  L<-1>='            <x:sz val="7"/>'
+  L<-1>='            <x:b/>'
+  L<-1>='            <x:name val="Times New Roman"/>'
+  L<-1>='        </x:font>'
+  L<-1>='        <x:font>'
+  L<-1>='            <x:sz val="11"/>'
+  L<-1>='            <x:name val="Calibri"/>'
+  L<-1>='        </x:font>'
+  L<-1>='        <x:font>'
+  L<-1>='            <x:b/>'
+  L<-1>='            <x:u/>'
+  L<-1>='            <x:sz val="11"/>'
+  L<-1>='            <x:name val="Calibri"/>'
+  L<-1>='        </x:font>'
+  L<-1>='    </x:fonts>'
+  L<-1>='    <x:fills count="3">'
+  L<-1>='        <x:fill>'
+  L<-1>='            <x:patternFill patternType="none"/>'
+  L<-1>='        </x:fill>'
+  L<-1>='        <x:fill>'
+  L<-1>='            <x:patternFill patternType="gray125"/>'
+  L<-1>='        </x:fill>'
+  L<-1>='        <x:fill>'
+  L<-1>='            <x:patternFill patternType="solid">'
+  L<-1>='                <x:fgColor tint="0.79998168889431442"/>'
+  L<-1>='                <x:bgColor indexed="64"/>'
+  L<-1>='            </x:patternFill>'
+  L<-1>='        </x:fill>'
+  L<-1>='    </x:fills>'
+  L<-1>='    <x:borders count="2">'
+  L<-1>='        <x:border>'
+  L<-1>='            <x:left/>'
+  L<-1>='            <x:right/>'
+  L<-1>='            <x:top/>'
+  L<-1>='            <x:bottom/>'
+  L<-1>='            <x:diagonal/>'
+  L<-1>='        </x:border>'
+  L<-1>='        <x:border>'
+  L<-1>='          <x:left/>'
+  L<-1>='          <x:right/>'
+  L<-1>='          <x:top/>'
+  L<-1>='          <x:bottom style="thin">'
+  L<-1>='            <x:color indexed="64"/>'
+  L<-1>='          </x:bottom>'
+  L<-1>='          <x:diagonal/>'
+  L<-1>='        </x:border>'
+  L<-1>='    </x:borders>'
+  L<-1>='    <x:cellStyleXfs count="1">'
+  L<-1>='        <x:xf borderId="0" fillId="0" fontId="0" numFmtId="0"/>'
+  L<-1>='    </x:cellStyleXfs>'
+  L<-1>='    <x:cellXfs count="13">'
+  L<-1>='        <x:xf applyNumberFormat="1" borderId="0" fillId="0" fontId="0" numFmtId="164" xfId="0" applyAlignment="1"><x:alignment horizontal="right"/></x:xf>'
+  L<-1>='        <x:xf applyNumberFormat="1" borderId="0" fillId="0" fontId="0" numFmtId="165" xfId="0" applyAlignment="1"><x:alignment horizontal="right"/></x:xf>'
+  L<-1>='        <x:xf applyNumberFormat="1" borderId="0" fillId="0" fontId="0" numFmtId="166" xfId="0" applyAlignment="1"><x:alignment horizontal="right"/></x:xf>'
+  L<-1>='        <x:xf applyNumberFormat="1" borderId="0" fillId="0" fontId="0" numFmtId="167" xfId="0"/>'
+  L<-1>='        <x:xf applyNumberFormat="1" borderId="0" fillId="0" fontId="0" numFmtId="168" xfId="0"/>'
+  L<-1>='        <x:xf applyNumberFormat="0" borderId="0" fillId="0" fontId="1" numFmtId="167" xfId="0" applyAlignment="1"><x:alignment horizontal="right"/></x:xf>'
+  L<-1>='        <x:xf applyNumberFormat="1" borderId="0" fillId="0" fontId="2" numFmtId="167" xfId="0"/>'
+  L<-1>='        <x:xf applyNumberFormat="0" borderId="0" fillId="0" fontId="3" numFmtId="167" xfId="0"/>'
+  L<-1>='        <x:xf applyNumberFormat="0" borderId="0" fillId="0" fontId="4" numFmtId="167" xfId="0" applyAlignment="1"><x:alignment horizontal="left"/></x:xf>'
+  L<-1>='        <x:xf applyNumberFormat="0" borderId="0" fillId="0" fontId="1" numFmtId="167" xfId="0" applyAlignment="1"><x:alignment horizontal="center"/></x:xf>'
+  L<-1>='        <x:xf applyNumberFormat="1" borderId="0" fillId="0" fontId="4" numFmtId="164" xfId="0" applyAlignment="1"><x:alignment horizontal="center"/></x:xf>'
+  L<-1>='        <x:xf applyNumberFormat="0" borderId="0" fillId="0" fontId="5" numFmtId="167" xfId="0" applyAlignment="1"><x:alignment horizontal="left"/></x:xf>'
+  L<-1>='        <x:xf applyNumberFormat="0" borderId="0" fillId="0" fontId="0" numFmtId="167" xfId="0" applyAlignment="1"><x:alignment horizontal="center"/></x:xf>'
+  L<-1>='    </x:cellXfs>'
+  L<-1>='    <x:cellStyles count="1">'
+  L<-1>='        <x:cellStyle builtinId="0" name="Normal" xfId="0"/>'
+  L<-1>='    </x:cellStyles>'
+  L<-1>='    <x:dxfs count="0"/>'
+  L<-1>='    <x:tableStyles count="0" defaultPivotStyle="PivotStyleLight16" defaultTableStyle="TableStyleMedium9"/>'
+  L<-1>='</x:styleSheet>'
+  GOSUB WRITE.LINES
+  CLOSE OUTPUT.F
+RETURN
+*
+WRITE.WORKBOOK:
+  OUTPUT.FILE.NAME=OUTPUT.DIR:'/xl/workbook.xml'
+  GOSUB OPEN.FILE
+  L='<?xml version="1.0" encoding="utf-8"?>'
+  L<-1>='<x:workbook xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+  L<-1>='  <x:fileVersion appName="Microsoft Office Excel"/>'
+  L<-1>='  <x:sheets>'
+  FOR FILE.IDX = 1 TO NUM.FILES
+    L<-1>='    <x:sheet name="':SHEET.NAMES<FILE.IDX>:'" r:id="rId':FILE.IDX:'" sheetId="':FILE.IDX:'"/>'
+  NEXT FILE.IDX
+  L<-1>='  </x:sheets>'
+  L<-1>='  <x:definedNames>'
+  FOR FILE.IDX = 1 TO NUM.FILES
+    L<-1>='    <x:definedName name="_xlnm.Print_Titles" localSheetId="':(FILE.IDX - 1):'">':SHEET.NAMES<FILE.IDX>:'!$1:$13</x:definedName>'
+  NEXT FILE.IDX
+  L<-1>='  </x:definedNames>'
+  L<-1>='</x:workbook>'
+  GOSUB WRITE.LINES
+  CLOSE OUTPUT.F
+RETURN
+*
+OPEN.FILE:
+  EXECUTE '!rm -f ':OUTPUT.FILE.NAME
+  EXECUTE '!touch ':OUTPUT.FILE.NAME
+  OPENSEQ OUTPUT.FILE.NAME TO OUTPUT.F ELSE STOP 'CANNOT OPEN ':OUTPUT.FILE.NAME
+RETURN
+*
+WRITE.LINES:
+  FOR R=1 TO DCOUNT(L,@AM)
+    LINE=L<R>
+    GOSUB WRITE.LINE
+  NEXT R
+RETURN
+*
+WRITE.LINE:
+  WRITESEQ LINE:CHAR(13) APPEND ON OUTPUT.F ELSE STOP 'ERROR WRITING ':FILE.NAME
+RETURN
