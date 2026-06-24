@@ -2,18 +2,18 @@
 * Program: STACK
 * Author : Ian McGowan
 * Created: 1989-06-13
-* Updated: 2026-01-29
+* Updated: 2026-06-24
 * Comment: Stacks TCL commands, utilities for programmers
 ***************************************************************************
 $BASICTYPE "P"
-PRINT \Version 2026-01-29 View to a Kill\
+PRINT \Version 2026-06-24 View to a Kill\
 *
 * STACK is a command line editor, command stack, program stack and useful utilites for TCL
 * It is designed to make life easier and more productive for programmers
 * It is a single program, so it can be used on any Unidata system, and is easy to install
 * The only dependency is the ability to create STACK.HOME in the account, or a QPTR to a file in a central location
 *
-* STACK functions can be divided into 6 categories:
+* STACK functions can be divided into 5 categories:
 * 1) Line editing commands     - Editing the current command line, aims to be bash-like, allows custom key bindings
 * 2) Command stack commands    - Manipulating the command stack, like .L, .X in TCL - fewer options, since you can edit the stack
 * 3) Program stack commands    - Manipulating the program stack, saves typing ED BP PROGRAM.NAME, just do /E3
@@ -49,13 +49,13 @@ STACK.HELP<-1>='/Ex         Edit the x`th program      /WW              Edit the
 STACK.HELP<-1>='/Wx         VI the x`th program        /S               Sort the program stack '
 STACK.HELP<-1>='/Bx         Compile the x`th program   /BR              Compile and run        '
 STACK.HELP<-1>='                                                                               '
-STACK.HELP<-1>='---------------------------- INFOLEASE UTILITIES ------------------------------'
+STACK.HELP<-1>='------------------------------ UTILITIES --------------------------------------'
 STACK.HELP<-1>='{C}CI/CM/TM {Customer}Contract Inquiry/Maint/Table Maint             CI 100.1.1'
 STACK.HELP<-1>='AF          ATB Finder, search definitions                            AF MRKTNG'
 STACK.HELP<-1>='ASCII       Show ASCII table                                              ASCII'
 STACK.HELP<-1>='BPI         List table definitions                          BPI LS.CTD.PYMTHIST'
 STACK.HELP<-1>='CHECK.FILE  Show strings in a compiled program /P|/S      CHECK.FILE DISP.00 /P'
-STACK.HELP<-1>='10KEY       Desk calculator with tape                          10KEY Calculator'
+STACK.HELP<-1>='CALC        Desk calculator with tape                                      CALC'
 STACK.HELP<-1>='CT          View data records, with labels         CT LS.MASTER 123-1234567-000'
 STACK.HELP<-1>='DDD         Search dictionary definitions                   DDD LS.MASTER EQUIP'
 STACK.HELP<-1>='DEPS        Show the dependency tree for a program       DEPS PROG or DEPS FILE'
@@ -109,7 +109,7 @@ OPEN 'CTLGTB' TO CTLGTB ELSE STOP 201,'CTLGTB' ;* Global catalog
 OPEN 'CTLG'   TO CTLG   ELSE STOP 201,'CTLG'   ;* Local catalog
 *
 USERNAME=UPCASE(@LOGNAME)
-HOME.FILE   = 'STACK.HOME'        ;* Everything is stored in this file
+HOME.FILE = 'STACK.HOME'        ;* Everything is stored in this file
 OPEN HOME.FILE TO FVAR ELSE
   PRINT 'VOC STACK.HOME not found: 1) Create, 2) Link:':
   INPUT OPT
@@ -336,7 +336,7 @@ DO.COMMAND:
   FIRST.WORD=FIELD(ANS,' ',1)
   COMMANDS='AF,ASCII,BPI,CCI,CCM,CHECK.FILE,CI,CM,CT,DDD,DESC,DIFF,EXPORT,FIELD,FIND.MENU,ICONV,KEYS,LIST.KEYS,SQL-LIST,LISTA,'
   COMMANDS:='MODULES,NED,NSEL,OCONV,OFF,PARAM,PICKLE,PIVOT,PROF,KEY.DEFAULTS,Q,RS,RULER,SE,SETTINGS,SF,SQL,SQLF,TM,TRAIN,XREF'
-  COMMANDS:=',DEPS,SYSINFO,10KEY'
+  COMMANDS:=',DEPS,SYSINFO,CALC'
   CONVERT ',' TO @VM IN COMMANDS
   LOCATE FIRST.WORD IN COMMANDS<1> SETTING INTERNAL.COMMAND ELSE INTERNAL.COMMAND=''
   *
