@@ -37,10 +37,10 @@ command-line tool is available for executing UniData commands from the shell and
 for the source file (e.g., `SIMBIAN.BP`).
 
 ## Compilation To compile a UniBasic program, cd to where the Unidata account resides and use the `BASIC` command specifying the
-source file and the record/program name:
+source file and the record/program name, -Z2 flag to include debug symbols:
 
 ```bash
-cd /usr/ud83/demo && echo "BASIC SIMBIAN.BP MYPROGRAM" | udt
+cd /usr/ud83/demo && echo "BASIC SIMBIAN.BP MYPROGRAM -Z2" | udt
 ```
 
 ## Cataloging
