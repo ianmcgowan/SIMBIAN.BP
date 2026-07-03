@@ -2,11 +2,11 @@
 * Program: STACK
 * Author : Ian McGowan
 * Created: 1989-06-13
-* Updated: 2026-06-24
+* Updated: 2026-07-03
 * Comment: Stacks TCL commands, utilities for programmers
 ***************************************************************************
 $BASICTYPE "P"
-PRINT \Version 2026-06-24 View to a Kill\
+PRINT \Version 2026-07-03 Pocket Lint\
 *
 * STACK is a command line editor, command stack, program stack and useful utilites for TCL
 * It is designed to make life easier and more productive for programmers
@@ -45,9 +45,10 @@ STACK.HELP<-1>='---------------------- PROGRAM STACK COMMANDS ------------------
 STACK.HELP<-1>='/           List the programs in the current project                           '
 STACK.HELP<-1>='/LL         List available projects    /L BLAH          Switch to project BLAH '
 STACK.HELP<-1>='/Nx         Add New program at posn x  /Fx              Format the x`th program'
-STACK.HELP<-1>='/Ex         Edit the x`th program      /WW              Edit the program list  '
-STACK.HELP<-1>='/Wx         VI the x`th program        /S               Sort the program stack '
+STACK.HELP<-1>='/Ex         Edit the x`th program      /S               Sort the program stack '
+STACK.HELP<-1>='/Wx         VI the x`th program        /WW              Edit the program list  '
 STACK.HELP<-1>='/Bx         Compile the x`th program   /BR              Compile and run        '
+STACK.HELP<-1>='/Cx         Check/lint the program                                             '
 STACK.HELP<-1>='                                                                               '
 STACK.HELP<-1>='------------------------------ UTILITIES --------------------------------------'
 STACK.HELP<-1>='{C}CI/CM/TM {Customer}Contract Inquiry/Maint/Table Maint             CI 100.1.1'
@@ -320,7 +321,7 @@ DO.COMMAND:
   POS=1
   LOOP WHILE ANS[POS,1] = ' ' DO
     POS+=1 ;* Trim leading spaces, without trimming anything else. TRIM(ANS,' ','L') depends on basictype
-  REPEAT 
+  REPEAT
   IF POS>1 THEN ANS=ANS[POS,LEN(ANS)]
   *
   IF NOT(UNIX.COMMAND) THEN
@@ -805,6 +806,8 @@ PROG.COMMAND:
       GOSUB EXEC.SUB
     CASE PROG.COM = '/B'
       GOSUB COMPILE
+    CASE PROG.COM = '/C'
+      GOSUB LINT.PROG
     CASE PROG.COM = '/E' OR PROG.COM = '/W'
       OPEN B.FILE TO F ELSE PRINT 'Cannot open ':B.FILE:BELL;RETURN
       READ R1 FROM F, B.ITEM ELSE R1=NUL
@@ -891,6 +894,8 @@ COMPILE:
     IF OPTIONS # 'L' AND OPTIONS # 'G' AND OPTIONS # 'D' THEN OPTIONS=''
   REPEAT
   *
+  GOSUB LINT.PROG
+  *
   EXEC.LINE = 'BASIC ':B.FILE:' ':B.ITEM:' -D' ;* -D includes symbol table
   PRINT EXEC.LINE
   GOSUB EXEC.SUB
@@ -947,6 +952,82 @@ PRINT.PROG.INFO:
       PRINT F 'L#5':' ':PROGRAMS<F>
     END
   NEXT F
+RETURN
+*
+LINT.PROG:
+  * Check program for formatting and style preferences, not syntax errors - let the compiler do the hard stuff
+  PRINT 'Linting ':B.FILE:' ':B.ITEM
+  OPEN B.FILE TO F ELSE PRINT 'Cannot open ':B.FILE:BELL;RETURN
+  READ R1 FROM F, B.ITEM ELSE
+    PRINT B.ITEM:' not found in ':B.FILE:BELL
+    CLOSE F
+    RETURN
+  END
+  CLOSE F
+  LINT.ERR.COUNT = 0
+  LINT.LINE.COUNT = DCOUNT(R1, @AM)
+  FOR LINT.LINE.IDX = 1 TO LINT.LINE.COUNT
+    LINT.LINE.VAL = R1<LINT.LINE.IDX>
+    LINT.LINE.LEN = LEN(LINT.LINE.VAL)
+    * Check if blank (contains only spaces and tabs or completely empty)
+    LINT.TEMP.LINE = LINT.LINE.VAL
+    CONVERT CHAR(9):' ' TO '' IN LINT.TEMP.LINE
+    IF LINT.TEMP.LINE = '' THEN
+      PRINT 'Line ':LINT.LINE.IDX:': Blank line (should be comment "*" instead)'
+      LINT.ERR.COUNT = LINT.ERR.COUNT + 1
+    END
+    * Check if length > 132
+    IF LINT.LINE.LEN > 132 THEN
+      PRINT 'Line ':LINT.LINE.IDX:': Line length exceeds 132 characters (':LINT.LINE.LEN:' chars)'
+      LINT.ERR.COUNT = LINT.ERR.COUNT + 1
+    END
+    * Check for trailing whitespace (only on non-blank lines)
+    IF LINT.TEMP.LINE # '' THEN
+      LINT.LAST.CHAR = LINT.LINE.VAL[LINT.LINE.LEN, 1]
+      IF LINT.LAST.CHAR = ' ' OR LINT.LAST.CHAR = CHAR(9) THEN
+        PRINT 'Line ':LINT.LINE.IDX:': Trailing whitespace'
+        LINT.ERR.COUNT = LINT.ERR.COUNT + 1
+      END
+    END
+    * Check for Windows CRLF carriage return character (ASCII 13)
+    IF INDEX(LINT.LINE.VAL, CHAR(13), 1) THEN
+      PRINT 'Line ':LINT.LINE.IDX:': Windows CRLF carriage return character (ASCII 13) found'
+      LINT.ERR.COUNT = LINT.ERR.COUNT + 1
+    END
+    * Check for non-ASCII or non-printable characters (ASCII > 126 or < 32 except tab and carriage return)
+    FOR LINT.CHAR.IDX = 1 TO LINT.LINE.LEN
+      LINT.CHAR.CODE = SEQ(LINT.LINE.VAL[LINT.CHAR.IDX,1])
+      IF LINT.CHAR.CODE > 126 OR (LINT.CHAR.CODE < 32 AND LINT.CHAR.CODE # 9 AND LINT.CHAR.CODE # 13) THEN
+        PRINT 'Line ':LINT.LINE.IDX:': Non-ASCII/Non-printable character (ASCII ':LINT.CHAR.CODE:') at position ':LINT.CHAR.IDX
+        LINT.ERR.COUNT = LINT.ERR.COUNT + 1
+        CONTINUE
+      END
+    NEXT LINT.CHAR.IDX
+    * Check for old-style numeric line labels
+    LINT.TRIMMED = TRIM(LINT.LINE.VAL)
+    LINT.FIRST.WORD = FIELD(LINT.TRIMMED, ' ', 1)
+    IF NUM(LINT.FIRST.WORD) AND LINT.FIRST.WORD # '' THEN
+      PRINT 'Line ':LINT.LINE.IDX:': Old-style numeric line label (':LINT.FIRST.WORD:')'
+      LINT.ERR.COUNT = LINT.ERR.COUNT + 1
+    END
+    * Check for mixed indentation (tabs and spaces mixed in leading whitespace)
+    LINT.FIRST.NONWS.POS = 0
+    FOR LINT.CHAR.IDX = 1 TO LINT.LINE.LEN
+      LINT.CHAR = LINT.LINE.VAL[LINT.CHAR.IDX, 1]
+      IF LINT.CHAR # ' ' AND LINT.CHAR # CHAR(9) THEN
+        LINT.FIRST.NONWS.POS = LINT.CHAR.IDX
+        CONTINUE
+      END
+    NEXT LINT.CHAR.IDX
+    IF LINT.FIRST.NONWS.POS > 1 THEN
+      LINT.LEADING = LINT.LINE.VAL[1, LINT.FIRST.NONWS.POS - 1]
+      IF INDEX(LINT.LEADING, ' ', 1) AND INDEX(LINT.LEADING, CHAR(9), 1) THEN
+        PRINT 'Line ':LINT.LINE.IDX:': Mixed tabs and spaces in indentation'
+        LINT.ERR.COUNT = LINT.ERR.COUNT + 1
+      END
+    END
+  NEXT LINT.LINE.IDX
+  PRINT 'Total: ':LINT.ERR.COUNT:' errors found.'
 RETURN
 *******************************************************************************
 * INTERNAL UTILITY COMMANDS
@@ -4293,7 +4374,7 @@ INFOLEASE.CHECK:
     IL.GROUP.UFD=''
     OPEN 'UFD' TO UFD THEN
       READV IL.OWNER.UFD FROM UFD, 'infoleaseowner', 1 ELSE NULL
-      READV IL.GROUP.UFD FROM UFD, 'infoleasegroup', 1 ELSE NULL 
+      READV IL.GROUP.UFD FROM UFD, 'infoleasegroup', 1 ELSE NULL
     END
     *
     PRINT IL.VER:' ':IL.DB
