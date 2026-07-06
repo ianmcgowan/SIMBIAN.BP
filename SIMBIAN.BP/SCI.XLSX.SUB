@@ -77,7 +77,6 @@ XLS.BODY:
       FORMAT = FORMATS<ROW.COUNT, C>
     END
     GOSUB URL.ENCODE.CELL
-    
     * Check if it's a valid date using STATUS()
     IS.DATE = 0
     IF FORMAT[1,1] = 'D' AND CELL # '' THEN
@@ -87,7 +86,7 @@ XLS.BODY:
         CELL = TEMP.DATE + 24837 ;* 12/31/1967-12/31/1899=24837
       END
     END
-    
+    *
     BEGIN CASE
       CASE IS.DATE
         IF STYLE # "" THEN STYLE=\s="\:STYLE:\" \ ELSE STYLE=\s="4" \

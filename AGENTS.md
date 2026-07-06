@@ -28,6 +28,12 @@ defined for reusable logic.
 
 * **Empty Lines:** Empty lines are not allowed in source files. Use comments `*\n` to separate logical sections instead.
 
+* **Line lengths:** Each line of code must not exceed 132 characters.
+
+* **Indentation:** Use 2 spaces for indentation. Tabs are not allowed.
+
+* **Line Delimiters:** Use Unix-style line endings (`\n`). Do not use Windows-style line endings (`\r\n`).
+
 ---
 
 ## 3. Toolchain & Commands (How to Compile and Run)

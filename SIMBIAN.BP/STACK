@@ -1000,7 +1000,6 @@ LINT.PROG:
       IF LINT.CHAR.CODE > 126 OR (LINT.CHAR.CODE < 32 AND LINT.CHAR.CODE # 9 AND LINT.CHAR.CODE # 13) THEN
         PRINT 'Line ':LINT.LINE.IDX:': Non-ASCII/Non-printable character (ASCII ':LINT.CHAR.CODE:') at position ':LINT.CHAR.IDX
         LINT.ERR.COUNT = LINT.ERR.COUNT + 1
-        CONTINUE
       END
     NEXT LINT.CHAR.IDX
     * Check for old-style numeric line labels
@@ -1016,13 +1015,21 @@ LINT.PROG:
       LINT.CHAR = LINT.LINE.VAL[LINT.CHAR.IDX, 1]
       IF LINT.CHAR # ' ' AND LINT.CHAR # CHAR(9) THEN
         LINT.FIRST.NONWS.POS = LINT.CHAR.IDX
-        CONTINUE
+        EXIT
       END
     NEXT LINT.CHAR.IDX
     IF LINT.FIRST.NONWS.POS > 1 THEN
       LINT.LEADING = LINT.LINE.VAL[1, LINT.FIRST.NONWS.POS - 1]
       IF INDEX(LINT.LEADING, ' ', 1) AND INDEX(LINT.LEADING, CHAR(9), 1) THEN
         PRINT 'Line ':LINT.LINE.IDX:': Mixed tabs and spaces in indentation'
+        LINT.ERR.COUNT = LINT.ERR.COUNT + 1
+      END
+    END
+    * Check for inconsistent indentation (e.g., not a multiple of 2 spaces)
+    IF LINT.FIRST.NONWS.POS > 1 THEN
+      LINT.INDENT.LENGTH = LINT.FIRST.NONWS.POS - 1
+      IF MOD(LINT.INDENT.LENGTH, 2) # 0 THEN
+        PRINT 'Line ':LINT.LINE.IDX:': Inconsistent indentation (':LINT.INDENT.LENGTH:' spaces)'
         LINT.ERR.COUNT = LINT.ERR.COUNT + 1
       END
     END
