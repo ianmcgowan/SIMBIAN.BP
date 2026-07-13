@@ -2,11 +2,11 @@
 * Program: STACK
 * Author : Ian McGowan
 * Created: 1989-06-13
-* Updated: 2026-07-03
+* Updated: 2026-07-13
 * Comment: Stacks TCL commands, utilities for programmers
 ***************************************************************************
 $BASICTYPE "P"
-PRINT \Version 2026-07-03 Pocket Lint\
+PRINT \Version 2026-07-13 Pocket Lint\
 *
 * STACK is a command line editor, command stack, program stack and useful utilites for TCL
 * It is designed to make life easier and more productive for programmers
@@ -1975,16 +1975,16 @@ ASCII:
   A<-1>=\45|-|Hyphen-minus\
   A<-1>=\46|.|Period, dot or full stop|&period;\
   A<-1>=\47|/|Slash or divide|&sol;\
-  A<-1>=\48|0|Zero\
-  A<-1>=\49|1|One\
-  A<-1>=\50|2|Two\
-  A<-1>=\51|3|Three\
-  A<-1>=\52|4|Four\
-  A<-1>=\53|5|Five\
-  A<-1>=\54|6|Six\
-  A<-1>=\55|7|Seven\
-  A<-1>=\56|8|Eight\
-  A<-1>=\57|9|Nine\
+  A<-1>=\48|0|\
+  A<-1>=\49|1|\
+  A<-1>=\50|2|\
+  A<-1>=\51|3|\
+  A<-1>=\52|4|\
+  A<-1>=\53|5|\
+  A<-1>=\54|6|\
+  A<-1>=\55|7|\
+  A<-1>=\56|8|\
+  A<-1>=\57|9|\
   A<-1>=\58|:|Colon|&colon;\
   A<-1>=\59|;|Semicolon|&semi;\
   A<-1>=\60|<|Less than (or open angled bracket)|&lt;\
@@ -1992,64 +1992,64 @@ ASCII:
   A<-1>=\62|>|Greater than (or close angled bracket)|&gt;\
   A<-1>=\63|?|Question mark|&quest;\
   A<-1>=\64|@|At sign|&commat;\
-  A<-1>=\65|A|Uppercase A\
-  A<-1>=\66|B|Uppercase B\
-  A<-1>=\67|C|Uppercase C\
-  A<-1>=\68|D|Uppercase D\
-  A<-1>=\69|E|Uppercase E\
-  A<-1>=\70|F|Uppercase F\
-  A<-1>=\71|G|Uppercase G\
-  A<-1>=\72|H|Uppercase H\
-  A<-1>=\73|I|Uppercase I\
-  A<-1>=\74|J|Uppercase J\
-  A<-1>=\75|K|Uppercase K\
-  A<-1>=\76|L|Uppercase L\
-  A<-1>=\77|M|Uppercase M\
-  A<-1>=\78|N|Uppercase N\
-  A<-1>=\79|O|Uppercase O\
-  A<-1>=\80|P|Uppercase P\
-  A<-1>=\81|Q|Uppercase Q\
-  A<-1>=\82|R|Uppercase R\
-  A<-1>=\83|S|Uppercase S\
-  A<-1>=\84|T|Uppercase T\
-  A<-1>=\85|U|Uppercase U\
-  A<-1>=\86|V|Uppercase V\
-  A<-1>=\87|W|Uppercase W\
-  A<-1>=\88|X|Uppercase X\
-  A<-1>=\89|Y|Uppercase Y\
-  A<-1>=\90|Z|Uppercase Z\
+  A<-1>=\65|A|\
+  A<-1>=\66|B|\
+  A<-1>=\67|C|\
+  A<-1>=\68|D|\
+  A<-1>=\69|E|\
+  A<-1>=\70|F|\
+  A<-1>=\71|G|\
+  A<-1>=\72|H|\
+  A<-1>=\73|I|\
+  A<-1>=\74|J|\
+  A<-1>=\75|K|\
+  A<-1>=\76|L|\
+  A<-1>=\77|M|\
+  A<-1>=\78|N|\
+  A<-1>=\79|O|\
+  A<-1>=\80|P|\
+  A<-1>=\81|Q|\
+  A<-1>=\82|R|\
+  A<-1>=\83|S|\
+  A<-1>=\84|T|\
+  A<-1>=\85|U|\
+  A<-1>=\86|V|\
+  A<-1>=\87|W|\
+  A<-1>=\88|X|\
+  A<-1>=\89|Y|\
+  A<-1>=\90|Z|\
   A<-1>=\91|[|Opening bracket|&lsqb;\
   A<-1>='92|\|Backslash|&bsol;'
   A<-1>=\93|]|Closing bracket|&rsqb;\
   A<-1>=\94|^|Caret - circumflex|&Hat;\
   A<-1>=\95|_|Underscore|&lowbar;\
   A<-1>=\96|`|Grave accent|&grave;\
-  A<-1>=\97|a|Lowercase a\
-  A<-1>=\98|b|Lowercase b\
-  A<-1>=\99|c|Lowercase c\
-  A<-1>=\100|d|Lowercase d\
-  A<-1>=\101|e|Lowercase e\
-  A<-1>=\102|f|Lowercase f\
-  A<-1>=\103|g|Lowercase g\
-  A<-1>=\104|h|Lowercase h\
-  A<-1>=\105|i|Lowercase i\
-  A<-1>=\106|j|Lowercase j\
-  A<-1>=\107|k|Lowercase k\
-  A<-1>=\108|l|Lowercase l\
-  A<-1>=\109|m|Lowercase m\
-  A<-1>=\110|n|Lowercase n\
-  A<-1>=\111|o|Lowercase o\
-  A<-1>=\112|p|Lowercase p\
-  A<-1>=\113|q|Lowercase q\
-  A<-1>=\114|r|Lowercase r\
-  A<-1>=\115|s|Lowercase s\
-  A<-1>=\116|t|Lowercase t\
-  A<-1>=\117|u|Lowercase u\
-  A<-1>=\118|v|Lowercase v\
-  A<-1>=\119|w|Lowercase w\
-  A<-1>=\120|x|Lowercase x\
-  A<-1>=\121|y|Lowercase y\
-  A<-1>=\122|z|Lowercase z\
+  A<-1>=\97|a|\
+  A<-1>=\98|b|\
+  A<-1>=\99|c|\
+  A<-1>=\100|d|\
+  A<-1>=\101|e|\
+  A<-1>=\102|f|\
+  A<-1>=\103|g|\
+  A<-1>=\104|h|\
+  A<-1>=\105|i|\
+  A<-1>=\106|j|\
+  A<-1>=\107|k|\
+  A<-1>=\108|l|\
+  A<-1>=\109|m|\
+  A<-1>=\110|n|\
+  A<-1>=\111|o|\
+  A<-1>=\112|p|\
+  A<-1>=\113|q|\
+  A<-1>=\114|r|\
+  A<-1>=\115|s|\
+  A<-1>=\116|t|\
+  A<-1>=\117|u|\
+  A<-1>=\118|v|\
+  A<-1>=\119|w|\
+  A<-1>=\120|x|\
+  A<-1>=\121|y|\
+  A<-1>=\122|z|\
   A<-1>=\123|{|Opening brace|&lcub;\
   A<-1>=\124|BAR|Vertical bar|&verbar;\
   A<-1>=\125|}|Closing brace|&rcub;\
