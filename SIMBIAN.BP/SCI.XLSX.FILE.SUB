@@ -1,6 +1,6 @@
-SUBROUTINE SCI.XLSX.SUB(INPUT.FILE.NAME, STYLES, FORMATS, FILE.NAME)
+SUBROUTINE SCI.XLSX.FILE.SUB(INPUT.FILE.NAME, STYLES, FORMATS, FILE.NAME)
 ***************************************************************************
-* Program: SCI.XLSX.SUB
+* Program: SCI.XLSX.FILE.SUB
 * Author : MCGOWJ01 / GCLI
 * Date   : 2020-06-17
 * Edited : 2026-06-15
@@ -9,6 +9,7 @@ SUBROUTINE SCI.XLSX.SUB(INPUT.FILE.NAME, STYLES, FORMATS, FILE.NAME)
 * 2020-07-07:JIM:Style tweaks
 * 2020-06-12:JIM:Read from a file
 * 2026-06-15:GCLI:Added multi-sheet support from an array of files.
+* 2026-07-20:JIM:Rename to avoid conflicts with SCI.XLSX.SUB
 * SEE: https://blogs.msdn.microsoft.com/brian_jones/2006/11/02/simple-spreadsheetml-file-part-1-of-3/
 *      http://polymathprogrammer.com/2010/01/11/custom-column-widths-in-excel-open-xml/
 *

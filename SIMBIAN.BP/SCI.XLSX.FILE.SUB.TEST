@@ -1,5 +1,5 @@
 ***************************************************************************
-* Program: SCI.XLSX.SUB.TEST
+* Program: SCI.XLSX.FILE.SUB.TEST
 * Comment: Unit tests for single-sheet and multi-sheet XLSX generation.
 ***************************************************************************
 * Test Case 1: Single Sheet Generation (Backward Compatibility Check)
@@ -15,7 +15,7 @@ STYLES=""
 FORMATS=""
 OUTPUT.FILE.NAME="output"
 *
-CALL SCI.XLSX.SUB(INPUT.FILE.NAME, STYLES, FORMATS, OUTPUT.FILE.NAME)
+CALL SCI.XLSX.FILE.SUB(INPUT.FILE.NAME, STYLES, FORMATS, OUTPUT.FILE.NAME)
 PRINT OUTPUT.FILE.NAME:' created'
 *
 * Test Case 2: Multi-Sheet Generation (New Array Feature Check)
@@ -72,7 +72,7 @@ M.STYLES = ""
 M.FORMATS = ""
 *
 OUTPUT.MULTI = "multi_output"
-CALL SCI.XLSX.SUB(INPUT.FILES, M.STYLES, M.FORMATS, OUTPUT.MULTI)
+CALL SCI.XLSX.FILE.SUB(INPUT.FILES, M.STYLES, M.FORMATS, OUTPUT.MULTI)
 PRINT OUTPUT.MULTI:' created'
 *
 * Test Case 3: Formatting Test (Dates & Numbers)
@@ -150,6 +150,6 @@ FMT.FORMATS<14, 2> = "MD4"
 FMT.FORMATS<15, 2> = "MD2"
 *
 OUTPUT.FMT = "fmt_output"
-CALL SCI.XLSX.SUB(FILE3, FMT.STYLES, FMT.FORMATS, OUTPUT.FMT)
+CALL SCI.XLSX.FILE.SUB(FILE3, FMT.STYLES, FMT.FORMATS, OUTPUT.FMT)
 PRINT OUTPUT.FMT:' created'
 *
