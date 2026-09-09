@@ -26,10 +26,6 @@ from dataclasses import dataclass
 
 from . import container, disasm, expr, structure
 
-# comparison opcode low byte -> source text (value context)
-CMP = {0x1A: "=", 0x1B: "#", 0x1C: "<=", 0x1D: "<", 0x1E: ">=", 0x1F: ">"}
-
-
 @dataclass
 class Line:
     src_line: int
@@ -206,17 +202,26 @@ class Decompiler:
         out.append(Line(line, f"REPEAT   ;* until {cond}" if cond else "REPEAT", depth))
 
     def _condition_text(self, cond_insns):
-        if not cond_insns:
-            return "?"
-        parts, joiner, i = [], None, 0
-        while i < len(cond_insns):
-            x = cond_insns[i]
+        return self._cond_from(cond_insns)
+
+    def _cond_from(self, seq):
+        """Render a boolean condition from the instructions up to (not incl) BRF.
+        Handles EXPR/CMP.VV runs, AND/OR short-circuit joins, and a bare
+        PUSH.V / PUSH.C truthiness test (optionally wrapped in NOT)."""
+        parts, joiner, i, neg = [], None, 0, False
+        while i < len(seq):
+            x = seq[i]
+            if x.mnem == "BRF":
+                break
             if x.mnem in ("EXPR", "CMP.VV"):
-                st = expr.evaluate(cond_insns, i, self)
+                st = expr.evaluate(seq, i, self)
                 parts.append(st.text)
                 i += max(st.consumed, 1)
                 continue
-            if x.mnem == "AND.SC":
+            if x.mnem in ("PUSH.V", "PUSH.C"):
+                v = self.var(x.args[0]) if x.mnem == "PUSH.V" else self.const(x.args[0])
+                parts.append(f"NOT({v})" if (i + 1 < len(seq) and seq[i + 1].mnem == "NOT") else v)
+            elif x.mnem == "AND.SC":
                 joiner = "AND"
             elif x.mnem == "OR.SC":
                 joiner = "OR"
@@ -383,27 +388,9 @@ class Decompiler:
         return [Line(line, f"{self.var(dst)} = {rhs}")]
 
     def _render_if(self, line, seq):
-        # collect the (possibly several, AND/OR-joined) expression runs before BRF
-        parts = []
-        joiner = None
-        i = 0
-        while i < len(seq):
-            x = seq[i]
-            if x.mnem in ("EXPR", "CMP.VV"):
-                st = expr.evaluate(seq, i, self)
-                parts.append(st.text)
-                i += st.consumed
-                continue
-            if x.mnem == "AND.SC":
-                joiner = "AND"
-            elif x.mnem == "OR.SC":
-                joiner = "OR"
-            elif x.mnem == "BRF":
-                break
-            i += 1
         brf = next((x for x in seq if x.mnem == "BRF"), None)
         tgt = self.lbl(brf.args[0]) if brf else "?"
-        cond = f" {joiner} ".join(parts) if parts else "?"
+        cond = self._cond_from(seq)
         return [Line(line, f"IF {cond} THEN GOTO {tgt}   ;* else fall through")]
 
     def _render_call(self, line, seq):
@@ -420,19 +407,29 @@ class Decompiler:
     def _render_print(self, line, seq):
         chan, items = None, []
         for x in seq:
-            if x.mnem in ("PUSH.C", "PUSH.C2"):
+            if x.mnem == "PUSH.V":
+                items.append(self.var(x.args[0]))
+            elif x.mnem in ("PUSH.C", "PUSH.C2"):
                 if chan is None:
                     chan = x.args[0]
                 else:
                     items.append(self.const(x.args[0]))
+            elif x.mnem == "BINOP" and len(items) >= 2:
+                ch = disasm.BINOP_CHARS.get(x.args[0], "?")
+                b, a = items.pop(), items.pop()
+                items.append(f"{a} {ch} {b}")
         verb = "PRINT"
+        # only a *numeric* leading constant is a channel selector
         if chan is not None and 0 <= chan < len(self.c.consts):
-            cs = self.c.consts[chan].s
-            if cs == "-2":
+            k = self.c.consts[chan]
+            if k.kind == 5 and k.s == "-2":
                 verb = "CRT"
-            elif cs not in ("-1", "0", ""):
-                verb = f"PRINT ON {cs}"
-        return [Line(line, f"{verb} {' : '.join(items) if items else chr(34)*2}")]
+            elif k.kind == 5 and k.s not in ("-1", "0"):
+                verb = f"PRINT ON {k.s}"
+            elif k.kind == 4:              # not a channel -- it is the 1st item
+                items.insert(0, k.render())
+        body = " : ".join(items) if items else '""'
+        return [Line(line, f"{verb} {body}")]
 
     def _render_for(self, line, seq):
         # FOR.INIT(var, ?, ?) ; FOR.PREP(?, limitconst) ; loop head follows
@@ -465,8 +462,8 @@ def decompile_text(c: container.Container) -> str:
     buf = []
     for l in lines:
         tag = f"{l.src_line:>{w}}" if l.src_line else " " * w
-        pad = "  " * (l.indent + 1)
+        pad = "  " * (min(l.indent, 12) + 1)
         if l.text.endswith(":") or l.text.startswith("SUBROUTINE"):
-            pad = "  " * l.indent
+            pad = "  " * min(l.indent, 12)
         buf.append(f"{tag} | {pad}{l.text}")
     return "\n".join(buf)

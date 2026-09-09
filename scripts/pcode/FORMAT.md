@@ -88,59 +88,91 @@ operator/terminator opcode byte.
 
 ### Opcodes identified
 
-| word | mnemonic | operands | meaning |
-|------|----------|----------|---------|
-| `0x00CB` | STMT | line:u16 | source-line marker; begins every statement |
-| `0x0000` | HALT | — | zero padding / end |
-| `0x000B` | RETURN | 0:u16 | RETURN from GOSUB / subroutine |
-| `0x0010` | PUSH.C | cidx:u16 | push constant #cidx |
-| `0x0011` | PUSH.C2 | cidx:u16 | push constant (string / concat context) |
-| `0x0016` | NEG | 0:u16 | unary minus |
-| `0x001A`..`0x001F` | CMP.* | — | `=` `#` `<=` `<` `>=` `>` (value context) |
-| `0x0021` | EXPR.END | — | end of an expression |
-| `0x002C` | PRINT | nitems:u16 | emit print list to the pushed channel |
-| `0x0037` | FN.LEN | — | LEN() |
-| `0x0042` | FN.OCONV | — | OCONV() |
-| `0x0071` | INPUT | — | INPUT statement |
-| `0x008F` | OPEN | mode:u16 | OPEN ... TO |
-| `0x0091` | READ | mode:u16 | READ / READU / etc |
-| `0x00A9` | CALL.NAME | argc:u16 | CALL: name is constant #0, argc arguments follow |
-| `0x00B7` | CALL.GO | 0:u16 | invoke after pushing args |
-| `0x00BE` | SUB.PROLOG | 3×u16 | subroutine entry (arg count in 3rd word) |
-| `0x00E2` | FN.FIELD | — | FIELD() |
-| `0x00E4` | BINOP | char:u16 | binary op; operand is the operator's ASCII code (`+ - * / :` `^`) |
-| `0x0115` | STOP | 0:u16 | STOP |
-| `0x0151` | CMP.VV | mode + words | compare var vs var (feeds a following CMP.*) |
-| `0x0152` | EXPR | mode + words | evaluate expression into a variable slot |
-| `0x0155` | ARG.BIND | 2×u16 | bind a subroutine parameter |
-| `0x0159` | ASSIGN | mode,dst,src | simple assignment |
-| `0x015A` | FOR.PREP | 2×u16 | FOR loop setup |
-| `0x015B` | BRF | word:u16 | branch if false → word offset |
-| `0x015C` | GOSUB | word:u16 | GOSUB → word offset |
-| `0x015D` | GOTO | word:u16 | GOTO → word offset |
-| `0x0163` | LOOP.BACK | word:u16 | LOOP/REPEAT back-edge |
-| `0x0167` | FOR.NEXT | word:u16 | NEXT: test/increment → loop head |
-| `0x01C6` | AND.SC | word:u16 | short-circuit AND branch |
-| `0x01C8` | AND.MERGE | word:u16 | short-circuit merge point |
-| `0x01CB` | CALL.PREP | 0:u16 | begin a CALL |
-| `0x0004` | FOR.INIT | 3×u16 | FOR loop counter init |
+Recovered from the probe corpora (`probes/`, `exprlab/`, `cflab/`).  Jump
+operands are **word** offsets from the code-segment start (byte = word*2).
 
-### ASSIGN / EXPR operand modes (partially decoded)
+| word | mnemonic | operand words | meaning |
+|------|----------|:---:|---------|
+| `0x0000` | HALT | 0 | zero padding / end of segment |
+| `0x0004` | FOR.INIT | 3 | FOR counter init (flag, loopvar slot, 0) |
+| `0x000B` | RETURN | 1 | RETURN from GOSUB / sub |
+| `0x000F` | FN.SUBSTR | 0 | A[start,len] |
+| `0x0010` | PUSH.C | 1 | push constant #arg |
+| `0x0011` | PUSH.C2 | 1 | push constant (string ctx) |
+| `0x0016` | NEG | 0 | unary minus |
+| `0x001A` | CMP.EQ | 0 | = (value and IF context alike) |
+| `0x001B` | CMP.NE | 0 | # |
+| `0x001C` | CMP.GT | 0 | > |
+| `0x001D` | CMP.LT | 0 | < |
+| `0x001E` | CMP.GE | 0 | >= |
+| `0x001F` | CMP.LE | 0 | <= |
+| `0x0021` | EXPR.END | 0 | end of an expression |
+| `0x002C` | PRINT | 1 | emit print list; arg = item count |
+| `0x002D` | EXTRACT | 0 | A<f,v,s> dynamic-array read |
+| `0x002E` | NOT | 0 | logical NOT |
+| `0x0030` | FN.COUNT | 0 | COUNT() |
+| `0x0035` | FN.STR | 0 | STR() |
+| `0x0036` | FN.SPACE | 0 | SPACE() |
+| `0x0037` | FN.LEN | 0 | LEN() |
+| `0x003C` | FN.INDEX | 0 | INDEX() |
+| `0x0042` | FN.OCONV | 0 | OCONV() |
+| `0x0049` | FN.SEQ | 0 | SEQ() |
+| `0x004F` | FN.NUM | 0 | NUM() |
+| `0x0066` | FN.ICONV | 0 | ICONV() |
+| `0x0071` | INPUT | 0 | INPUT statement |
+| `0x008A` | REPLACE | 1 | A<..> = v dynamic-array store; arg = subscript count |
+| `0x008F` | OPEN | 1 | OPEN .. TO |
+| `0x0091` | READ | 1 | READ / READU / READV |
+| `0x00A9` | CALL.NAME | 1 | CALL: name is const #0, arg = number of arguments |
+| `0x00B7` | CALL.GO | 1 | invoke after args pushed |
+| `0x00BE` | SUB.PROLOG | 3 | subroutine entry; arg count in 3rd word |
+| `0x00CB` | STMT | 1 | statement marker; operand = source line |
+| `0x00D0` | FN.UPCASE | 0 | UPCASE() |
+| `0x00E2` | FN.FIELD | 0 | FIELD() |
+| `0x00E4` | BINOP | 1 | binary op; arg = operator ASCII code (+ - * / : ^) |
+| `0x0115` | STOP | 1 | STOP |
+| `0x011C` | FN.TRIM | 1 | TRIM(); arg = variant |
+| `0x0142` | PUSH.V | 1 | push variable slot #arg (expression continuation) |
+| `0x0151` | CMP.VV | var | var <cmp> var: mode + inline operands; feeds a branch |
+| `0x0152` | EXPR | var | evaluate expression: mode + [dst] + 1-2 inline operands + token stream |
+| `0x0155` | ARG.BIND | 2 | bind a subroutine parameter |
+| `0x0159` | ASSIGN | 3 | simple assignment (mode, dst, src) |
+| `0x015A` | FOR.PREP | 2 | FOR setup (start mode, start ref) |
+| `0x015B` | BRF | 1 | branch if false -> word offset |
+| `0x015C` | GOSUB | 1 | GOSUB -> word offset |
+| `0x015D` | GOTO | 1 | GOTO -> word offset |
+| `0x0163` | LOOP.BACK | 1 | LOOP bottom marker |
+| `0x0167` | FOR.NEXT | 1 | NEXT: test / step / branch |
+| `0x01A9` | FN.DCOUNT | 1 | DCOUNT() |
+| `0x01C6` | AND.SC | 1 | short-circuit AND (branch if false) |
+| `0x01C7` | OR.SC | 1 | short-circuit OR (branch if true) |
+| `0x01C8` | AND.MERGE | 0 | AND merge point |
+| `0x01C9` | OR.MERGE | 0 | OR merge point |
+| `0x01CB` | CALL.PREP | 1 | begin a CALL |
 
-The word after the opcode is a `mode` whose low byte selects the addressing
-form and whose high byte carries per-operand var/const bits:
+### ASSIGN / EXPR / CMP.VV operand modes
 
-| mode low | context |
-|---------:|---------|
-| `0x12` | ASSIGN, source is a constant |
-| `0x22` | ASSIGN source is a variable; or EXPR with all-constant operands |
-| `0x32` | EXPR comparison, `var <cmp> const` |
-| `0x42` | EXPR with an operator; high byte ≈ operand descriptor (`0x04` const+const, `0x06` var+const, `0x4a` var+var, `0x02` single var) |
+Both `EXPR` (0x0152) and `CMP.VV` (0x0151) begin with a `mode` word, then an
+optional `dst` variable slot, then the first one or two operands inline; the
+rest of the expression follows as ordinary instructions (a stack machine --
+see `ud/expr.py`).
 
-For `ASSIGN`/`EXPR` the second word is the **destination variable slot** (for a
-comparison EXPR it doubles as operand 1).  The exact operand-wiring for
-multi-term expressions is **not fully recovered** — the decompiler renders these
-with a `;* expr approx` marker.
+* `dst` present when opcode is 0x0152 and mode low byte is **not** 0x12/0x32
+  (those two are the no-result *condition* forms).
+* operand count: 2 when it is a condition or mode high byte >= 0x04, else 1.
+* **op1 is a variable** when mode low byte is 0x42 or 0x32; a constant for
+  0x22 / 0x12.  (For 0x0151 both inline operands are always variables.)
+* **op2 is a variable** when `mode & 0x4000`, else a constant.
+
+Simple `ASSIGN` (0x0159) is `(mode, dst, src)`: mode low byte 0x12 = constant
+source, 0x22 = variable source.  Concatenation compiles to `PUSH.C2 <dst>`
+followed by `ASSIGN` with mode high byte 0x03.
+
+Expression token stream (after the inline operands, until `EXPR.END`):
+`PUSH.V` / `PUSH.C` push; `0x0142` pushes a continuation variable; `BINOP`
+and `CMP.*` pop 2; `NEG` / `NOT` pop 1; `FN.*` pop their arity; `EXTRACT`
+pops 2.  Operands and operators are emitted in an order that already respects
+UniBasic precedence ( `:` < `+ -` < `* /` < `^` ).
 
 ### Statement shape
 
@@ -160,9 +192,11 @@ flags this.
 
 ## Known gaps
 
-* multi-term expression operand identity (which slot / which constant)
-* dynamic-array assignment `A<n> = x` (`<-1>` append etc.)
-* `FOR` loop bounds
-* `BEGIN CASE`, `LOOP`/`WHILE` full structure (targets are recovered; keywords
-  are approximate)
+* `BEGIN CASE` renders as an `IF / END ELSE` chain (correct, not idiomatic)
+* `LOOP` with a leading `WHILE` (test before the body) is not yet structured
+* `ON GOSUB` / `ON GOTO` (0x0166) and a handful of rarer opcodes still print
+  as `!! line N` with raw mnemonics
+* compound source lines (several statements on one line) can mis-group
+* big-object `-Z2` label names: STACK's label table uses an offset convention
+  the small probes do not exercise, so its GOSUB targets show as `L_<word>`
 * header `+0x08`, `+0x0C` exact semantics

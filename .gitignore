@@ -2,3 +2,5 @@ _*
 scripts/pcode/lab/
 scripts/pcode/objects/
 scripts/pcode/work/
+scripts/pcode/*/obj/
+scripts/pcode/*/lab/
