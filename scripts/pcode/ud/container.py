@@ -161,15 +161,35 @@ def load(data: bytes) -> Container:
 
     if dbg_len and len(data) >= dbg_len:
         tail = data[len(data) - dbg_len:]
-        for name, num in _parse_debug_tail(tail):
-            # Heuristic: label entries carry the 'L' marker prefix AND a value
-            # that is a plausible in-range word offset; variable entries carry a
-            # small source-line number.  Code offsets for real programs dwarf
-            # line counts, so a large value under an L-name is a label.
-            if name.startswith("L") and len(name) > 1 and num * 2 < code_len \
-               and (num * 2) < code_len and _looks_like_boundary(code, num * 2):
+        pairs = _parse_debug_tail(tail)
+        # First pass: the largest STMT line number bounds "this is a source
+        # line" vs "this is a code offset".
+        max_line = 0
+        p = 0
+        while p + 4 <= len(code):
+            if code[p] == 0xCB and code[p + 1] == 0x00:
+                max_line = max(max_line, int.from_bytes(code[p + 2:p + 4], "little"))
+            p += 2
+        for name, num in pairs:
+            # A label entry: 'L'-prefixed name, and its value read as a word
+            # offset lands on a STMT marker and is past the last source line
+            # (so it cannot be mistaken for a variable's first-seen line).
+            off = num * 2
+            on_stmt = (0 <= off < code_len - 2
+                       and code[off] == 0xCB and code[off + 1] == 0x00)
+            # On a small object a name starting 'L' that lands on a STMT is a
+            # label.  On a large one that is too noisy (many L-named variables
+            # whose first-seen line collides with a STMT offset), so require the
+            # value to be unambiguously a code offset (past the last source
+            # line).  Branch targets always get a synthetic L_<word> name, so a
+            # missed label only costs a nicer name, never correctness.
+            is_label = (
+                name.startswith("L") and len(name) > 2 and on_stmt
+                and (code_len < 4000 or num > max_line)
+            )
+            if is_label:
                 lbl = name[1:]
-                c.labels[num * 2] = lbl
+                c.labels[off] = lbl
                 c.label_words[lbl] = num
             else:
                 c.var_lines[name] = num
