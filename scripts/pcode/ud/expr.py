@@ -117,6 +117,12 @@ def evaluate(insns, start, names) -> ExprState:
             stack.append(Node("un", "-", (stack.pop() if stack else Node("leaf", text="?"),)))
         elif m == "NOT":
             stack.append(Node("call", "NOT", (stack.pop() if stack else Node("leaf", text="?"),)))
+        elif m == "EXTRACT":
+            b = stack.pop() if stack else Node("leaf", text="?")
+            a = stack.pop() if stack else Node("leaf", text="?")
+            stack.append(Node("leaf", text=f"{a.render(0)}<{b.render(0)}>"))
+        elif m in ("PUSH.C0", "EXPR"):
+            pass  # a nested EXPR header inside an expression: default operand
         elif m in _FUNC_ARITY:
             k = _FUNC_ARITY[m]
             kids = [stack.pop() if stack else Node("leaf", text="?") for _ in range(k)][::-1]

@@ -282,6 +282,10 @@ class Decompiler:
         if m == ["FOR.NEXT"]:
             return [Line(line, f"NEXT   ;* loop head {self.lbl(seq[0].args[0])}")]
 
+        # dynamic-array replace:  EXPR dst sub.. [PUSH.C ..]  REPLACE n
+        if "REPLACE" in m:
+            return self._render_dynarr(line, seq)
+
         # concatenation:  PUSH.C2 <dst-slot>  ASSIGN mode=0x03xx op1 op2 [tokens]
         if m[:2] == ["PUSH.C2", "ASSIGN"] and (seq[1].args[0] >> 8) == 0x03:
             return self._render_concat(line, seq)
@@ -315,6 +319,32 @@ class Decompiler:
 
         raw = " ".join(x.fmt().strip() for x in seq)
         return [Line(line, f"!! line {line}: {raw}")]
+
+    def _render_dynarr(self, line, seq):
+        """EXPR (dst, sub1[, sub2])  [NEG]  [PUSH.C ...]*  REPLACE <nsubs>
+        The n subscripts then the value are drawn, in order, from the EXPR
+        inline operands followed by the PUSH.C stream."""
+        rep = next(x for x in seq if x.mnem == "REPLACE")
+        nsubs = rep.args[0] if rep.args else 1
+        head = seq[0]
+        dst, op1, op2 = disasm.expr_header(head.opcode, head.args)
+        vals = []
+        if op1:
+            vals.append(self.var(op1[0]) if op1[1] else self.const(op1[0]))
+        if op2:
+            vals.append(self.var(op2[0]) if op2[1] else self.const(op2[0]))
+        neg = any(x.mnem == "NEG" for x in seq[:seq.index(rep)])
+        for x in seq:
+            if x.mnem in ("PUSH.C", "PUSH.C2"):
+                vals.append(self.const(x.args[0]))
+            elif x.mnem == "PUSH.V":
+                vals.append(self.var(x.args[0]))
+        subs = vals[:nsubs]
+        value = vals[nsubs] if len(vals) > nsubs else "?"
+        if neg and subs:
+            subs[0] = f"-{subs[0]}"
+        tgt = self.var(dst) if dst is not None else "?"
+        return [Line(line, f"{tgt}<{', '.join(subs)}> = {value}")]
 
     def _render_concat(self, line, seq):
         dst = seq[0].args[0]

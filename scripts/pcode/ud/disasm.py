@@ -30,6 +30,8 @@ OPCODES: dict[int, tuple[str, int, str]] = {
     0x0010: ("PUSH.C",      1, "push"),     # push constant #arg
     0x0011: ("PUSH.C2",     1, "push"),     # push constant (string/concat context)
     0x000F: ("FN.SUBSTR",   0, "func"),     # A[start,len]  (pops 3)
+    0x002D: ("EXTRACT",     0, "func"),     # A<f,v,s>  dynamic-array read
+    0x008A: ("REPLACE",     1, "store"),    # arg = number of subscripts
     0x0016: ("NEG",         0, "unop"),
     0x001A: ("CMP.EQ",      0, "cmp"),
     0x001B: ("CMP.NE",      0, "cmp"),
