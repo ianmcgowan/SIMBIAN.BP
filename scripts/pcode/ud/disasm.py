@@ -29,26 +29,38 @@ OPCODES: dict[int, tuple[str, int, str]] = {
     0x000B: ("RETURN",      1, "ret"),
     0x0010: ("PUSH.C",      1, "push"),     # push constant #arg
     0x0011: ("PUSH.C2",     1, "push"),     # push constant (string/concat context)
-    0x0016: ("NEG",         1, "unop"),
+    0x000F: ("FN.SUBSTR",   0, "func"),     # A[start,len]  (pops 3)
+    0x0016: ("NEG",         0, "unop"),
     0x001A: ("CMP.EQ",      0, "cmp"),
     0x001B: ("CMP.NE",      0, "cmp"),
-    0x001C: ("CMP.LE",      0, "cmp"),
+    0x001C: ("CMP.GT",      0, "cmp"),      # verified: value AND if context
     0x001D: ("CMP.LT",      0, "cmp"),
     0x001E: ("CMP.GE",      0, "cmp"),
-    0x001F: ("CMP.GT",      0, "cmp"),
+    0x001F: ("CMP.LE",      0, "cmp"),
     0x0021: ("EXPR.END",    0, "misc"),
     0x002C: ("PRINT",       1, "io"),       # arg = item count
+    0x002E: ("NOT",         0, "unop"),
+    0x0030: ("FN.COUNT",    0, "func"),
+    0x0035: ("FN.STR",      0, "func"),
+    0x0036: ("FN.SPACE",    0, "func"),
     0x0037: ("FN.LEN",      0, "func"),
+    0x003C: ("FN.INDEX",    0, "func"),
     0x0042: ("FN.OCONV",    0, "func"),
-    0x0066: ("FN.OCONV2",   0, "func"),
+    0x0049: ("FN.SEQ",      0, "func"),
+    0x004F: ("FN.NUM",      0, "func"),
+    0x0066: ("FN.ICONV",    0, "func"),
     0x0071: ("INPUT",       0, "io"),
     0x008F: ("OPEN",        1, "io"),
     0x0091: ("READ",        1, "io"),
     0x00A9: ("CALL.NAME",   1, "call"),     # arg = const # of subroutine name
     0x00B7: ("CALL.GO",     1, "call"),
     0x00BE: ("SUB.PROLOG",  3, "sub"),
+    0x00D0: ("FN.UPCASE",   0, "func"),
     0x00E2: ("FN.FIELD",    0, "func"),
     0x00E4: ("BINOP",       1, "binop"),    # arg = operator char code
+    0x0142: ("PUSH.V",      1, "push"),     # push variable #arg (expr continuation)
+    0x011C: ("FN.TRIM",     1, "func"),     # arg = variant
+    0x01A9: ("FN.DCOUNT",   1, "func"),
     0x0115: ("STOP",        1, "misc"),
     0x0151: ("CMP.VV",     -1, "expr"),     # var <cmp> var : mode + greedy operands
     0x0152: ("EXPR",       -1, "expr"),     # (mode, dst, greedy operand words)
@@ -60,8 +72,10 @@ OPCODES: dict[int, tuple[str, int, str]] = {
     0x015D: ("GOTO",        1, "jump"),
     0x0163: ("LOOP.BACK",   1, "jump"),
     0x0167: ("FOR.NEXT",    1, "jump"),
-    0x01C6: ("AND.SC",      1, "jump"),     # short-circuit AND
-    0x01C8: ("AND.MERGE",   1, "misc"),
+    0x01C6: ("AND.SC",      1, "jump"),     # short-circuit AND (branch if false)
+    0x01C7: ("OR.SC",       1, "jump"),     # short-circuit OR  (branch if true)
+    0x01C8: ("AND.MERGE",   0, "misc"),
+    0x01C9: ("OR.MERGE",    0, "misc"),
     0x01CB: ("CALL.PREP",   1, "call"),
 }
 
@@ -73,8 +87,35 @@ BINOP_CHARS = {
 }
 
 CMP_TEXT = {
-    0x1A: "=", 0x1B: "#", 0x1C: "<=", 0x1D: "<", 0x1E: ">=", 0x1F: ">",
+    0x1A: "=", 0x1B: "#", 0x1C: ">", 0x1D: "<", 0x1E: ">=", 0x1F: "<=",
 }
+
+
+def expr_header(opcode: int, args: list[int]):
+    """Interpret the first words of an EXPR (0x0152) / CMP.VV (0x0151).
+
+    Returns (dst, (op1_idx, op1_is_var), (op2_idx, op2_is_var) | None).
+    dst is None for a condition (result feeds a branch, not a variable).
+    """
+    if not args:
+        return None, None, None
+    mode = args[0]
+    lo, hi = mode & 0xFF, mode >> 8
+    cond = opcode == 0x0151 or lo in (0x12, 0x32)
+    has_dst = opcode == 0x0152 and not cond
+    two = cond or hi >= 0x04
+    op1_is_var = lo in (0x42, 0x32)          # 0x22 / 0x12 => op1 is a constant
+    op2_is_var = bool(mode & 0x4000)
+    p = 1
+    dst = None
+    if has_dst and p < len(args):
+        dst = args[p]; p += 1
+    op1 = op2 = None
+    if p < len(args):
+        op1 = (args[p], op1_is_var); p += 1
+    if two and p < len(args):
+        op2 = (args[p], op2_is_var); p += 1
+    return dst, op1, op2
 
 
 @dataclass
@@ -118,26 +159,25 @@ def disassemble(code: bytes) -> list[Insn]:
         args = []
         p = off + 2
         if nargs == -1:
-            # greedy: mode word, then consume words until the next byte begins a
-            # known operator / terminator / control opcode.
+            # EXPR / CMP.VV: mode word, optional dst, then the 1-2 inline
+            # operand words.  The rest of the expression (PUSH.V, PUSH.C,
+            # BINOP, CMP, FN.*, EXPR.END) decodes as ordinary instructions and
+            # is folded back into an expression tree by the decompiler.
             if p + 2 <= n:
                 args.append(_read_word(code, p)); p += 2      # mode
-            zrun = 0
-            while p + 2 <= n:
-                lo, hi = code[p], code[p + 1]
-                if hi == 0x00 and lo in _EXPR_STOP:
+            mode = args[0]
+            lo, hi = mode & 0xFF, mode >> 8
+            cond = opcode == 0x0151 or lo in (0x12, 0x32)
+            nwords = 0
+            if opcode == 0x0152 and not cond:
+                nwords += 1                                   # dst
+            nwords += 1                                       # op1
+            if cond or hi >= 0x04:
+                nwords += 1                                   # op2
+            for _ in range(nwords):
+                if p + 2 > n:
                     break
-                if hi == 0x01 and lo in (0x5B, 0x5C, 0x5D, 0x51, 0x52, 0x59):
-                    break
-                w = _read_word(code, p)
-                zrun = zrun + 1 if w == 0 else 0
-                if zrun >= 3:            # 3+ zero words = inter-statement padding
-                    args = args[:-2]
-                    p -= 4
-                    break
-                args.append(w); p += 2
-                if len(args) > 12:
-                    break
+                args.append(_read_word(code, p)); p += 2
         else:
             for _ in range(nargs):
                 if p + 2 > n:

@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from . import container, disasm
+from . import container, disasm, expr
 
 # comparison opcode low byte -> source text (value context)
 CMP = {0x1A: "=", 0x1B: "#", 0x1C: "<=", 0x1D: "<", 0x1E: ">=", 0x1F: ">"}
@@ -46,48 +46,47 @@ class Decompiler:
 
     # -------------------------------------------------------- slot -> name
     def _map_slots(self):
-        """The -Z2 tail lists variables alphabetically with the source line
-        each is first seen on.  The p-code refers to variables by slot number.
-        Recover slot->name by walking the stream: the k-th distinct variable
-        slot to appear gets matched, in stream order, to the -Z2 variable whose
-        first-seen line is closest at or before the current statement line."""
+        """The p-code refers to variables by slot index; the -Z2 tail lists
+        names with a monotonic first-seen counter (not the raw source line, but
+        order-preserving).  Variable slots are allocated in first-appearance
+        order too, so rank-zip the two: the k-th slot to appear in the stream
+        gets the k-th -Z2 name by counter."""
         self.slot_name: dict[int, str] = {}
-        # -Z2 entries sorted by first-seen line
-        entries = sorted(self.c.var_lines.items(), key=lambda kv: (kv[1], kv[0]))
-        used = set()
-        cur_line = 0
+        entries = [n for n, _ in sorted(self.c.var_lines.items(),
+                                        key=lambda kv: (kv[1], kv[0]))]
+        order: list[int] = []
+        seen = set()
         for x in self.ins:
-            if x.mnem == "STMT" and x.args:
-                cur_line = x.args[0]
-                continue
             slots = []
-            if x.mnem in ("ASSIGN", "EXPR", "CMP.VV") and len(x.args) > 1:
-                slots.append(x.args[1])          # dst / operand-1 slot
+            if x.opcode in (0x0152, 0x0151):
+                dst, op1, op2 = disasm.expr_header(x.opcode, x.args)
+                for spec in (op1, op2):
+                    if spec and spec[1]:
+                        slots.append(spec[0])
+                if dst is not None:
+                    slots.insert(0, dst)
+            elif x.opcode == 0x0159 and len(x.args) >= 3:
+                mode, d, s = x.args[0], x.args[1], x.args[2]
+                slots.append(d)
+                if (mode & 0xFF) in (0x22, 0x0122 & 0xFF):
+                    slots.append(s)
+            elif x.mnem == "PUSH.V" and x.args:
+                slots.append(x.args[0])
             for s in slots:
-                if s in self.slot_name:
-                    continue
-                # first unused -Z2 var whose first-seen line <= cur_line
-                pick = None
-                for name, ln in entries:
-                    if name in used:
-                        continue
-                    if ln <= cur_line + 1:
-                        pick = name
-                        break
-                if pick is None:
-                    for name, ln in entries:
-                        if name not in used:
-                            pick = name
-                            break
-                if pick is not None:
-                    self.slot_name[s] = pick
-                    used.add(pick)
+                if s not in seen:
+                    seen.add(s)
+                    order.append(s)
+        for i, slot in enumerate(order):
+            if i < len(entries):
+                self.slot_name[slot] = entries[i]
 
     # ------------------------------------------------------------- labels
     def _synth_labels(self):
+        # AND.SC / OR.SC targets are intra-expression short-circuit jumps, not
+        # statement labels -- naming them would split a compound condition.
         tg = set()
         for x in self.ins:
-            if x.mnem in ("GOTO", "GOSUB", "BRF", "LOOP.BACK", "FOR.NEXT", "AND.SC") and x.args:
+            if x.mnem in ("GOTO", "GOSUB", "BRF", "LOOP.BACK", "FOR.NEXT") and x.args:
                 tg.add(x.args[0] * 2)
         for t in sorted(tg):
             self.labels.setdefault(t, f"L_{t // 2:04d}")
@@ -166,15 +165,13 @@ class Decompiler:
         if m == ["FOR.NEXT"]:
             return [Line(line, f"NEXT   ;* loop head {self.lbl(seq[0].args[0])}")]
 
+        # concatenation:  PUSH.C2 <dst-slot>  ASSIGN mode=0x03xx op1 op2 [tokens]
+        if m[:2] == ["PUSH.C2", "ASSIGN"] and (seq[1].args[0] >> 8) == 0x03:
+            return self._render_concat(line, seq)
+
         # simple assignment: ASSIGN(mode, dst, src)
-        if m == ["ASSIGN"]:
-            mode, dst, src = seq[0].args
-            rhs = self.const(src) if (mode & 0xFF) == 0x12 else self.var(src)
-            return [Line(line, f"{self.var(dst)} = {rhs}")]
-        if m == ["PUSH.C2", "ASSIGN"]:
-            pc = seq[0].args[0]
-            mode, dst, src = seq[1].args
-            return [Line(line, f"{self.var(dst)} = {self.var(src)} : {self.const(pc)}")]
+        if m[0] == "ASSIGN" and "BRF" not in m:
+            return self._render_assign(line, seq)
 
         # conditionals -> branch
         if "BRF" in m:
@@ -193,87 +190,74 @@ class Decompiler:
             return self._render_for(line, seq)
 
         # expression assignment
-        if m[0] == "EXPR":
-            return self._render_expr(line, seq)
+        if m[0] in ("EXPR", "CMP.VV"):
+            st = expr.evaluate(seq, 0, self)
+            if st.dst is not None:
+                return [Line(line, f"{self.var(st.dst)} = {st.text}")]
+            return [Line(line, f"{self.var(0)} = {st.text}   ;* (no dst?)")]
 
         raw = " ".join(x.fmt().strip() for x in seq)
         return [Line(line, f"!! line {line}: {raw}")]
 
-    # ---- operand extraction --------------------------------------------
-    def _operands(self, words, both_const):
-        """words = operand words after (mode, dst).  A leading value is
-        operand 1; a (0, idx) pair is a constant operand; a bare non-zero
-        value is a variable operand (or constant when both_const)."""
-        terms = []
-        i = 0
-        while i < len(words) and len(terms) < 5:
-            w = words[i]
-            if i + 1 < len(words) and w == 0 and words[i + 1] != 0:
-                terms.append(("const", words[i + 1]))
-                i += 2
-            elif w == 0 and not terms:
-                terms.append(("const" if both_const else "var", 0))
-                i += 1
-            else:
-                terms.append(("const" if both_const else "var", w))
-                i += 1
-        if not terms:
-            terms = [("const" if both_const else "var", 0)]
-        out = []
-        for kind, v in terms:
-            if kind == "const":
-                out.append(self.const(v))
-            else:
-                out.append(self.var(v) if v < len(self.c.var_lines) else self.const(v))
-        return out
+    def _render_concat(self, line, seq):
+        dst = seq[0].args[0]
+        a = seq[1]
+        mode = a.args[0]
+        op1, op2 = a.args[1], a.args[2] if len(a.args) > 2 else 0
+        # mode low byte: 0x22 => op2 var, 0x12 => op2 const  (op1 always var)
+        t1 = self.var(op1)
+        t2 = self.var(op2) if (mode & 0x20) else self.const(op2)
+        parts = [t1, t2]
+        # trailing tokens can add more terms or wrap the result in a function
+        fn = None
+        for x in seq[2:]:
+            if x.mnem in ("PUSH.V",):
+                parts.append(self.var(x.args[0]))
+            elif x.mnem in ("PUSH.C", "PUSH.C2"):
+                parts.append(self.const(x.args[0]))
+            elif x.mnem.startswith("FN."):
+                fn = x.mnem[3:]
+            elif x.mnem in ("EXPR.END", "PAD", "HALT"):
+                break
+        rhs = " : ".join(parts)
+        if fn:
+            rhs = f"{fn}({rhs})"
+        return [Line(line, f"{self.var(dst)} = {rhs}")]
 
-    def _render_expr(self, line, seq):
-        ex = seq[0]
-        mode = ex.args[0] if ex.args else 0
-        dst = ex.args[1] if len(ex.args) > 1 else 0
-        opwords = ex.args[2:]
-        both_const = (mode & 0xFF) == 0x22
-        rend = self._operands(opwords, both_const)
-        binch = [disasm.BINOP_CHARS.get(x.args[0], "?") for x in seq if x.mnem == "BINOP"]
-        fns = [x.mnem[3:] for x in seq if x.mnem.startswith("FN.")]
-        approx = "   ;* expr approx" if (len(rend) > 2 or (len(binch) + len(fns)) > 1) else ""
-
-        if binch and len(rend) >= 2:
-            e = rend[0]
-            for ch, t in zip(binch, rend[1:]):
-                e = f"{e} {ch} {t}"
-        elif fns and rend:
-            e = f"{fns[0]}({', '.join(rend)})"
-            for fn in fns[1:]:
-                e = f"{fn}({e})"
-        elif rend:
-            e = rend[0]
-        else:
-            e = f"<expr@{line}>"
-        return [Line(line, f"{self.var(dst)} = {e}{approx}")]
+    def _render_assign(self, line, seq):
+        mode, dst, src = seq[0].args[:3]
+        # low nibble of the mode's low byte: 2 = const source, otherwise var
+        rhs = self.const(src) if (mode & 0x0F) == 0x02 else self.var(src)
+        # trailing tokens (rare): fold as an expression continuation
+        if len(seq) > 1 and seq[1].mnem not in ("EXPR.END", "PAD", "HALT"):
+            st = expr.evaluate(seq, 0, self)
+            return [Line(line, f"{self.var(st.dst if st.dst is not None else dst)}"
+                               f" = {st.text}")]
+        return [Line(line, f"{self.var(dst)} = {rhs}")]
 
     def _render_if(self, line, seq):
-        brf = next(x for x in seq if x.mnem == "BRF")
-        tgt = self.lbl(brf.args[0])
-        cmp_ins = next((x for x in seq if x.mnem.startswith("CMP.")), None)
-        op = CMP.get(cmp_ins.opcode & 0xFF, "?") if cmp_ins else "?"
-        first = seq[0]
-        note = "   ;* else fall through"
-        mode = first.args[0] if first.args else 0
-        words = first.args[1:]
-        if first.opcode == 0x0152:                     # var <op> const
-            terms = self._operands(words, both_const=False)
-            a = terms[0] if terms else "?"
-            # operand 2 is a constant here regardless of mode
-            b = self.const(words[-1]) if words else "?"
-        elif first.opcode == 0x0151:                   # var <op> var
-            terms = self._operands(words, both_const=False)
-            a = terms[0] if terms else "?"
-            b = terms[-1] if len(terms) > 1 else "?"
-            note = "   ;* verify comparison sense; else fall through"
-        else:
-            a, b = "?", "?"
-        return [Line(line, f"IF {a} {op} {b} THEN GOTO {tgt}{note}")]
+        # collect the (possibly several, AND/OR-joined) expression runs before BRF
+        parts = []
+        joiner = None
+        i = 0
+        while i < len(seq):
+            x = seq[i]
+            if x.mnem in ("EXPR", "CMP.VV"):
+                st = expr.evaluate(seq, i, self)
+                parts.append(st.text)
+                i += st.consumed
+                continue
+            if x.mnem == "AND.SC":
+                joiner = "AND"
+            elif x.mnem == "OR.SC":
+                joiner = "OR"
+            elif x.mnem == "BRF":
+                break
+            i += 1
+        brf = next((x for x in seq if x.mnem == "BRF"), None)
+        tgt = self.lbl(brf.args[0]) if brf else "?"
+        cond = f" {joiner} ".join(parts) if parts else "?"
+        return [Line(line, f"IF {cond} THEN GOTO {tgt}   ;* else fall through")]
 
     def _render_call(self, line, seq):
         # name is const[0] for CALL; CALL.NAME arg = arg count
