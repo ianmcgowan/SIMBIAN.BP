@@ -1,0 +1,12 @@
+* Probe: P08_ASSIGN_TWO
+* Base : P07  Delta: a second variable assignment
+$BASICTYPE "P"
+  A.ONE = 1
+  A.TWO = 1
+*
+*
+*
+*
+*
+*
+END

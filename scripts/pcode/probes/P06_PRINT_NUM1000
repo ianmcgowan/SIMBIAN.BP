@@ -1,0 +1,12 @@
+* Probe: P06_PRINT_NUM1000
+* Base : P04  Delta: the integer is 1000 instead of 1
+$BASICTYPE "P"
+  PRINT 1000
+*
+*
+*
+*
+*
+*
+*
+END

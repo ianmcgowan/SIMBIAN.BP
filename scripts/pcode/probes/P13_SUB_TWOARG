@@ -1,0 +1,12 @@
+* Probe: P13_SUB_TWOARG
+* Base : P12  Delta: the SUBROUTINE takes two arguments
+SUBROUTINE P13.SUB.TWOARG(ARG.ONE, ARG.TWO)
+  $BASICTYPE "P"
+*
+*
+*
+*
+*
+*
+*
+END

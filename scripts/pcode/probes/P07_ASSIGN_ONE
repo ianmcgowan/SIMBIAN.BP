@@ -1,0 +1,12 @@
+* Probe: P07_ASSIGN_ONE
+* Base : P00  Delta: one variable assignment
+$BASICTYPE "P"
+  A.ONE = 1
+*
+*
+*
+*
+*
+*
+*
+END

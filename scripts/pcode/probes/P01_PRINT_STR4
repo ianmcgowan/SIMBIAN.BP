@@ -1,0 +1,12 @@
+* Probe: P01_PRINT_STR4
+* Base : P00  Delta: one PRINT of a 4-char literal
+$BASICTYPE "P"
+  PRINT 'AAAA'
+*
+*
+*
+*
+*
+*
+*
+END

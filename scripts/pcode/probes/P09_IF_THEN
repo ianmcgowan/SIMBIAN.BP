@@ -1,0 +1,12 @@
+* Probe: P09_IF_THEN
+* Base : P07  Delta: a forward conditional branch
+$BASICTYPE "P"
+  A.ONE = 1
+  IF A.ONE = 1 THEN PRINT 'AAAA'
+*
+*
+*
+*
+*
+*
+END

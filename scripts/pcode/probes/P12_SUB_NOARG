@@ -1,0 +1,12 @@
+* Probe: P12_SUB_NOARG
+* Base : P00  Delta: compiled as a SUBROUTINE with no arguments
+SUBROUTINE P12.SUB.NOARG
+  $BASICTYPE "P"
+*
+*
+*
+*
+*
+*
+*
+END
