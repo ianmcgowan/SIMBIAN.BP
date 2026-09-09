@@ -26,6 +26,10 @@ from dataclasses import dataclass
 
 from . import container, disasm, expr, structure
 
+def _g(lst, i):
+    return lst[i] if 0 <= i < len(lst) else "?"
+
+
 @dataclass
 class Line:
     src_line: int
@@ -320,6 +324,30 @@ class Decompiler:
         if m == ["FOR.NEXT"]:
             return [Line(line, f"NEXT   ;* loop head {self.lbl(seq[0].args[0])}")]
 
+        # split a compound source line (X = 1 ; Y = 2 ; ...) into its statements
+        splits = self._split_compound(seq)
+        if len(splits) > 1:
+            outl = []
+            for s in splits:
+                outl += self._render(line, s)
+            return outl
+
+        # file I/O:  EXPR(operands) ... {OPEN|READ|WRITE|...}
+        io = next((x for x in seq if x.mnem in (
+            "OPEN", "READ", "READU", "WRITE", "READV", "WRITEV",
+            "DELETE", "MATREAD", "MATWRITE")), None)
+        if io is not None:
+            return self._render_io(line, seq, io)
+
+        # compound assignment:  EXPR(dst, val)  OPADD <op char>
+        if "OPADD" in m and m[0] == "EXPR":
+            op = next(x for x in seq if x.mnem == "OPADD")
+            ch = disasm.BINOP_CHARS.get(op.args[0], "?")
+            dst, o1, o2 = disasm.expr_header(seq[0].opcode, seq[0].args)
+            tgt = self.var(dst) if dst is not None else "?"
+            rhs = (self.var(o2[0]) if o2 and o2[1] else self.const(o2[0])) if o2 else "?"
+            return [Line(line, f"{tgt} = {tgt} {ch} {rhs}")]
+
         # dynamic-array replace:  EXPR dst sub.. [PUSH.C ..]  REPLACE n
         if "REPLACE" in m:
             return self._render_dynarr(line, seq)
@@ -408,6 +436,61 @@ class Decompiler:
         if fn:
             rhs = f"{fn}({rhs})"
         return [Line(line, f"{self.var(dst)} = {rhs}")]
+
+    def _split_compound(self, seq):
+        """Break a run at each point a new top-level statement clearly begins
+        (an ASSIGN or a fresh EXPR-with-dst right after a completed one)."""
+        out, cur = [], []
+        for x in seq:
+            if cur and x.mnem == "ASSIGN" and cur[-1].mnem in (
+                    "ASSIGN", "PAD", "HALT", "EXPR.END"):
+                out.append(cur)
+                cur = []
+            cur.append(x)
+        if cur:
+            out.append(cur)
+        return out if len(out) > 1 else [seq]
+
+    def _render_io(self, line, seq, io):
+        exprs = [x for x in seq if x.mnem in ("EXPR", "CMP.VV")]
+        refs = []
+        for e in exprs:
+            dst, o1, o2 = disasm.expr_header(e.opcode, e.args)
+            for r in (dst, o1, o2):
+                if r is None:
+                    continue
+                if isinstance(r, tuple):
+                    refs.append(self.var(r[0]) if r[1] else self.const(r[0]))
+                else:
+                    refs.append(self.var(r))
+        v = io.mnem
+        # refs order is (var/expr, file, key[, field]) for most; (file, var) for OPEN
+        if v == "OPEN":
+            e = exprs[0] if exprs else None
+            if e is not None and len(e.args) >= 3:
+                txt = f"OPEN {self.const(e.args[1])} TO {self.var(e.args[2])}"
+            else:
+                txt = "OPEN ?"
+        elif v in ("READ", "READU"):
+            txt = f"{v} {_g(refs,0)} FROM {_g(refs,1)}, {_g(refs,2)}"
+        elif v == "WRITE":
+            txt = f"WRITE {_g(refs,0)} ON {_g(refs,1)}, {_g(refs,2)}"
+        elif v == "READV":
+            txt = f"READV {_g(refs,0)} FROM {_g(refs,1)}, {_g(refs,2)}, {_g(refs,3)}"
+        elif v == "WRITEV":
+            txt = f"WRITEV {_g(refs,0)} ON {_g(refs,1)}, {_g(refs,2)}, {_g(refs,3)}"
+        elif v == "DELETE":
+            txt = f"DELETE {_g(refs,0)}, {_g(refs,1)}"
+        elif v in ("MATREAD", "MATWRITE"):
+            kw = "FROM" if v == "MATREAD" else "ON"
+            txt = f"{v} {_g(refs,0)} {kw} {_g(refs,1)}, {_g(refs,2)}"
+        else:
+            txt = v
+        # a trailing BRF marks a THEN/ELSE clause
+        brf = next((x for x in seq if x.mnem == "BRF"), None)
+        if brf is not None:
+            txt += f"   ;* THEN/ELSE at {self.lbl(brf.args[0])}"
+        return [Line(line, txt)]
 
     def _render_assign(self, line, seq):
         mode, dst, src = seq[0].args[:3]

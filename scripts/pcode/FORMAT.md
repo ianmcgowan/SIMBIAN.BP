@@ -1,7 +1,7 @@
 # UniData UniBasic P-code object format
 
 Reverse-engineered from UniData 8.3 (Build 2000) by differential compilation of
-minimal-pair probes plus analysis of `_STACK` (4390-line real program).  No
+minimal-pair probes plus analysis of `_STACK` (4390-line real program); ~68 opcodes mapped.  No
 vendor documentation was used or exists publicly.  Everything here is empirical
 and may be incomplete; the tools degrade gracefully where it is.
 
@@ -95,7 +95,7 @@ operands are **word** offsets from the code-segment start (byte = word*2).
 |------|----------|:---:|---------|
 | `0x0000` | HALT | 0 | zero padding / end of segment |
 | `0x0004` | FOR.INIT | 3 | FOR counter init (flag, loopvar slot, 0) |
-| `0x000B` | RETURN | 1 | RETURN from GOSUB / sub |
+| `0x000B` | RETURN | 1 | RETURN |
 | `0x000F` | FN.SUBSTR | 0 | A[start,len] |
 | `0x0010` | PUSH.C | 1 | push constant #arg |
 | `0x0011` | PUSH.C2 | 1 | push constant (string ctx) |
@@ -107,6 +107,7 @@ operands are **word** offsets from the code-segment start (byte = word*2).
 | `0x001E` | CMP.GE | 0 | >= |
 | `0x001F` | CMP.LE | 0 | <= |
 | `0x0021` | EXPR.END | 0 | end of an expression |
+| `0x0022` | OPADD | 1 | compound assign X op= v; arg = operator ASCII |
 | `0x002C` | PRINT | 1 | emit print list; arg = item count |
 | `0x002D` | EXTRACT | 0 | A<f,v,s> dynamic-array read |
 | `0x002E` | NOT | 0 | logical NOT |
@@ -116,24 +117,35 @@ operands are **word** offsets from the code-segment start (byte = word*2).
 | `0x0037` | FN.LEN | 0 | LEN() |
 | `0x003C` | FN.INDEX | 0 | INDEX() |
 | `0x0042` | FN.OCONV | 0 | OCONV() |
+| `0x0046` | FN.CHAR | 0 | CHAR() |
 | `0x0049` | FN.SEQ | 0 | SEQ() |
+| `0x004A` | FN.ABS | 0 | ABS() |
+| `0x004E` | FN.INT | 0 | INT() |
 | `0x004F` | FN.NUM | 0 | NUM() |
+| `0x0055` | FN.DATE | 0 | DATE() |
+| `0x0056` | FN.TIME | 0 | TIME() |
 | `0x0066` | FN.ICONV | 0 | ICONV() |
 | `0x0071` | INPUT | 0 | INPUT statement |
 | `0x008A` | REPLACE | 1 | A<..> = v dynamic-array store; arg = subscript count |
-| `0x008F` | OPEN | 1 | OPEN .. TO |
-| `0x0091` | READ | 1 | READ / READU / READV |
+| `0x008D` | MATREAD | 1 | MATREAD .. FROM |
+| `0x008E` | MATWRITE | 1 | MATWRITE .. ON |
+| `0x008F` | OPEN | 1 | OPEN <file> TO <var> [.. ELSE] |
+| `0x0091` | READ | 1 | READ .. FROM .. [THEN/ELSE] |
+| `0x0092` | WRITE | 1 | WRITE .. ON .. |
+| `0x0093` | READV | 1 | READV .. FROM .., field |
+| `0x0094` | WRITEV | 1 | WRITEV .. ON .., field |
+| `0x0095` | DELETE | 1 | DELETE <file>, <key> |
 | `0x00A9` | CALL.NAME | 1 | CALL: name is const #0, arg = number of arguments |
 | `0x00B7` | CALL.GO | 1 | invoke after args pushed |
 | `0x00BE` | SUB.PROLOG | 3 | subroutine entry; arg count in 3rd word |
 | `0x00CB` | STMT | 1 | statement marker; operand = source line |
 | `0x00D0` | FN.UPCASE | 0 | UPCASE() |
 | `0x00E2` | FN.FIELD | 0 | FIELD() |
-| `0x00E4` | BINOP | 1 | binary op; arg = operator ASCII code (+ - * / : ^) |
+| `0x00E4` | BINOP | 1 | binary op; arg = operator ASCII code |
 | `0x0115` | STOP | 1 | STOP |
 | `0x011C` | FN.TRIM | 1 | TRIM(); arg = variant |
-| `0x0142` | PUSH.V | 1 | push variable slot #arg (expression continuation) |
-| `0x0151` | CMP.VV | var | var <cmp> var: mode + inline operands; feeds a branch |
+| `0x0142` | PUSH.V | 1 | push variable slot #arg |
+| `0x0151` | CMP.VV | var | var <cmp> var: mode + inline operands |
 | `0x0152` | EXPR | var | evaluate expression: mode + [dst] + 1-2 inline operands + token stream |
 | `0x0155` | ARG.BIND | 2 | bind a subroutine parameter |
 | `0x0159` | ASSIGN | 3 | simple assignment (mode, dst, src) |

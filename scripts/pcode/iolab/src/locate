@@ -1,0 +1,40 @@
+  $BASICTYPE "P"
+  F = 0
+  REC = 0
+  K = "key"
+*
+*
+*
+*
+*
+  LOCATE "x" IN REC<1> BY "AR" SETTING P ELSE NULL
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+END

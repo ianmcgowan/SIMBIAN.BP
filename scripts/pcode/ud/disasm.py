@@ -56,9 +56,16 @@ OPCODES: dict[int, tuple[str, int, str]] = {
     0x0055: ("FN.DATE",     0, "func"),
     0x0056: ("FN.TIME",     0, "func"),
     0x0066: ("FN.ICONV",    0, "func"),
+    0x0022: ("OPADD",       1, "binop"),    # compound assign; arg = operator char
     0x0071: ("INPUT",       0, "io"),
+    0x008D: ("MATREAD",     1, "io"),
+    0x008E: ("MATWRITE",    1, "io"),
     0x008F: ("OPEN",        1, "io"),
     0x0091: ("READ",        1, "io"),
+    0x0092: ("WRITE",       1, "io"),
+    0x0093: ("READV",       1, "io"),
+    0x0094: ("WRITEV",      1, "io"),
+    0x0095: ("DELETE",      1, "io"),
     0x00A9: ("CALL.NAME",   1, "call"),     # arg = const # of subroutine name
     0x00B7: ("CALL.GO",     1, "call"),
     0x00BE: ("SUB.PROLOG",  3, "sub"),

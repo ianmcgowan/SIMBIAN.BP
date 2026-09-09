@@ -106,14 +106,19 @@ def build(insns, lo=0, hi=None, depth=0):
     return out
 
 
+_IO = {"OPEN", "READ", "READU", "WRITE", "READV", "WRITEV", "DELETE",
+       "MATREAD", "MATWRITE"}
+
+
 def _is_if_head(insns, i, hi):
-    # a BRF within a short window, before any STMT / FOR / LOOP boundary
+    # a BRF within a short window, before any STMT / FOR / LOOP / I-O boundary
     for k in range(i, min(i + 14, hi)):
         m = insns[k].mnem
         if m == "BRF":
             return True
+        if m in _IO:
+            return False        # a READ/WRITE/OPEN ... THEN/ELSE, not an IF
         if m in ("FOR.INIT", "LOOP.BACK", "AND.SC", "OR.SC"):
-            # AND/OR compound conditions still contain a BRF further on
             continue
         if m == "STMT" and k > i:
             return False
