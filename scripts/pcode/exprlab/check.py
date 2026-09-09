@@ -31,8 +31,9 @@ for fn in sorted(glob.glob(os.path.join(os.path.dirname(__file__),'obj','_*'))):
     txt=decompile.decompile_text(c)
     got=None
     for ln in txt.splitlines():
-        if ln.strip().startswith('20 |'):
-            got=ln.split('|',1)[1].strip()
+        core = ln.split('|',1)[1].strip() if '|' in ln else ''
+        if core.startswith(('X =','IF ')) and got is None:
+            got = core
     want=exp[name]
     # normalise: our IF emits "IF cond THEN GOTO ..." -> compare prefix
     g = got or ''

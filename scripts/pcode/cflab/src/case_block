@@ -1,0 +1,40 @@
+  $BASICTYPE "P"
+  P = 7
+  Q = 8
+  R = 9
+*
+*
+*
+*
+*
+  BEGIN CASE
+    CASE P = 1
+      Q = 1
+    CASE P = 2
+      Q = 2
+    CASE 1
+      Q = 9
+  END CASE
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+END

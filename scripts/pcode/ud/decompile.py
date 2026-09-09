@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from . import container, disasm, expr
+from . import container, disasm, expr, structure
 
 # comparison opcode low byte -> source text (value context)
 CMP = {0x1A: "=", 0x1B: "#", 0x1C: "<=", 0x1D: "<", 0x1E: ">=", 0x1F: ">"}
@@ -34,6 +34,7 @@ CMP = {0x1A: "=", 0x1B: "#", 0x1C: "<=", 0x1D: "<", 0x1E: ">=", 0x1F: ">"}
 class Line:
     src_line: int
     text: str
+    indent: int = 0
 
 
 class Decompiler:
@@ -46,39 +47,57 @@ class Decompiler:
 
     # -------------------------------------------------------- slot -> name
     def _map_slots(self):
-        """The p-code refers to variables by slot index; the -Z2 tail lists
-        names with a monotonic first-seen counter (not the raw source line, but
-        order-preserving).  Variable slots are allocated in first-appearance
-        order too, so rank-zip the two: the k-th slot to appear in the stream
-        gets the k-th -Z2 name by counter."""
+        """Recover slot -> name.
+
+        The -Z2 tail lists each variable with a counter that is source line +
+        a fixed offset (verified: `A` on source line 3 lists as 10).  We record,
+        per slot, the source line of its first appearance in the stream, then
+        match slots to -Z2 names by nearest line -- more robust to gaps (params,
+        COMMON) than a plain rank-zip."""
         self.slot_name: dict[int, str] = {}
-        entries = [n for n, _ in sorted(self.c.var_lines.items(),
-                                        key=lambda kv: (kv[1], kv[0]))]
-        order: list[int] = []
-        seen = set()
+        z = sorted(self.c.var_lines.items(), key=lambda kv: kv[1])
+        if not z:
+            return
+        # slot -> first source line seen
+        first_line: dict[int, int] = {}
+        cur = 0
         for x in self.ins:
+            if x.mnem == "STMT" and x.args:
+                cur = x.args[0]
+                continue
             slots = []
             if x.opcode in (0x0152, 0x0151):
                 dst, op1, op2 = disasm.expr_header(x.opcode, x.args)
+                if dst is not None:
+                    slots.append(dst)
                 for spec in (op1, op2):
                     if spec and spec[1]:
                         slots.append(spec[0])
-                if dst is not None:
-                    slots.insert(0, dst)
             elif x.opcode == 0x0159 and len(x.args) >= 3:
-                mode, d, s = x.args[0], x.args[1], x.args[2]
-                slots.append(d)
-                if (mode & 0xFF) in (0x22, 0x0122 & 0xFF):
-                    slots.append(s)
+                slots.append(x.args[1])
+                if (x.args[0] & 0xF0) == 0x20:
+                    slots.append(x.args[2])
             elif x.mnem == "PUSH.V" and x.args:
                 slots.append(x.args[0])
             for s in slots:
-                if s not in seen:
-                    seen.add(s)
-                    order.append(s)
-        for i, slot in enumerate(order):
-            if i < len(entries):
-                self.slot_name[slot] = entries[i]
+                first_line.setdefault(s, cur)
+
+        # estimate the counter->line offset from the earliest of each
+        off = z[0][1] - min(first_line.values(), default=z[0][1])
+        names = [(n, ctr - off) for n, ctr in z]
+        used = set()
+        for slot in sorted(first_line, key=lambda s: (first_line[s], s)):
+            want = first_line[slot]
+            best, bd = None, 1 << 30
+            for n, ln in names:
+                if n in used:
+                    continue
+                d = abs(ln - want)
+                if d < bd:
+                    best, bd = n, d
+            if best is not None:
+                self.slot_name[slot] = best
+                used.add(best)
 
     # ------------------------------------------------------------- labels
     def _synth_labels(self):
@@ -113,40 +132,138 @@ class Decompiler:
         return ks[idx].s if 0 <= idx < len(ks) else f"K{idx}"
 
     # ------------------------------------------------------------- driver
-    def run(self) -> list[Line]:
+    def run(self, structured=True) -> list[Line]:
         out: list[Line] = []
         if self.c.is_subroutine:
             name = self.c.consts[0].s if self.c.consts else "SUB"
             args = ", ".join(f"ARG{k + 1}" for k in range(self.c.argc))
             out.append(Line(1, f"SUBROUTINE {name}({args})"))
 
-        cur = 0
-        pend: list[disasm.Insn] = []
-        pend_line = 0
-        seen_lbl: set[int] = set()
+        self._cur = 0
+        self._seen_lbl: set[int] = set()
+        if structured:
+            try:
+                blocks = structure.build(self.ins)
+                for b in blocks:
+                    self._emit_block(b, 0, out)
+            except Exception:  # noqa: BLE001  -- never let structure crash output
+                out = out[:1] if self.c.is_subroutine else []
+                self._emit_linear(self.ins, 0, out)
+        else:
+            self._emit_linear(self.ins, 0, out)
+
+        if not self.c.is_subroutine:
+            out.append(Line(0, "END", 0))
+        return out
+
+    # ------------------------------------------------------------- blocks
+    def _emit_block(self, b, depth, out):
+        if b.kind == "linear":
+            self._emit_linear(b.insns, depth, out)
+        elif b.kind == "if":
+            self._emit_if_block(b, depth, out)
+        elif b.kind == "for":
+            self._emit_for_block(b, depth, out)
+        elif b.kind == "loop":
+            self._emit_loop_block(b, depth, out)
+
+    def _emit_if_block(self, b, depth, out):
+        cond = self._condition_text(b.cond_insns)
+        line = self._line_of(b.cond_insns)
+        out.append(Line(line, f"IF {cond} THEN", depth))
+        for c in b.then_body:
+            self._emit_block(c, depth + 1, out)
+        if b.else_body:
+            out.append(Line(line, "END ELSE", depth))
+            for c in b.else_body:
+                self._emit_block(c, depth + 1, out)
+        out.append(Line(line, "END", depth))
+
+    def _emit_for_block(self, b, depth, out):
+        v = self.var(b.meta.get("loopvar")) if b.meta.get("loopvar") is not None else "I"
+        sm = b.meta.get("start_mode", 0)
+        sr = b.meta.get("start_ref", 0)
+        start = self.var(sr) if (sm & 0x0F) != 0x01 else self.const(sr)
+        pushes = b.meta.get("pushes", [])
+
+        def pv(ins):
+            return (self.const(ins.args[0]) if ins.mnem == "PUSH.C"
+                    else self.var(ins.args[0]))
+        limit = pv(pushes[0]) if pushes else "?"
+        step = f" STEP {pv(pushes[1])}" if len(pushes) > 1 else ""
+        line = b.head.word and self._nearest_line(b.head.off)
+        out.append(Line(line, f"FOR {v} = {start} TO {limit}{step}", depth))
+        for c in b.children:
+            self._emit_block(c, depth + 1, out)
+        out.append(Line(line, f"NEXT {v}", depth))
+
+    def _emit_loop_block(self, b, depth, out):
+        line = self._nearest_line(b.head.off)
+        out.append(Line(line, "LOOP", depth))
+        for c in b.children:
+            self._emit_block(c, depth + 1, out)
+        cond = self._condition_text(b.cond_insns) if b.cond_insns else ""
+        out.append(Line(line, f"REPEAT   ;* until {cond}" if cond else "REPEAT", depth))
+
+    def _condition_text(self, cond_insns):
+        if not cond_insns:
+            return "?"
+        parts, joiner, i = [], None, 0
+        while i < len(cond_insns):
+            x = cond_insns[i]
+            if x.mnem in ("EXPR", "CMP.VV"):
+                st = expr.evaluate(cond_insns, i, self)
+                parts.append(st.text)
+                i += max(st.consumed, 1)
+                continue
+            if x.mnem == "AND.SC":
+                joiner = "AND"
+            elif x.mnem == "OR.SC":
+                joiner = "OR"
+            i += 1
+        return f" {joiner} ".join(parts) if parts else "?"
+
+    def _line_of(self, insns):
+        for x in insns:
+            ln = self._nearest_line(x.off)
+            if ln:
+                return ln
+        return self._cur
+
+    def _nearest_line(self, off):
+        best = 0
+        for x in self.ins:
+            if x.off > off:
+                break
+            if x.mnem == "STMT" and x.args:
+                best = x.args[0]
+        return best
+
+    def _emit_linear(self, insns, depth, out):
+        pend: list = []
+        pend_line = self._cur
 
         def flush():
             nonlocal pend
             if pend:
-                out.extend(self._render(pend_line, pend))
+                for ln in self._render(pend_line, pend):
+                    ln.indent = max(ln.indent, depth)
+                    out.append(ln)
                 pend = []
 
-        for x in self.ins:
-            if x.off in self.labels and x.off not in seen_lbl:
+        for x in insns:
+            if x.off in self.labels and x.off not in self._seen_lbl:
                 flush()
-                out.append(Line(cur, f"{self.labels[x.off]}:"))
-                seen_lbl.add(x.off)
+                out.append(Line(self._cur, f"{self.labels[x.off]}:", depth))
+                self._seen_lbl.add(x.off)
             if x.mnem == "STMT":
                 flush()
-                cur = pend_line = x.args[0] if x.args else cur
+                self._cur = pend_line = x.args[0] if x.args else self._cur
                 continue
             if x.mnem in ("PAD", "HALT"):
                 continue
             pend.append(x)
         flush()
-        if not self.c.is_subroutine:
-            out.append(Line(0, "END"))
-        return out
 
     # ------------------------------------------------------------- render
     def _render(self, line: int, seq: list[disasm.Insn]) -> list[Line]:
@@ -226,8 +343,8 @@ class Decompiler:
 
     def _render_assign(self, line, seq):
         mode, dst, src = seq[0].args[:3]
-        # low nibble of the mode's low byte: 2 = const source, otherwise var
-        rhs = self.const(src) if (mode & 0x0F) == 0x02 else self.var(src)
+        # mode low byte: 0x12 => constant source, 0x22 => variable source
+        rhs = self.const(src) if (mode & 0xF0) == 0x10 else self.var(src)
         # trailing tokens (rare): fold as an expression continuation
         if len(seq) > 1 and seq[1].mnem not in ("EXPR.END", "PAD", "HALT"):
             st = expr.evaluate(seq, 0, self)
@@ -299,12 +416,27 @@ class Decompiler:
 
 
 def decompile_text(c: container.Container) -> str:
+    import re
     d = Decompiler(c)
     lines = d.run()
+
+    # drop synthetic L_dddd labels no surviving statement jumps to
+    referenced = set()
+    for l in lines:
+        for mo in re.finditer(r"\b(L_\d{4}|[A-Z][A-Z0-9.]*)\b(?=\s*$|\s*;)", l.text):
+            pass
+    referenced = set(re.findall(r"(?:GOTO|GOSUB)\s+([A-Za-z_][\w.]*)",
+                                "\n".join(l.text for l in lines)))
+    lines = [l for l in lines
+             if not (l.text.endswith(":") and l.text[:-1].startswith("L_")
+                     and l.text[:-1] not in referenced)]
+
     w = max((len(str(l.src_line)) for l in lines if l.src_line), default=3)
     buf = []
     for l in lines:
         tag = f"{l.src_line:>{w}}" if l.src_line else " " * w
-        body = l.text if (l.text.endswith(":") or l.text.startswith("SUBROUTINE")) else "  " + l.text
-        buf.append(f"{tag} | {body}")
+        pad = "  " * (l.indent + 1)
+        if l.text.endswith(":") or l.text.startswith("SUBROUTINE"):
+            pad = "  " * l.indent
+        buf.append(f"{tag} | {pad}{l.text}")
     return "\n".join(buf)

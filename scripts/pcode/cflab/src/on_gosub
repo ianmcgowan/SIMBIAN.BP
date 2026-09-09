@@ -1,0 +1,40 @@
+  $BASICTYPE "P"
+  P = 7
+  Q = 8
+  R = 9
+*
+*
+*
+*
+*
+  ON P GOSUB L1, L2
+  STOP
+L1:
+  P = 1
+  RETURN
+L2:
+  P = 2
+  RETURN
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+END
