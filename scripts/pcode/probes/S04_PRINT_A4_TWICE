@@ -1,0 +1,40 @@
+* Probe S04_PRINT_A4_TWICE
+  $BASICTYPE "P"
+  PRINT 'AAAA'
+  PRINT 'AAAA'
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+END

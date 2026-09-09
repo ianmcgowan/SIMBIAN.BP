@@ -1,0 +1,40 @@
+* Probe F04_IF_NESTED
+  $BASICTYPE "P"
+  A = 1
+  IF A = 1 THEN
+  IF A = 1 THEN
+    PRINT 'AAAA'
+  END
+  END
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+END

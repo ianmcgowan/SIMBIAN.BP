@@ -1,0 +1,40 @@
+* Probe F08_LOOP_WHILE
+  $BASICTYPE "P"
+  A = 1
+  LOOP
+  WHILE A < 3
+  A = A + 1
+  REPEAT
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+END

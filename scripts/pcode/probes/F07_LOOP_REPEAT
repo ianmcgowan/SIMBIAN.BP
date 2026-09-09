@@ -1,0 +1,40 @@
+* Probe F07_LOOP_REPEAT
+  $BASICTYPE "P"
+  A = 1
+  LOOP
+  A = A + 1
+  UNTIL A > 3
+  REPEAT
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+END

@@ -1,0 +1,40 @@
+* Probe IO5_WRITE
+  $BASICTYPE "P"
+  OPEN 'VOC' TO F ELSE STOP
+  R = 'X'
+  WRITE R ON F, 'Y'
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+END

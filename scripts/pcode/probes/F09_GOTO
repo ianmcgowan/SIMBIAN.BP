@@ -1,0 +1,40 @@
+* Probe F09_GOTO
+  $BASICTYPE "P"
+  GOTO SKIP
+  PRINT 'AAAA'
+  SKIP:
+  PRINT 'BBBB'
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+END

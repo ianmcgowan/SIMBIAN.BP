@@ -1,42 +1,42 @@
 #!/usr/bin/env bash
-# Compile every probe twice -- with and without -Z2 -- and collect the objects.
+# Compile every probe in probes/ twice (with and without -Z2) via the PCLAB
+# directory file, and collect the objects under objects/{z2,noz2}/.
 #
-# The two builds of the same source are the single most useful pair in the whole
-# corpus: whatever -Z2 adds IS the debug/line-number section, cleanly separated
-# from the p-code itself.
-#
-#   ./run_probes.sh                       # uses the defaults below
-#   ACCOUNT=/usr/ud83/demo ./run_probes.sh
+#   ./run_probes.sh
+#   ACCOUNT=/usr/ud83/demo LAB=PCLAB ./run_probes.sh
 set -euo pipefail
 
 ACCOUNT="${ACCOUNT:-/usr/ud83/demo}"
-BPFILE="${BPFILE:-SIMBIAN.BP}"
-PROBES="$(cd "$(dirname "$0")/probes" && pwd)"
-OUT="${OUT:-$(cd "$(dirname "$0")" && pwd)/objects}"
+LAB="${LAB:-PCLAB}"
+HERE="$(cd "$(dirname "$0")" && pwd)"
+PROBES="$HERE/probes"
+LABDIR="$HERE/lab"
+OUT="${OUT:-$HERE/objects}"
 
 command -v udt >/dev/null || { echo "udt not on PATH" >&2; exit 1; }
-[ -d "$ACCOUNT/$BPFILE" ] || { echo "no $ACCOUNT/$BPFILE" >&2; exit 1; }
+[ -d "$LABDIR" ] || { echo "no lab dir $LABDIR" >&2; exit 1; }
 
 mkdir -p "$OUT/z2" "$OUT/noz2"
+rm -f "$LABDIR"/* "$OUT"/z2/* "$OUT"/noz2/*
 
-for src in "$PROBES"/P*; do
+n=0
+for src in "$PROBES"/*; do
   name="$(basename "$src")"
-  cp "$src" "$ACCOUNT/$BPFILE/$name"
-
+  cp "$src" "$LABDIR/$name"
   for mode in z2 noz2; do
     [ "$mode" = z2 ] && flag="-Z2" || flag=""
-    rm -f "$ACCOUNT/$BPFILE/_$name"
-    ( cd "$ACCOUNT" && echo "BASIC $BPFILE $name $flag" | udt ) >"$OUT/$mode/$name.log" 2>&1
-    if [ -f "$ACCOUNT/$BPFILE/_$name" ]; then
-      cp "$ACCOUNT/$BPFILE/_$name" "$OUT/$mode/_$name"
-      printf '%-22s %-5s %8s bytes\n' "$name" "$mode" \
-        "$(wc -c <"$OUT/$mode/_$name")"
+    rm -f "$LABDIR/_$name"
+    ( cd "$ACCOUNT" && echo "BASIC $LAB $name $flag" | udt ) \
+        >"$OUT/$mode/$name.log" 2>&1
+    if [ -f "$LABDIR/_$name" ]; then
+      cp "$LABDIR/_$name" "$OUT/$mode/_$name"
     else
-      printf '%-22s %-5s FAILED (see %s)\n' "$name" "$mode" "$OUT/$mode/$name.log"
+      echo "FAIL $name $mode" ; grep -iE 'error|warn' "$OUT/$mode/$name.log" | head -3
     fi
   done
+  n=$((n+1))
 done
-
-echo
-echo "objects in $OUT"
-echo "next: pcode_diff.py $OUT/z2/_P00_EMPTY $OUT/z2/_P01_PRINT_STR4"
+# tidy the lab dir so the working tree stays clean
+rm -f "$LABDIR"/*
+echo "compiled $n probes -> $OUT/{z2,noz2}"
+ls "$OUT/z2" | grep -c '^_' | xargs echo "z2 objects:"

@@ -1,0 +1,40 @@
+* Probe F10_GOSUB
+  $BASICTYPE "P"
+  GOSUB SUB1
+  STOP
+  SUB1:
+  PRINT 'AAAA'
+  RETURN
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+END

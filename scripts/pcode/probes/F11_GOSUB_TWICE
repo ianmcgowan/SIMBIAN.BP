@@ -1,0 +1,40 @@
+* Probe F11_GOSUB_TWICE
+  $BASICTYPE "P"
+  GOSUB SUB1
+  GOSUB SUB1
+  STOP
+  SUB1:
+  PRINT 'AAAA'
+  RETURN
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+END

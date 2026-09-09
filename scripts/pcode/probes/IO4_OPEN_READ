@@ -1,0 +1,40 @@
+* Probe IO4_OPEN_READ
+  $BASICTYPE "P"
+  OPEN 'VOC' TO F ELSE STOP
+  READ R FROM F, 'X' THEN NULL
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+END

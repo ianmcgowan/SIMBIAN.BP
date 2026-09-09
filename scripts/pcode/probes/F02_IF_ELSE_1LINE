@@ -1,0 +1,40 @@
+* Probe F02_IF_ELSE_1LINE
+  $BASICTYPE "P"
+  A = 1
+  IF A = 1 THEN PRINT 'AAAA' ELSE PRINT 'BBBB'
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+END

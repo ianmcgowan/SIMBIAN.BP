@@ -1,0 +1,40 @@
+* Probe S06_PRINT_A4_A4B
+  $BASICTYPE "P"
+  PRINT 'AAAA'
+  PRINT 'AAAAB'
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+END

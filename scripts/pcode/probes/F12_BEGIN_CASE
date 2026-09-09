@@ -1,0 +1,40 @@
+* Probe F12_BEGIN_CASE
+  $BASICTYPE "P"
+  A = 1
+  BEGIN CASE
+  CASE A = 1
+    PRINT 'AAAA'
+  CASE A = 2
+    PRINT 'BBBB'
+  END CASE
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+END

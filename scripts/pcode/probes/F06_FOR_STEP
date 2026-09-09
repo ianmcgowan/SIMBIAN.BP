@@ -1,0 +1,40 @@
+* Probe F06_FOR_STEP
+  $BASICTYPE "P"
+  FOR I = 1 TO 9 STEP 2
+  PRINT 'AAAA'
+  NEXT I
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+END

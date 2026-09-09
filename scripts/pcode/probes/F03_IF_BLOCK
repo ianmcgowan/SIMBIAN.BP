@@ -1,0 +1,40 @@
+* Probe F03_IF_BLOCK
+  $BASICTYPE "P"
+  A = 1
+  IF A = 1 THEN
+  PRINT 'AAAA'
+  END
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+END

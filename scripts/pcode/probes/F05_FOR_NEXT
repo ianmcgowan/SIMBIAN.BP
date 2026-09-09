@@ -1,0 +1,40 @@
+* Probe F05_FOR_NEXT
+  $BASICTYPE "P"
+  FOR I = 1 TO 3
+  PRINT 'AAAA'
+  NEXT I
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+END
