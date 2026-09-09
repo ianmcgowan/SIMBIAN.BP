@@ -206,27 +206,60 @@ class Decompiler:
 
     def _cond_from(self, seq):
         """Render a boolean condition from the instructions up to (not incl) BRF.
-        Handles EXPR/CMP.VV runs, AND/OR short-circuit joins, and a bare
-        PUSH.V / PUSH.C truthiness test (optionally wrapped in NOT)."""
-        parts, joiner, i, neg = [], None, 0, False
+        A small stack machine: EXPR runs push their result, PUSH.* push an
+        operand, CMP.* / BINOP pop 2, NEG / NOT pop 1, AND.SC / OR.SC combine
+        the last two clauses."""
+        stack: list[str] = []
+        i = 0
         while i < len(seq):
             x = seq[i]
-            if x.mnem == "BRF":
+            m = x.mnem
+            if m == "BRF":
                 break
-            if x.mnem in ("EXPR", "CMP.VV"):
+            if m in ("EXPR", "CMP.VV"):
                 st = expr.evaluate(seq, i, self)
-                parts.append(st.text)
+                stack.append(st.text)
                 i += max(st.consumed, 1)
                 continue
-            if x.mnem in ("PUSH.V", "PUSH.C"):
-                v = self.var(x.args[0]) if x.mnem == "PUSH.V" else self.const(x.args[0])
-                parts.append(f"NOT({v})" if (i + 1 < len(seq) and seq[i + 1].mnem == "NOT") else v)
-            elif x.mnem == "AND.SC":
-                joiner = "AND"
-            elif x.mnem == "OR.SC":
-                joiner = "OR"
+            if m == "PUSH.V":
+                stack.append(self.var(x.args[0]))
+            elif m in ("PUSH.C", "PUSH.C2"):
+                stack.append(self.const(x.args[0]))
+            elif m.startswith("CMP."):
+                ch = disasm.CMP_TEXT.get(x.opcode & 0xFF, "?")
+                b = stack.pop() if stack else "?"
+                a = stack.pop() if stack else "?"
+                stack.append(f"{a} {ch} {b}")
+            elif m == "BINOP":
+                ch = disasm.BINOP_CHARS.get(x.args[0], "?")
+                b = stack.pop() if stack else "?"
+                a = stack.pop() if stack else "?"
+                stack.append(f"({a} {ch} {b})")
+            elif m == "NOT":
+                stack.append(f"NOT({stack.pop()})" if stack else "?")
+            elif m == "NEG":
+                stack.append(f"-{stack.pop()}" if stack else "?")
+            elif m == "EXTRACT":
+                b = stack.pop() if stack else "?"
+                a = stack.pop() if stack else "?"
+                stack.append(f"{a}<{b}>")
+            elif m in expr._FUNC_ARITY:
+                k = expr._FUNC_ARITY[m]
+                a = [stack.pop() if stack else "?" for _ in range(k)][::-1]
+                stack.append(f"{expr._FUNC_NAME.get(m, m)}({', '.join(a)})")
+            elif m in ("AND.SC", "AND.MERGE"):
+                if len(stack) >= 2:
+                    b, a = stack.pop(), stack.pop()
+                    stack.append(f"{a} AND {b}")
+            elif m in ("OR.SC", "OR.MERGE"):
+                if len(stack) >= 2:
+                    b, a = stack.pop(), stack.pop()
+                    stack.append(f"{a} OR {b}")
             i += 1
-        return f" {joiner} ".join(parts) if parts else "?"
+        cond = stack[-1] if stack else "?"
+        if cond.startswith("(") and cond.endswith(")"):
+            cond = cond[1:-1]
+        return cond
 
     def _line_of(self, insns):
         for x in insns:
@@ -406,14 +439,23 @@ class Decompiler:
 
     def _render_print(self, line, seq):
         chan, items = None, []
+        pushc2_slot = None
         for x in seq:
             if x.mnem == "PUSH.V":
                 items.append(self.var(x.args[0]))
+            elif x.mnem == "PUSH.C2" and chan is not None:
+                pushc2_slot = x.args[0]           # concat dst marker
             elif x.mnem in ("PUSH.C", "PUSH.C2"):
                 if chan is None:
                     chan = x.args[0]
                 else:
                     items.append(self.const(x.args[0]))
+            elif x.mnem == "ASSIGN" and (x.args[0] >> 8) == 0x03:
+                mode, a, b = x.args[:3]
+                # concat print item: first operand is a constant, second follows
+                # the mode low byte (0x22 => variable, 0x12 => constant)
+                tb = self.var(b) if (mode & 0xF0) == 0x20 else self.const(b)
+                items.append(f"{self.const(a)} : {tb}")
             elif x.mnem == "BINOP" and len(items) >= 2:
                 ch = disasm.BINOP_CHARS.get(x.args[0], "?")
                 b, a = items.pop(), items.pop()

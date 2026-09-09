@@ -19,7 +19,8 @@ from . import disasm
 
 _FUNC_ARITY = {
     "FN.LEN": 1, "FN.TRIM": 1, "FN.NUM": 1, "FN.SEQ": 1, "FN.UPCASE": 1,
-    "FN.SPACE": 1,
+    "FN.SPACE": 1, "FN.INT": 1, "FN.ABS": 1, "FN.CHAR": 1,
+    "FN.DATE": 0, "FN.TIME": 0,
     "FN.OCONV": 2, "FN.ICONV": 2, "FN.COUNT": 2, "FN.DCOUNT": 2, "FN.STR": 2,
     "FN.FIELD": 3, "FN.INDEX": 3, "FN.SUBSTR": 3,
 }
