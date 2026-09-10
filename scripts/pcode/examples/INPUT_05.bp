@@ -1,0 +1,7 @@
+ALTER_RECORD:
+* Create a new screen, and allow PRICE and ADDRESS to be changed.
+* Initialize variables and draw the screen
+NEED.TO.WRITE = 0
+DISPLAY @(-1):@(15,5):"Alter ORDER":
+DISPLAY @(10,8):"(Press RETURN to leave un-changed)"
+DISPLAY @(8,9):"Old Price":@(42,9):"New Price (Enter 2 decimal

@@ -1,0 +1,2 @@
+GETLIST "CS_STAFF" TO 2 ELSE
+ABORT "NO CS_STAFF saved list found."

@@ -1,0 +1,2 @@
+INPUT ANSWER FOR 30
+ELSE PRINT "No input within 30 seconds"

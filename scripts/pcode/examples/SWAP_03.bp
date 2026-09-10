@@ -1,0 +1,8 @@
+A = @AM:"abc":@VM:@NULL:@VM:"ghi":@AM:"jkl"
+B = A
+CALL null.swap(B)
+PRINT B
+SWAP @NULL WITH "def" IN A
+B = A
+CALL null.swap(B)
+PRINT B

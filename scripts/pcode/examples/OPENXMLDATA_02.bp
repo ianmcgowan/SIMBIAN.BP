@@ -1,0 +1,2 @@
+X = 1 ; Y = 2 ; z = 3
+IF (X < Y) OR (Y < Z) THEN GOSUB RETRY:

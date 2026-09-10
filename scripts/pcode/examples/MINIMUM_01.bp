@@ -1,0 +1,2 @@
+X = "12":@VM:"2":@AM:"dd":@AM:"9":@AM:"22"
+PRINT MINIMUM(X)

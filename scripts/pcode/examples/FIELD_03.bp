@@ -1,0 +1,3 @@
+NAME = "Harry Smith"
+LNAME = FIELD(NAME," ",2)
+PRINT LNAME

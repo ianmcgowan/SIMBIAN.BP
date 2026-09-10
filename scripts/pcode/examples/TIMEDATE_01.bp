@@ -1,0 +1,6 @@
+THEN PRINT "Transaction started."
+ELSE PRINT "Transaction start failed, STATUS = ":STATUS(): STOP
+READU var FROM file.var, record1
+var += 2
+IF var = 0 THEN TRANSACTION ABORT; GOTO ERR:
+WRITE var TO file.var, record1

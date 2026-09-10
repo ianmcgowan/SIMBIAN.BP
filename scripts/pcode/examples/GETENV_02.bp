@@ -1,0 +1,4 @@
+UDTBIN:
+ VAR = "UDTBIN"
+ X = GETENV(VAR)
+ PRINT X

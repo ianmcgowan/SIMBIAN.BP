@@ -1,0 +1,5 @@
+REM Calculates average of two numbers
+SUBROUTINE COMP(X,Y,Z)
+Z = (X+Y)/2
+RETURN
+END

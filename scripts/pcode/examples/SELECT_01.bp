@@ -1,0 +1,8 @@
+OPEN 'CLIENTS' TO CLIENT ON ERROR PRINT "File open error." THEN
+PRINT "OPEN"
+            SELECT CLIENT TO 1
+            READNEXT var FROM 1 ON ERROR PRINT "Error in READNEXT." THEN
+            PRINT var
+            END ELSE
+            PRINT "Record not found."
+            END

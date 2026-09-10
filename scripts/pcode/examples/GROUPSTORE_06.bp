@@ -1,0 +1,2 @@
+A = "123":@AM:"ABC":@AM:"456":@VM:"DEF":@AM:"012":@VM:"GHI"
+SUB = "mv1":@VM:"sub1":@SM:"sub2":@VM:"mv2"

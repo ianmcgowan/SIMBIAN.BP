@@ -1,0 +1,2 @@
+BEGIN CASE line:
+    BEGIN CASE VAR 1

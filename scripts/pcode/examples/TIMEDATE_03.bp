@@ -1,0 +1,6 @@
+IF STATUS() = 1 THEN
+DISPLAY "The TRANSACTION was not started"
+END ELSE
+DISPLAY "The TRANSACTION could not be committed."
+END
+END

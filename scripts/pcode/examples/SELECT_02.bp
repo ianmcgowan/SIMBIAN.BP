@@ -1,0 +1,14 @@
+list = ''
+OPEN 'INVENTORY' TO INV_FILE ELSE PRINT "OPEN error"
+SELECT INV_FILE TO list
+FOR X = 1 TO 10
+READNEXT ID FROM list ELSE
+PRINT "No more IDs in list"
+END
+READU REC FROM INV_FILE,ID THEN
+PRINT "Record ":X:" is ":REC<1>:" ":REC<3>
+END ELSE
+PRINT "Record not found."
+END
+NEXT X
+END

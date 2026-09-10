@@ -1,0 +1,3 @@
+ARRAY = 'Harry Sims':@VM:'114 W. Smith':@SVM:'Suite 220'
+ARRAY = RAISE(ARRAY)
+PRINT ARRAY

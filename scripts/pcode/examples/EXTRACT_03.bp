@@ -1,0 +1,2 @@
+ARR = "#543":@AM:"Joan":@AM:"D’Arc"
+MID = EXTRACT(ARR,2,0,0)

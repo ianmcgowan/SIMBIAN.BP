@@ -1,0 +1,6 @@
+FOR X = 1 TO 60
+READNEXT REC THEN PRINT X:" ":REC<1>
+NEXT X
+PRINT "Sixty rec ids printed."
+CLEARSELECT
+END

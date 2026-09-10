@@ -1,0 +1,3 @@
+DIM b(-1)                                                 ;* Declare array.
+r = 0                                                     ;* Initialize return value.
+c = 1                                                     ;* Initialize value passed

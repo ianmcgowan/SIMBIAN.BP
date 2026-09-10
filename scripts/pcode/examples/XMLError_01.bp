@@ -1,0 +1,5 @@
+CMD="SELECT SEMESTER,COURSE_NBR FROM STUDENT;"
+OPTIONS := "COLLAPSEMS"
+OPTIONS := @FM:"HIDEROOT"
+OPTIONS := @FM:"root":@VM:"mystudent"
+OPTIONS :=@FM:"record":@VM:"myrecord"

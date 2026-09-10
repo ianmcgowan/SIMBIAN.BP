@@ -1,0 +1,7 @@
+PRINT "This program tests the MATCH function"
+PRINT "Enter pattern ":
+INPUT pattern
+PRINT "Enter string to match":
+INPUT string1
+answer = string1 MATCH pattern
+PRINT \"\ : answer : \"\

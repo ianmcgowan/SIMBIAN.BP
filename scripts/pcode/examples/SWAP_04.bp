@@ -1,0 +1,6 @@
+SUBROUTINE null.swap(B)
+SWAP @NULL WITH "null" IN B
+SWAP @AM WITH " " IN B
+SWAP @VM WITH " " IN B
+SWAP @SM WITH " " IN B
+RETURN

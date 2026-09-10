@@ -1,0 +1,1 @@
+PRINT SQUOTE("This is 'a' test")

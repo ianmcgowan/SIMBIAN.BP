@@ -1,0 +1,2 @@
+GET TMP,10 FROM 0 WAITING 15
+ELSE PRINT "Input time has expired"

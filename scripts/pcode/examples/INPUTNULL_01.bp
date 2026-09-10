@@ -1,0 +1,6 @@
+PROMPT ""
+INPUTNULL "#"
+PRINT @(-1):@(0,10):"Enter a character: "
+INPUT @(20,10):inpt
+PRINT "Input is ":inpt
+PRINT "SEQ = ":SEQ(inpt)

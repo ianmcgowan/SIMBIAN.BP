@@ -1,0 +1,6 @@
+BEGIN CASE
+      CASE DUE.DATE > DATE()
+          GOSUB PRINT.OVERDUE:
+      CASE DUE.DATE <= DATE()
+          PRINT "Okay"
+END CASE

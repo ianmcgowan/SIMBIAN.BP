@@ -1,0 +1,3 @@
+X = 25
+SIN.X=SIN(X)
+PRINT SIN

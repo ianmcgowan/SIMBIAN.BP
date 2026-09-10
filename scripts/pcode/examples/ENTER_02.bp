@@ -1,0 +1,3 @@
+NO = 2
+PROG = "CHECK_":NO
+ENTER @PROG

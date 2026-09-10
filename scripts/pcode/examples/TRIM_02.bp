@@ -1,0 +1,4 @@
+X = TRIM("***NOT***ICE***","*")
+Y = TRIM("***NOT***ICE***","*","A")
+PRINT X
+PRINT Y

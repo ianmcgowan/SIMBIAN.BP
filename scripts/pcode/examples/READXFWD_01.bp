@@ -1,0 +1,12 @@
+MOREDATA=1
+LOOP WHILE (MOREDATA=1)
+status = READXMLDATA(STUDENT_XML,rec)
+IF status = XML.ERROR THEN
+STOP “Error when preparing the XML document. “
+END ELSE IF status = XML.EOF THEN
+PRINT “No more data”
+MOREDATA = 0
+END ELSE
+PRINT “rec = “:rec
+END
+REPEAT

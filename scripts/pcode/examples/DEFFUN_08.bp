@@ -1,0 +1,3 @@
+PRINT 'Sales amount =':SALES.AMT
+PRINT 'Tax amount =':TAX.AMT
+END

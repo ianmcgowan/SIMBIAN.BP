@@ -1,0 +1,2 @@
+X = "This is another test"
+PRINT SQUOTE(X)

@@ -1,0 +1,3 @@
+list_var = 1
+cmd1 = "select CUSTOMER with @ID = '200'"
+cmd2 = "sort CUSTOMER by DATE_OUT"

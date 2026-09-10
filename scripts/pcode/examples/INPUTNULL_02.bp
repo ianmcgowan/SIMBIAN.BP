@@ -1,0 +1,1 @@
+PRINT "LEN = ":LEN(inpt)

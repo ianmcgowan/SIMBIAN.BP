@@ -1,0 +1,6 @@
+! Subroutine to test user input validity.
+SUBROUTINE TEST
+COMMON N,DATA.IN,VAL,SCORE(10)
+BEGIN CASE
+CASE DATA.IN=VAL
+** answer correct, then

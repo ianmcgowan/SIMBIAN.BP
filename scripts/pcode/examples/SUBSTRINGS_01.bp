@@ -1,0 +1,3 @@
+LASTNAMES = "Smith":@AM:"Jones":@AM:"Johnson":@AM:"Howard"
+LINITIAL = SUBSTRINGS(LASTNAMES,1,1)
+PRINT LINITIAL

@@ -1,0 +1,2 @@
+SEND BEGIN_TRANSMISSION TO 0
+ELSE PRINT "Line not attached"

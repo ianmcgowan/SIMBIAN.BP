@@ -1,0 +1,2 @@
+X = "12":@VM:"2":@FM:"dd":@FM:"9":@FM:"22"
+PRINT MAXIMUM(X)

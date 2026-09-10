@@ -1,0 +1,2 @@
+ARRAY1 = '#543':@AM:'Dorothy':@AM:'Anne':@AM:'Parker'
+DEL ARRAY1<3>

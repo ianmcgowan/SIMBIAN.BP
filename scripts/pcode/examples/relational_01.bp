@@ -1,0 +1,7 @@
+A = 24
+B = 22
+IF A GT B THEN
+PRINT "Greater Than"
+END ELSE
+PRINT "Less Than"
+END

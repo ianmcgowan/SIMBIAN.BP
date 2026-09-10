@@ -1,0 +1,7 @@
+A = 21
+B = 22
+IF A LE B THEN
+PRINT "Less than or equal to"
+END ELSE
+PRINT "Greater than"
+END

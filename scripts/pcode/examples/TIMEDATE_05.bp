@@ -1,0 +1,7 @@
+IF STATUS() = 1 THEN
+DISPLAY "A Transaction had already been started, NESTED
+Transactions"
+DISPLAY "are NOT Allowed. (Contact System Administrator)"
+INPUT PAUSE,1_
+END
+END

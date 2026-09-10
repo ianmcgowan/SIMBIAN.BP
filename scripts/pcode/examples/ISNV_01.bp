@@ -1,0 +1,2 @@
+A=@NULL
+IF ISNV(A) THEN PRINT "A is the null value."

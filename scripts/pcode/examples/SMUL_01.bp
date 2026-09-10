@@ -1,0 +1,2 @@
+* Create the Request
+Ret = SoapCreateSecureRequest(URL, SoapAction, SoapReq,

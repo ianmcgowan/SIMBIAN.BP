@@ -1,0 +1,2 @@
+ARRAY = "H.L. Mencken":@AM:"John":@AM:"Mary"
+INS "Zelda" BEFORE ARRAY<2>

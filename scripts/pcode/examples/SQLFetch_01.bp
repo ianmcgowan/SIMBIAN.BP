@@ -1,0 +1,8 @@
+SQLINS1 = "INSERT INTO TAB1 VALUES(?,?)"
+rowindex = 0
+status = SQLAllocEnv(henv)
+status = SQLAllocConnect(henv, hdbc)
+status = SQLConnect(hdbc, "odbcds", "dbuid", "dbpwd")
+status = SQLAllocStmt(hdbc, hstmt)
+status = SQLPrepare(hstmt, SQLINS1)
+status = SQLBindParameter(hstmt, 1, SQL.B.BASIC, SQL.INTEGER, 0,

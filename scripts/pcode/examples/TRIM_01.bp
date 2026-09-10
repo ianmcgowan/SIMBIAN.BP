@@ -1,0 +1,3 @@
+NAME = "   Zenith,              R.      "
+NAME = TRIM(NAME)
+PRINT NAME

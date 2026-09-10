@@ -1,0 +1,2 @@
+STR="A/B/C"
+PRINT DCOUNT(STR,"/")

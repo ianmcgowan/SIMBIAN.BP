@@ -1,0 +1,4 @@
+         COMMON NAME(100)
+X = 4
+Y = X - 1
+CLEAR

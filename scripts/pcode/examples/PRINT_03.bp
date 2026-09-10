@@ -1,0 +1,2 @@
+PRINT @(-1):"Enter true or false: "
+INPUT answer,5_

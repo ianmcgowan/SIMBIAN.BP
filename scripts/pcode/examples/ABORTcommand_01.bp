@@ -1,0 +1,5 @@
+      ERR.FLAG = 1
+      IF ERR.FLAG THEN
+      PRINT "ABORT PROGRAM?"
+INPUT answer
+IF ANS = "Y" THEN ABORT

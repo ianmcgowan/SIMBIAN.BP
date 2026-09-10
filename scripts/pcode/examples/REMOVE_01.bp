@@ -1,0 +1,3 @@
+DIM VAR(5,2)
+CLIENT = "G.Flaubert":@VM:"Guy":@SM:"12":@VM:"Yvette":@SM:"7"
+FOR I = 1 TO 5

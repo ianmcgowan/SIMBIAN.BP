@@ -1,0 +1,11 @@
+A = 0
+PRINT "Enter a number: ":
+INPUT X
+IF X>0 THEN
+PRINT "Incrementing."
+A += 1
+END ELSE
+PRINT "Decrementing."
+A -= 1
+END
+PRINT A

@@ -1,0 +1,2 @@
+D.STR = "A":@AM:"B":@AM:"C":@VM:"D"
+D.STR = LOWER(D.STR)

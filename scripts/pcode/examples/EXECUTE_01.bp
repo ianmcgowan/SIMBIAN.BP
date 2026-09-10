@@ -1,0 +1,1 @@
+PERFORM cmd3 CAPTURING cpt_var

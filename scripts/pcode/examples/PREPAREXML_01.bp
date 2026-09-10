@@ -1,0 +1,5 @@
+STATUS = PREPAREXML(“_XML_/MYSTUDENT.XML”,STUDENT_XML)
+IF STATUS=XML.ERROR THEN
+STATUS = XMLError(errmsg)
+PRINT “error message “:errmsg
+STOP “Error when preparing XML document “

@@ -1,0 +1,2 @@
+STRING = 'be bold!!'
+PRINT UPCASE(STRING)

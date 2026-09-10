@@ -1,0 +1,6 @@
+PRT.STG = ''
+Z=123:@AM:456
+Y=@AM:@NULL
+STG = Y CAT Z
+CALL print.setup(STG,PRT.STG)
+PRINT PRT.STG

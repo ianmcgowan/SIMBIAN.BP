@@ -1,0 +1,1 @@
+OPEN 'INVENTORY' TO inventory ELSE PRINT "Open error"

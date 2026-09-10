@@ -1,0 +1,9 @@
+JUNK = @(0,0) ; * Disable pagination
+OPEN 'INVENTORY' READONLY TO INVENTORY.FILE ELSE NULL
+SELECT INVENTORY.FILE
+PRINT "Printing after terminal addressing: @(0,0)"
+FOR X = 1 TO 60
+READNEXT REC THEN PRINT REC<1>
+NEXT X
+PRINT "Sixty rec ids printed."
+PRINT "BPIOCP executing."

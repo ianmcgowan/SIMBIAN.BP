@@ -1,0 +1,8 @@
+PRINT "Now we go to the subroutine."
+GOSUB BRANCHOUT
+PRINT "Back from subroutine BRANCHOUT."
+STOP
+BRANCHOUT:
+PRINT "Now in subroutine BRANCHOUT."
+RETURN
+END

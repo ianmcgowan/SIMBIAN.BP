@@ -1,0 +1,4 @@
+A = "123"
+B = "456"
+C = A CAT B
+PRINT C

@@ -1,0 +1,3 @@
+NUM = -999
+NUM = ABS(NUM)
+PRINT NUM

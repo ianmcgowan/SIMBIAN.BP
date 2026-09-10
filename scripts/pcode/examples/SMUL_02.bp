@@ -1,0 +1,3 @@
+IF Ret <> 0 THEN
+STOP "Error in SoapCreateSecureRequest: " : Ret
+END

@@ -1,0 +1,7 @@
+A = 24
+B = 22
+IF A GE B THEN
+PRINT Greater Than or Equal To
+END ELSE
+PRINT Less Than
+END

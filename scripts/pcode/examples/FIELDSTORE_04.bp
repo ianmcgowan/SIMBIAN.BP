@@ -1,0 +1,3 @@
+COLORS = 'yellow,blue,red,green,ugly,white'
+COLORS = FIELDSTORE(COLORS,',',5,-1,'orange,black')
+PRINT COLORS

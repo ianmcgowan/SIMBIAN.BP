@@ -1,0 +1,3 @@
+ARRAY = "#143":@AM:"Gustav":@AM:"Mahler":@VM:"Dagny":@VM:"Jens"
+MID = EXTRACT(ARRAY,3,2)
+PRINT MID

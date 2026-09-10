@@ -1,0 +1,3 @@
+PRT.STR = ''
+A ="123":@AM:"ABC":@AM:"456":@VM:"DEF":@VM:@NULL:@AM:"012":@VM:@NULL:@VM:"GHI"
+SUB = "***"

@@ -1,0 +1,5 @@
+PRINT "1.a ISNV(@NULL) = ":ISNV(@NULL)
+PRINT "2.a NOT(ISNV(@NULL)) = ":NOT(ISNV(@NULL))
+A = "abc":@NULL:"def"
+PRINT "1.b ISNV('abc':@NULL:'def') = ":ISNV(A)
+PRINT "2.b NOT(ISNV('abc':@NULL:'def')) = ":NOT(ISNV(A))

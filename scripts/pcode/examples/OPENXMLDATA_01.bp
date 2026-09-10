@@ -1,0 +1,5 @@
+STOP “Error when opening the XML document. “
+END
+IF status = XML.INVALID.HANDLE THEN
+STOP “Error: Invalid parameter passed.”
+END

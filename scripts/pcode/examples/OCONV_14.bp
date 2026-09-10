@@ -1,0 +1,1 @@
+PRINT OCONV("abc123","P(3N);(abc)")

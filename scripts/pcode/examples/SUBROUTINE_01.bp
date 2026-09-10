@@ -1,0 +1,5 @@
+REM Main program
+PRINT "Enter A,B:":; INPUT A; INPUT B
+CALL COMP(A,B,C)
+PRINT "Average = ":C
+STOP

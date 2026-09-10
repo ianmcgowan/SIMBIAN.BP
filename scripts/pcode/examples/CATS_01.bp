@@ -1,0 +1,4 @@
+A = 300:@VM:400:@VM:401:@VM:402:@VM:100
+B = "A":@VM:"B":@VM:"C":@VM:"D":@VM:"E"
+C = CATS(A,B)
+PRINT C

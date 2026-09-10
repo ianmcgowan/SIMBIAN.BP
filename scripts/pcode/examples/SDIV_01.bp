@@ -1,0 +1,2 @@
+B = SDIV("1.4149",A)
+PRINT B

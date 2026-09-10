@@ -1,0 +1,9 @@
+*-----------------------------------------------------------------
+---------
+* subdirectory: interface
+* program name: proc.test
+* version : 1.6 or later
+* compile mode: any
+* catalog : y
+* catalog flag: local
+* test for : accepting passed arguments from a proc and

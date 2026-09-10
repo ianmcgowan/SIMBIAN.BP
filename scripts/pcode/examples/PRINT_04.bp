@@ -1,0 +1,2 @@
+X = 5 ; Y = 7
+PRINT X,Y,"Total = ":X+Y,,"Average = ":INT((X+Y)/2)

@@ -1,0 +1,1 @@
+READU checks for locks. If the record is available, it sets an exclusive lock and reads the record into

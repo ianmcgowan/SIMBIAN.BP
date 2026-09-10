@@ -1,0 +1,9 @@
+PRINT "Option number?" ; INPUT VAL
+BEGIN CASE
+  CASE VAL = 1
+    GOSUB CHARGE:
+  CASE VAL = 2
+    GOSUB CHECK:
+  CASE 1
+    PRINT "Answer 1 or 2 only"
+END CASE

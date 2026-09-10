@@ -1,0 +1,3 @@
+DIM b(10)                                                      ;* Define array.
+a = 2                                                          ;* Set upper bound.
+FOR i = 1 TO a                                                 ;* Initialize array.

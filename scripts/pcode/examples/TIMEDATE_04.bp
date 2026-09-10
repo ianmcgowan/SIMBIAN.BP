@@ -1,0 +1,2 @@
+THEN PRINT "Transaction committed."
+ELSE PRINT "Transaction aborted, STATUS = ":STATUS(); STOP

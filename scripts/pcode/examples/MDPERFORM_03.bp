@@ -1,0 +1,8 @@
+list_var = 1
+frg1 = "select CUSTOMER with "
+frg2 = " NAME like '...Jones...' "
+frg3 = " DATE_DUE > '04/22/87' "
+frg4 = " AMT_DUE < 30"
+frg5 = " by NAME"
+BEGIN CASE
+CASE input_var = 1

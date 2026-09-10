@@ -1,0 +1,5 @@
+DISPLAY_DATA:
+* Display the current information in the desired record. This is
+* determined by the number the user entered (ORDER_NUMBER).
+READU ORDER.REC FROM ORDERS_FILE,ORDER_NUMBER THEN
+* Read with a lock so that no one else can modify it at the same

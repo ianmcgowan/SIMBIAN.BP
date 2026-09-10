@@ -1,0 +1,3 @@
+NEXT i
+PRINT "r from FUNCTION: ":myfunc(a, MAT b, c)
+PRINT "c from FUNCTION: ":c

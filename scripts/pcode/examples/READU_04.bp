@@ -1,0 +1,2 @@
+READU INFO FROM "IDENT" LOCKED PRINT "Record locked"
+ELSE PRINT "Record not found"

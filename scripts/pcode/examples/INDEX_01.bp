@@ -1,0 +1,3 @@
+STR.VAR = "It was the best of times"
+LOC = INDEX(STR.VAR,"t",2)
+PRINT LOC

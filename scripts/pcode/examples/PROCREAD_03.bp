@@ -1,0 +1,4 @@
+* data to PROC data buffer (PROCWRITE).
+* called by : any proc or executed at the ECL prompt
+*-----------------------------------------------------------------
+---------*

@@ -1,0 +1,11 @@
+REC = ""
+REC<1,1> = "111":@SM:"112":@SM:"113":@VM:"ABC":@SM:"DEF"
+REC<2,1> = "211":@SM:"212":@VM:"QRS":@SM:"TUV":@SM:"WXY"
+CRT "Remove Every Field with Function"
+@REMOVE.ATTRIBUTE = @AM
+DVAR = REC; * Reset Variable
+LOOP
+THIS.PIECE = REMOVE(DVAR, MARK)
+CRT THIS.PIECE:", ":
+WHILE MARK DO REPEAT
+CRT

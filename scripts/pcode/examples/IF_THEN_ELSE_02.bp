@@ -1,0 +1,5 @@
+IF INCOME < TARGET THEN
+PRINT "Income less than target figure."
+END ELSE
+PRINT "Income equal to or greater than target!"
+END

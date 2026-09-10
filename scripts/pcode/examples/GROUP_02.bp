@@ -1,0 +1,2 @@
+ST = "Denver:Boulder:Aurora:Littleton"
+PRINT GROUP(ST,':',2,1)

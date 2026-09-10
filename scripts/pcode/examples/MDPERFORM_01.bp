@@ -1,0 +1,2 @@
+list_var = 2
+MDPERFORM "list dict VOC all" RTNLIST list_var

@@ -1,0 +1,2 @@
+X = GETENV("UDTBIN")
+PRINT X

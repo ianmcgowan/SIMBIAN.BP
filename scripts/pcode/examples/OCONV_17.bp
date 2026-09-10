@@ -1,0 +1,3 @@
+record.ret = OCONV("912","TORDERS;V;;2")
+PRINT "Record retrieved: ":record.ret
+END

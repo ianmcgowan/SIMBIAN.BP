@@ -1,0 +1,5 @@
+Y="sasasasasa"
+S1="s"
+S2="kt"
+Z=CONVERT(S1,S2,Y)
+PRINT Z

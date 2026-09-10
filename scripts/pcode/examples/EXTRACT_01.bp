@@ -1,0 +1,3 @@
+DISPLAY_DATA:
+* Display the current information in the desired record. This is
+* determined by the number the user entered (ORDER_NUMBER).

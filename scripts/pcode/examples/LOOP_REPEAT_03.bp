@@ -1,0 +1,7 @@
+C = 0
+PRINT "Counting:"
+LOOP
+C = C+1
+UNTIL C > 8 DO
+PRINT "C = ":C
+REPEAT

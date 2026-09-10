@@ -1,0 +1,6 @@
+PRINT "Enter character to display"
+INPUT X
+PRINT "The character you entered was(1): ":X
+PRINT "Enter character to display":
+INPUT X
+PRINT "The character you entered was(2): ":X

@@ -1,0 +1,25 @@
+THEN
+len = LEN(pname)
+PRINT "The last command executed is stored in the primary input
+buffer."
+PRINT "The last 10 characters of the 1st buffer are
+:":pname[0,len]
+PRINT "The length of the primary input buffer is :":LEN(pname)
+END ELSE
+PRINT "Not run from PROC."
+END
+PRINT '*******************'
+PRINT 'TEST --> PROCWRITE'
+PRINT '*******************'
+INPUT procname
+IF procname = 'ONE' THEN
+letters = "abcdefg,1234567,ABCDEFG,tuvwxyz,"
+string = ''
+limit = 512
+FOR I = 1 TO limit STEP 32
+string := letters
+NEXT I
+PRINT "String length = ":LEN(string)
+END ELSE
+string = "ONE TWO THREE FOUR FIVE"
+END

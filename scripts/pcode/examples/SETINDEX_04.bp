@@ -1,0 +1,4 @@
+PRINT rec<0>:", ":rec<3>:", ":rec<4>
+END ELSE NULL
+NEXT X
+STOP

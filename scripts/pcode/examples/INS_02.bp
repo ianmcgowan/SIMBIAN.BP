@@ -1,0 +1,2 @@
+ARRAY = "Carmen":@AM:"Sally":@AM:"Billy":@AM:"Mark"
+INS "Stephen" BEFORE ARRAY<-1>

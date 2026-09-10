@@ -1,0 +1,2 @@
+stexec = SQLExecute(hstmt)
+status = SQLParamOptions(hstmt, SQL.PARAMOPTIONS.READ, rowindex)

@@ -1,0 +1,3 @@
+ARRAY = "#111":@AM:"Jones":@AM:"Smith"
+ARRAY2 = INSERT(ARRAY,2,0,0,"Alias")
+PRINT ARRAY2

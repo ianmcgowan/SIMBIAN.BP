@@ -1,0 +1,2 @@
+NAME = "Arthur Fiedler"
+PRINT LEN(NAME)

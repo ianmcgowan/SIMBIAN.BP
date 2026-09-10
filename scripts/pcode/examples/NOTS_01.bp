@@ -1,0 +1,3 @@
+A = 1:@FM:0:@FM:1:@FM:30
+B = NOTS(A)
+PRINT B

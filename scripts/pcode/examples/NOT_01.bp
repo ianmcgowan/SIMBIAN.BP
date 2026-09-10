@@ -1,0 +1,2 @@
+X = 1 ; Y = 2
+IF NOT(X > Y) THEN GOSUB RETRY:

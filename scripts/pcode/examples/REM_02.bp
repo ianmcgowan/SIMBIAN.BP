@@ -1,0 +1,3 @@
+PRINT "Got it right!"
+! print message.
+CASE IN <> VAL

@@ -1,0 +1,6 @@
+FILESTAT = DIR("/usr/accounting/gl")
+SIZE = FILESTAT <1>
+DATE.MOD = OCONV(FILESTAT<2>,'D2/')
+TIME.MOD = OCONV(FILESTAT<2>,'MT')
+PRINT 'The gl file is ':SIZE
+PRINT 'And was last modified: ':DATE.MOD,TIME.MOD

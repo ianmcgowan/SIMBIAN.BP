@@ -1,0 +1,2 @@
+NUM = 16526
+PRINT FMT(NUM, "12R2$,")

@@ -1,0 +1,7 @@
+EQUATE TRUE TO 1, FALSE TO 0
+VAR=0
+IF VAR=TRUE THEN
+PRINT "Income less than target figure."
+END ELSE
+PRINT "Income equal to or greater than target!"
+END
