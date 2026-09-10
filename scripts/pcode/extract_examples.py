@@ -141,7 +141,7 @@ for idx in range(START, len(L)):
         m2 = re.match(r"^The UniBasic\s+([$@]?[A-Za-z][\w./]*)", nb)
         if m2 or re.match(r"^(Use the |Use \w|\{\})", nb):
             flush()
-            cmd = (m2.group(1) if m2 else s).rstrip(".")
+            cmd = re.sub(r"(command|function|statement)$", "", (m2.group(1) if m2 else s).rstrip("."))
             in_ex = False
             continue
 
