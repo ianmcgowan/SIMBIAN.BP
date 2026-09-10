@@ -1,4 +1,5 @@
+T=TIME()
 FOR F=1 TO 100
   PRINT F, F*F
 NEXT F
-PRINT "STOP"
+PRINT TIME()-T:" seconds"

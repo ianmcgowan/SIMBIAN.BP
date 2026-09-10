@@ -122,8 +122,21 @@ def evaluate(insns, start, names) -> ExprState:
             b = stack.pop() if stack else Node("leaf", text="?")
             a = stack.pop() if stack else Node("leaf", text="?")
             stack.append(Node("leaf", text=f"{a.render(0)}<{b.render(0)}>"))
-        elif m in ("PUSH.C0", "EXPR"):
-            pass  # a nested EXPR header inside an expression: default operand
+        elif m == "FOR.PREP" and len(x.args) > 1:
+            # in an expression stream this is "concat constant #arg1"
+            a = stack.pop() if stack else Node("leaf", text="?")
+            stack.append(Node("bin", ":", (a, Node("leaf", text=names.const(x.args[1])))))
+        elif m == "ASSIGN" and (x.args[0] >> 8) == 0x03:
+            mode, oa, ob = x.args[:3]
+            ta = names.var(oa)                              # op1 is always a var
+            tb = names.var(ob) if (mode & 0x20) else names.const(ob)
+            stack.append(Node("bin", ":", (Node("leaf", text=ta), Node("leaf", text=tb))))
+        elif m in ("PUSH.C0", "EXPR", "CMP.VV"):
+            _d, _o1, _o2 = disasm.expr_header(x.opcode, x.args)
+            for o in (_o1, _o2):
+                if o is not None:
+                    v = names.var(o[0]) if (o[1] or x.opcode == 0x0151) else names.const(o[0])
+                    stack.append(Node("leaf", text=v))
         elif m in _FUNC_ARITY:
             k = _FUNC_ARITY[m]
             kids = [stack.pop() if stack else Node("leaf", text="?") for _ in range(k)][::-1]

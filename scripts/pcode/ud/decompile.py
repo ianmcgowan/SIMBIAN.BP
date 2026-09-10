@@ -61,9 +61,11 @@ class Decompiler:
         # slot -> first source line seen
         first_line: dict[int, int] = {}
         cur = 0
+        prev = None
         for x in self.ins:
             if x.mnem in ("STMT", "STMT2") and x.args:
                 cur = x.args[0]
+                prev = None
                 continue
             slots = []
             if x.opcode in (0x0152, 0x0151):
@@ -71,7 +73,7 @@ class Decompiler:
                 if dst is not None:
                     slots.append(dst)
                 for spec in (op1, op2):
-                    if spec and spec[1]:
+                    if spec and (spec[1] or x.opcode == 0x0151):
                         slots.append(spec[0])
             elif x.opcode == 0x0159 and len(x.args) >= 3:
                 slots.append(x.args[1])
@@ -79,8 +81,13 @@ class Decompiler:
                     slots.append(x.args[2])
             elif x.mnem == "PUSH.V" and x.args:
                 slots.append(x.args[0])
+            elif x.mnem == "PUSH.C2" and x.args and prev is None:
+                slots.append(x.args[0])          # assignment target slot
+            elif x.mnem == "FOR.INIT" and len(x.args) > 1:
+                slots.append(x.args[1])          # loop variable slot
             for s in slots:
                 first_line.setdefault(s, cur)
+            prev = x.mnem
 
         # estimate the counter->line offset from the earliest of each
         off = z[0][1] - min(first_line.values(), default=z[0][1])
@@ -353,9 +360,10 @@ class Decompiler:
         if "REPLACE" in m:
             return self._render_dynarr(line, seq)
 
-        # concatenation:  PUSH.C2 <dst-slot>  ASSIGN mode=0x03xx op1 op2 [tokens]
-        if m[:2] == ["PUSH.C2", "ASSIGN"] and (seq[1].args[0] >> 8) == 0x03:
-            return self._render_concat(line, seq)
+        # assignment that opens with  PUSH.C2 <dst-slot>  then an expr token
+        # stream ending EXPR.END  (T = TIME(),  B = A : 'y' : 'z', ...)
+        if m[0] == "PUSH.C2" and "EXPR.END" in m and len(m) > 1:
+            return self._render_pushc2_assign(line, seq)
 
         # simple assignment: ASSIGN(mode, dst, src)
         if m[0] == "ASSIGN" and "BRF" not in m:
@@ -412,6 +420,15 @@ class Decompiler:
             subs[0] = f"-{subs[0]}"
         tgt = self.var(dst) if dst is not None else "?"
         return [Line(line, f"{tgt}<{', '.join(subs)}> = {value}")]
+
+    def _render_pushc2_assign(self, line, seq):
+        """PUSH.C2 <dst>  <expr tokens>  EXPR.END  ->  <var(dst)> = <expr>."""
+        dst = seq[0].args[0]
+        # feed the tokens after PUSH.C2 to the expression evaluator; it stops at
+        # EXPR.END on its own.
+        st = expr.evaluate([disasm.Insn(0, 0, 0x0152, "EXPR", [0x0000], 2, True)]
+                           + list(seq[1:]), 0, self)
+        return [Line(line, f"{self.var(dst)} = {st.text}")]
 
     def _render_concat(self, line, seq):
         dst = seq[0].args[0]
@@ -562,7 +579,9 @@ class Decompiler:
             elif m == "ASSIGN" and (x.args[0] >> 8) == 0x03:
                 mode, a, b = x.args[:3]
                 tb = self.var(b) if (mode & 0x20) else self.const(b)
-                stack.append(f"{self.const(a)} : {tb}")
+                stack.append(f"{self.var(a)} : {tb}")
+            elif m == "FOR.PREP" and len(x.args) > 1 and stack:
+                stack.append(f"{stack.pop()} : {self.const(x.args[1])}")
             elif m == "NEG" and stack:
                 stack.append(f"-{stack.pop()}")
             elif m.startswith("FN.") and m in expr._FUNC_ARITY:
