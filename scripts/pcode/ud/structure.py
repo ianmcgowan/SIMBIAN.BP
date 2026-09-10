@@ -91,7 +91,7 @@ def build(insns, lo=0, hi=None, depth=0):
                 continue
 
         # ---- LOOP ... REPEAT --------------------------------------
-        if x.mnem == "STMT" and _loop_span(insns, i, hi) is not None:
+        if x.mnem in ("STMT", "STMT2") and _loop_span(insns, i, hi) is not None:
             lb, ni = _build_loop2(insns, i, hi, off2i, depth)
             if lb is not None:
                 flush_linear()
@@ -120,7 +120,7 @@ def _is_if_head(insns, i, hi):
             return False        # a READ/WRITE/OPEN ... THEN/ELSE, not an IF
         if m in ("FOR.INIT", "LOOP.BACK", "AND.SC", "OR.SC"):
             continue
-        if m == "STMT" and k > i:
+        if m in ("STMT", "STMT2") and k > i:
             return False
     return False
 

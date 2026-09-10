@@ -70,7 +70,7 @@ class ExprState:
         return self.node.render() if self.node else "?"
 
 
-_STOP = {"EXPR.END", "STMT", "BRF", "GOTO", "GOSUB", "PAD", "HALT",
+_STOP = {"EXPR.END", "STMT", "STMT2", "BRF", "GOTO", "GOSUB", "PAD", "HALT",
          "AND.SC", "OR.SC", "AND.MERGE", "OR.MERGE"}
 
 

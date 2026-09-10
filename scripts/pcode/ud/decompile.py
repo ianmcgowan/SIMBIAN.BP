@@ -62,7 +62,7 @@ class Decompiler:
         first_line: dict[int, int] = {}
         cur = 0
         for x in self.ins:
-            if x.mnem == "STMT" and x.args:
+            if x.mnem in ("STMT", "STMT2") and x.args:
                 cur = x.args[0]
                 continue
             slots = []
@@ -195,7 +195,8 @@ class Decompiler:
         out.append(Line(line, f"FOR {v} = {start} TO {limit}{step}", depth))
         for c in b.children:
             self._emit_block(c, depth + 1, out)
-        out.append(Line(line, f"NEXT {v}", depth))
+        next_line = out[-1].src_line if out and out[-1].src_line else line
+        out.append(Line(next_line, f"NEXT {v}", depth))
 
     def _emit_loop_block(self, b, depth, out):
         line = self._nearest_line(b.head.off)
@@ -277,7 +278,7 @@ class Decompiler:
         for x in self.ins:
             if x.off > off:
                 break
-            if x.mnem == "STMT" and x.args:
+            if x.mnem in ("STMT", "STMT2") and x.args:
                 best = x.args[0]
         return best
 
@@ -298,7 +299,7 @@ class Decompiler:
                 flush()
                 out.append(Line(self._cur, f"{self.labels[x.off]}:", depth))
                 self._seen_lbl.add(x.off)
-            if x.mnem == "STMT":
+            if x.mnem in ("STMT", "STMT2"):
                 flush()
                 self._cur = pend_line = x.args[0] if x.args else self._cur
                 continue
@@ -521,39 +522,54 @@ class Decompiler:
         return [Line(line, f"CALL {name}")]
 
     def _render_print(self, line, seq):
-        chan, items = None, []
-        pushc2_slot = None
-        for x in seq:
-            if x.mnem == "PUSH.V":
-                items.append(self.var(x.args[0]))
-            elif x.mnem == "PUSH.C2" and chan is not None:
-                pushc2_slot = x.args[0]           # concat dst marker
-            elif x.mnem in ("PUSH.C", "PUSH.C2"):
-                if chan is None:
-                    chan = x.args[0]
-                else:
-                    items.append(self.const(x.args[0]))
-            elif x.mnem == "ASSIGN" and (x.args[0] >> 8) == 0x03:
-                mode, a, b = x.args[:3]
-                # concat print item: first operand is a constant, second follows
-                # the mode low byte (0x22 => variable, 0x12 => constant)
-                tb = self.var(b) if (mode & 0xF0) == 0x20 else self.const(b)
-                items.append(f"{self.const(a)} : {tb}")
-            elif x.mnem == "BINOP" and len(items) >= 2:
-                ch = disasm.BINOP_CHARS.get(x.args[0], "?")
-                b, a = items.pop(), items.pop()
-                items.append(f"{a} {ch} {b}")
+        pr = next(x for x in seq if x.mnem == "PRINT")
+        pri = seq.index(pr)
+        # everything before PRINT is  PUSH <channel>  (a numeric selector)
+        chan = next((x.args[0] for x in seq[:pri]
+                     if x.mnem in ("PUSH.C", "PUSH.C2")), None)
         verb = "PRINT"
-        # only a *numeric* leading constant is a channel selector
         if chan is not None and 0 <= chan < len(self.c.consts):
             k = self.c.consts[chan]
             if k.kind == 5 and k.s == "-2":
                 verb = "CRT"
-            elif k.kind == 5 and k.s not in ("-1", "0"):
+            elif k.kind == 5 and k.s not in ("-1", "0", ""):
                 verb = f"PRINT ON {k.s}"
-            elif k.kind == 4:              # not a channel -- it is the 1st item
-                items.insert(0, k.render())
-        body = " : ".join(items) if items else '""'
+
+        # after PRINT: the item stream -- a small stack machine, one entry per
+        # print item (PRINT's operand is the item count).
+        stack: list[str] = []
+        for x in seq[pri + 1:]:
+            m = x.mnem
+            if m == "PUSH.V":
+                stack.append(self.var(x.args[0]))
+            elif m in ("PUSH.C", "PUSH.C2"):
+                stack.append(self.const(x.args[0]))
+            elif m in ("EXPR", "CMP.VV"):
+                _d, o1, o2 = disasm.expr_header(x.opcode, x.args)
+                for o in (o1, o2):
+                    if o is not None:
+                        v = (self.var(o[0]) if (o[1] or x.opcode == 0x0151)
+                             else self.const(o[0]))
+                        stack.append(v)
+            elif m == "BINOP" and len(stack) >= 2:
+                ch = disasm.BINOP_CHARS.get(x.args[0], "?")
+                b, a = stack.pop(), stack.pop()
+                stack.append(f"{a} {ch} {b}")
+            elif m.startswith("CMP.") and len(stack) >= 2:
+                ch = disasm.CMP_TEXT.get(x.opcode & 0xFF, "?")
+                b, a = stack.pop(), stack.pop()
+                stack.append(f"{a} {ch} {b}")
+            elif m == "ASSIGN" and (x.args[0] >> 8) == 0x03:
+                mode, a, b = x.args[:3]
+                tb = self.var(b) if (mode & 0x20) else self.const(b)
+                stack.append(f"{self.const(a)} : {tb}")
+            elif m == "NEG" and stack:
+                stack.append(f"-{stack.pop()}")
+            elif m.startswith("FN.") and m in expr._FUNC_ARITY:
+                k = expr._FUNC_ARITY[m]
+                a = [stack.pop() if stack else "?" for _ in range(k)][::-1]
+                stack.append(f"{expr._FUNC_NAME.get(m, m)}({', '.join(a)})")
+        body = ", ".join(stack) if stack else '""'
         return [Line(line, f"{verb} {body}")]
 
     def _render_for(self, line, seq):

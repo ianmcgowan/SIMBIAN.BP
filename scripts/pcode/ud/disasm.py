@@ -24,6 +24,7 @@ HALT = 0x0000
 # 'jump','cmp','binop','func','ret','sub','misc'
 OPCODES: dict[int, tuple[str, int, str]] = {
     0x00CB: ("STMT",        1, "stmt"),      # operand = source line number
+    0x018C: ("STMT2",       3, "stmt"),      # verbose statement marker (line, line, flag)
     0x0000: ("HALT",        0, "misc"),
     0x0004: ("FOR.INIT",    3, "misc"),
     0x000B: ("RETURN",      1, "ret"),
