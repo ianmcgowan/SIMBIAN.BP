@@ -73,7 +73,7 @@ def main():
         srclines = open(args.src, errors="replace").read().splitlines()
 
     print("\n== code ==")
-    insns = disasm.disassemble(c.code)
+    insns = disasm.disassemble(c.code, c.mode)
     cur_line = None
     for ins in insns:
         if args.start and ins.off < args.start:

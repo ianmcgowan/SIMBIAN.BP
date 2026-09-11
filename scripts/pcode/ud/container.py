@@ -41,10 +41,10 @@ from dataclasses import dataclass, field
 @dataclass
 class Const:
     index: int
-    kind: int            # 4 = string literal, 5 = numeric literal
+    kind: int            # 4 = string literal, 5 = integer literal, 6 = decimal literal
     text: bytes
     pool_off: int
-    aux: int             # kind 5: the numeric value (0xffffffff == -1)
+    aux: int             # kind 5: the integer value (0xffffffff == -1); kind 6: 0
 
     @property
     def s(self) -> str:
@@ -52,11 +52,11 @@ class Const:
 
     @property
     def numeric(self) -> bool:
-        return self.kind == 5
+        return self.kind in (5, 6)
 
     def render(self) -> str:
         """How this literal should appear in decompiled source."""
-        if self.kind == 5:
+        if self.kind in (5, 6):
             return self.s or "0"
         return "'" + self.s.replace("'", "''") + "'"
 
@@ -65,6 +65,7 @@ class Const:
 class Container:
     raw: bytes
     magic: int
+    mode: str            # 'p' ($BASICTYPE "P") or 'u' (default) -- header byte +0x04
     argc: int            # 0xffff => main program
     flags: int
     n_const: int
@@ -127,6 +128,7 @@ def load(data: bytes) -> Container:
     if magic != 0x013F:
         raise ValueError(f"bad magic 0x{magic:04x} (expected 0x013f)")
 
+    mode = chr(data[0x04]) if data[0x04] in (0x70, 0x75) else "u"  # 'p' / 'u'
     argc = struct.unpack_from("<H", data, 0x02)[0]
     flags = struct.unpack_from("<H", data, 0x06)[0]
     n_const = struct.unpack_from("<H", data, 0x10)[0]
@@ -146,7 +148,7 @@ def load(data: bytes) -> Container:
         kind, length = struct.unpack_from("<HH", rec, 0)
         p_off, aux = struct.unpack_from("<II", rec, 4)
         text = b""
-        if kind in (4, 5) and p_off + length <= len(pool):
+        if kind in (4, 5, 6) and p_off + length <= len(pool):
             text = pool[p_off:p_off + length]
         consts.append(Const(i, kind, text, p_off, aux))
 
@@ -154,7 +156,7 @@ def load(data: bytes) -> Container:
     code = data[code_off:code_off + code_len]
 
     c = Container(
-        raw=data, magic=magic, argc=argc, flags=flags, n_const=n_const,
+        raw=data, magic=magic, mode=mode, argc=argc, flags=flags, n_const=n_const,
         pool_len=pool_len, dbg_len=dbg_len, code_len=code_len,
         pool=pool, consts=consts, code=code, code_file_off=code_off,
     )

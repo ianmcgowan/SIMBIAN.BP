@@ -47,6 +47,21 @@ OPCODES: dict[int, tuple[str, int, str]] = {
     0x0035: ("FN.STR",      0, "func"),
     0x0036: ("FN.SPACE",    0, "func"),
     0x0037: ("FN.LEN",      0, "func"),
+    0x0039: ("FN.COL1",     0, "func"),     # 0 stack args -- last MATCHFIELD/FIELD split point
+    0x003A: ("FN.COL2",     0, "func"),
+    0x004B: ("FN.ATAN",     0, "func"),
+    0x004C: ("FN.COS",      0, "func"),
+    0x004D: ("FN.EXP",      0, "func"),
+    0x0052: ("FN.SIN",      0, "func"),
+    0x0053: ("FN.SQRT",     0, "func"),
+    0x0054: ("FN.TAN",      0, "func"),
+    0x0060: ("FN.BITAND",   0, "func"),
+    0x0061: ("FN.BITOR",    0, "func"),
+    0x0062: ("FN.BITXOR",   0, "func"),
+    0x0063: ("FN.BITNOT",   0, "func"),
+    0x0135: ("FN.ASIN",     0, "func"),
+    0x0136: ("FN.ACOS",     0, "func"),
+    0x01A1: ("FN.SUM",      1, "func"),      # arg = variant/flag
     0x003C: ("FN.INDEX",    0, "func"),
     0x0042: ("FN.OCONV",    0, "func"),
     0x0046: ("FN.CHAR",     0, "func"),
@@ -75,8 +90,12 @@ OPCODES: dict[int, tuple[str, int, str]] = {
     0x00E4: ("BINOP",       1, "binop"),    # arg = operator char code
     0x0142: ("PUSH.V",      1, "push"),     # push variable #arg (expr continuation)
     0x011C: ("FN.TRIM",     1, "func"),     # arg = variant
-    0x01A9: ("FN.DCOUNT",   1, "func"),
+    0x006A: ("FN.DCOUNT",   0, "func"),     # pops (string, delimiter), pushes count
+    0x01A9: ("PUSH.AM",     0, "push"),     # @AM (= @FM, same delimiter char)
+    0x01AA: ("PUSH.VM",     0, "push"),     # @VM
+    0x01AB: ("PUSH.SVM",    0, "push"),     # @SVM (sub-value mark)
     0x0115: ("STOP",        1, "misc"),
+    0x006F: ("STOP.MSG",    1, "misc"),      # STOP [expr]; arg=1 if a message was pushed
     0x0151: ("CMP.VV",     -1, "expr"),     # var <cmp> var : mode + greedy operands
     0x0152: ("EXPR",       -1, "expr"),     # (mode, dst, greedy operand words)
     0x0155: ("ARG.BIND",    2, "sub"),
@@ -94,11 +113,32 @@ OPCODES: dict[int, tuple[str, int, str]] = {
     0x01CB: ("CALL.PREP",   1, "call"),
 }
 
+# A handful of builtin-function opcodes differ between a program compiled with
+# $BASICTYPE "P" and the default ("u") mode -- confirmed for COUNT/TRIM/ICONV
+# by compiling the same source both ways.  Everything else observed so far
+# (LEN, FIELD, OCONV, INDEX, NUM, SEQ, UPCASE, SPACE, STR, SUBSTR, ABS, INT,
+# CHAR, DATE, TIME, DCOUNT, control flow, ...) matches between modes.  OPCODES
+# above holds the "P" numbers; this holds the "u" numbers for the same ops.
+U_MODE_OPCODES: dict[int, tuple[str, int, str]] = {
+    0x002F: ("FN.COUNT", 0, "func"),
+    0x0183: ("FN.TRIM",  1, "func"),
+    0x0041: ("FN.ICONV", 0, "func"),
+}
+# the P-mode numbers for those same mnemonics -- removed when resolving for
+# u-mode, since their meaning there (if any) is unknown.
+_P_ONLY = {0x0030, 0x011C, 0x0066}
+
+
+def opcode_table(mode: str) -> dict[int, tuple[str, int, str]]:
+    if mode == "u":
+        return {op: v for op, v in OPCODES.items() if op not in _P_ONLY} | U_MODE_OPCODES
+    return OPCODES
+
 # operator char codes carried by BINOP (0x00E4)
 BINOP_CHARS = {
     0x2B: "+", 0x2D: "-", 0x2A: "*", 0x2F: "/", 0x3A: ":",
     0x3C: "<", 0x3E: ">", 0x3D: "=", 0x23: "#",
-    0x5E: "^",
+    0x5E: "^", 0x25: "MOD",       # MOD(a,b) compiles to a plain binop, char '%'
 }
 
 CMP_TEXT = {
@@ -116,7 +156,7 @@ def expr_header(opcode: int, args: list[int]):
         return None, None, None
     mode = args[0]
     lo, hi = mode & 0xFF, mode >> 8
-    cond = opcode == 0x0151 or lo in (0x12, 0x32)
+    cond = opcode == 0x0151 or lo in (0x12, 0x21, 0x32)
     has_dst = opcode == 0x0152 and not cond
     two = cond or hi >= 0x04
     op1_is_var = lo in (0x42, 0x32)          # 0x22 / 0x12 => op1 is a constant
@@ -159,13 +199,14 @@ def _read_word(code: bytes, off: int) -> int:
     return struct.unpack_from("<H", code, off)[0]
 
 
-def disassemble(code: bytes) -> list[Insn]:
+def disassemble(code: bytes, mode: str = "p") -> list[Insn]:
+    table = opcode_table(mode)
     out: list[Insn] = []
     off = 0
     n = len(code)
     while off + 2 <= n:
         opcode = _read_word(code, off)
-        spec = OPCODES.get(opcode)
+        spec = table.get(opcode)
         if spec is None:
             mnem, nargs, known = f"OP_{opcode:04X}", 1, False
         else:
@@ -182,7 +223,7 @@ def disassemble(code: bytes) -> list[Insn]:
                 args.append(_read_word(code, p)); p += 2      # mode
             mode = args[0]
             lo, hi = mode & 0xFF, mode >> 8
-            cond = opcode == 0x0151 or lo in (0x12, 0x32)
+            cond = opcode == 0x0151 or lo in (0x12, 0x21, 0x32)
             nwords = 0
             if opcode == 0x0152 and not cond:
                 nwords += 1                                   # dst

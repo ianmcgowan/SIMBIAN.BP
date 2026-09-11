@@ -40,7 +40,7 @@ class Line:
 class Decompiler:
     def __init__(self, c: container.Container):
         self.c = c
-        self.ins = disasm.collapse_halts(disasm.disassemble(c.code))
+        self.ins = disasm.collapse_halts(disasm.disassemble(c.code, c.mode))
         self.labels = dict(c.labels)
         self._synth_labels()
         self._map_slots()
@@ -129,7 +129,7 @@ class Decompiler:
 
     def const(self, idx: int) -> str:
         ks = self.c.consts
-        if 0 <= idx < len(ks) and ks[idx].kind in (4, 5):
+        if 0 <= idx < len(ks) and ks[idx].kind in (4, 5, 6):
             return ks[idx].render()
         return f"K{idx}"
 
@@ -237,6 +237,8 @@ class Decompiler:
                 stack.append(self.var(x.args[0]))
             elif m in ("PUSH.C", "PUSH.C2"):
                 stack.append(self.const(x.args[0]))
+            elif m in ("PUSH.AM", "PUSH.VM", "PUSH.SVM"):
+                stack.append("@" + m[5:])
             elif m.startswith("CMP."):
                 ch = disasm.CMP_TEXT.get(x.opcode & 0xFF, "?")
                 b = stack.pop() if stack else "?"
@@ -323,6 +325,9 @@ class Decompiler:
             return [Line(line, "RETURN")]
         if m[:1] == ["STOP"]:
             return [Line(line, "STOP")]
+        if m[-1:] == ["STOP.MSG"]:
+            msgs = [self.const(x.args[0]) for x in seq if x.mnem in ("PUSH.C", "PUSH.C2")]
+            return [Line(line, f"STOP {', '.join(msgs)}" if msgs else "STOP")]
         if m == ["GOTO"]:
             return [Line(line, f"GOTO {self.lbl(seq[0].args[0])}")]
         if m == ["GOSUB"]:
@@ -561,6 +566,8 @@ class Decompiler:
                 stack.append(self.var(x.args[0]))
             elif m in ("PUSH.C", "PUSH.C2"):
                 stack.append(self.const(x.args[0]))
+            elif m in ("PUSH.AM", "PUSH.VM", "PUSH.SVM"):
+                stack.append("@" + m[5:])
             elif m in ("EXPR", "CMP.VV"):
                 _d, o1, o2 = disasm.expr_header(x.opcode, x.args)
                 for o in (o1, o2):

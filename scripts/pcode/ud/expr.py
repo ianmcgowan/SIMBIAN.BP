@@ -20,14 +20,17 @@ from . import disasm
 _FUNC_ARITY = {
     "FN.LEN": 1, "FN.TRIM": 1, "FN.NUM": 1, "FN.SEQ": 1, "FN.UPCASE": 1,
     "FN.SPACE": 1, "FN.INT": 1, "FN.ABS": 1, "FN.CHAR": 1,
-    "FN.DATE": 0, "FN.TIME": 0,
+    "FN.DATE": 0, "FN.TIME": 0, "FN.COL1": 0, "FN.COL2": 0,
+    "FN.ACOS": 1, "FN.ASIN": 1, "FN.ATAN": 1, "FN.SIN": 1, "FN.TAN": 1, "FN.COS": 1,
+    "FN.SQRT": 1, "FN.EXP": 1, "FN.BITNOT": 1, "FN.SUM": 1,
     "FN.OCONV": 2, "FN.ICONV": 2, "FN.COUNT": 2, "FN.DCOUNT": 2, "FN.STR": 2,
+    "FN.BITAND": 2, "FN.BITOR": 2, "FN.BITXOR": 2,
     "FN.FIELD": 3, "FN.INDEX": 3, "FN.SUBSTR": 3,
 }
 _FUNC_NAME = {k: (k[3:] if k != "FN.SUBSTR" else "SUBSTR") for k in _FUNC_ARITY}
 
 # operator precedence (higher binds tighter); UniBasic: :  then + -  then * /  then ^
-_PREC = {":": 1, "+": 2, "-": 2, "*": 3, "/": 3, "^": 4,
+_PREC = {":": 1, "+": 2, "-": 2, "*": 3, "/": 3, "MOD": 3, "^": 4,
          "=": 0, "#": 0, "<": 0, ">": 0, "<=": 0, ">=": 0}
 
 
@@ -104,6 +107,12 @@ def evaluate(insns, start, names) -> ExprState:
             stack.append(Node("leaf", text=names.var(x.args[0]) if x.args else "?"))
         elif m in ("PUSH.C", "PUSH.C2"):
             stack.append(Node("leaf", text=names.const(x.args[0]) if x.args else "?"))
+        elif m == "PUSH.AM":
+            stack.append(Node("leaf", text="@AM"))
+        elif m == "PUSH.VM":
+            stack.append(Node("leaf", text="@VM"))
+        elif m == "PUSH.SVM":
+            stack.append(Node("leaf", text="@SVM"))
         elif m == "BINOP":
             ch = disasm.BINOP_CHARS.get(x.args[0], "?") if x.args else "?"
             b = stack.pop() if stack else Node("leaf", text="?")
